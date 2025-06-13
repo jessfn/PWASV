@@ -25,10 +25,16 @@ DB_NAME = "app_registros"
 DB_USER = "jesus"
 DB_PASS = "2025"
 
-conn = psycopg2.connect(
-    host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS
-)
-cursor = conn.cursor()
+try:
+    conn = psycopg2.connect(
+        host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS
+    )
+    cursor = conn.cursor()
+    print("✅ Conexión a la base de datos exitosa")
+except Exception as e:
+    print(f"❌ Error conectando a la base de datos: {e}")
+    conn = None
+    cursor = None
 
 # Carpeta para guardar fotos
 FOTOS_DIR = "fotos"
@@ -122,23 +128,53 @@ async def registrar(
 
     return {"status": "ok", "foto_url": ruta_archivo}
 
-# Modificar el endpoint de registros para filtrar por usuario
+# ENDPOINT CORREGIDO - Esta es la parte importante que debe actualizarse
 @app.get("/registros")
 def obtener_registros(usuario_id: int = None):
     try:
+        print(f"🔍 Obteniendo registros para usuario: {usuario_id}")
+        
+        if not conn:
+            raise HTTPException(status_code=500, detail="No hay conexión a la base de datos")
+        
+        # Usar cursor directo - NO usar cursor_factory aquí
         if usuario_id:
             cursor.execute(
-                "SELECT * FROM registros WHERE usuario_id = %s ORDER BY fecha_hora DESC LIMIT 50",
-                (usuario_id,),
-                cursor_factory=RealDictCursor
+                "SELECT id, usuario_id, latitud, longitud, descripcion, foto_url, fecha_hora FROM registros WHERE usuario_id = %s ORDER BY fecha_hora DESC LIMIT 50",
+                (usuario_id,)
             )
         else:
             cursor.execute(
-                "SELECT * FROM registros ORDER BY fecha_hora DESC LIMIT 50",
-                cursor_factory=RealDictCursor
+                "SELECT id, usuario_id, latitud, longitud, descripcion, foto_url, fecha_hora FROM registros ORDER BY fecha_hora DESC LIMIT 50"
             )
         
-        registros = cursor.fetchall()
+        resultados = cursor.fetchall()
+        print(f"📊 Encontrados {len(resultados)} registros")
+        
+        # Convertir tuplas a diccionarios manualmente
+        registros = []
+        for row in resultados:
+            registro = {
+                "id": row[0],
+                "usuario_id": row[1],
+                "latitud": float(row[2]) if row[2] else None,
+                "longitud": float(row[3]) if row[3] else None,
+                "descripcion": row[4],
+                "foto_url": row[5],
+                "fecha_hora": row[6].isoformat() if row[6] else None
+            }
+            registros.append(registro)
+        
+        print(f"✅ Registros procesados correctamente")
         return {"registros": registros}
+        
+    except psycopg2.Error as e:
+        print(f"❌ Error de PostgreSQL: {e}")
+        raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
     except Exception as e:
+        print(f"❌ Error general: {e}")
         raise HTTPException(status_code=500, detail=f"Error al obtener registros: {str(e)}")
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
