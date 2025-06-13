@@ -19,4 +19,4 @@ export function getOfflineMessage() {
 }
 
 // URL de la API
-export const API_URL = "http://***REMOVED***:8000";
+export const API_URL = "https://apipwa.sembrandodatos.com";
