@@ -51,6 +51,7 @@ class UserCreate(BaseModel):
     cargo: str
     supervisor: str = None
     contrasena: str
+    curp: str  # CURP obligatoria
 
 class UserLogin(BaseModel):
     correo: str
@@ -71,26 +72,48 @@ SECRET_KEY = "***REMOVED***"  # Cambia esto por seguridad
 @app.post("/usuarios")
 async def crear_usuario(usuario: UserCreate):
     try:
+        # Validación de CURP obligatoria
+        if not usuario.curp or not usuario.curp.strip():
+            raise HTTPException(status_code=400, detail="La CURP es obligatoria")
+        
+        # Convertir CURP a mayúsculas y validar
+        curp_upper = usuario.curp.upper().strip()
+        if len(curp_upper) != 18:
+            raise HTTPException(status_code=400, detail="La CURP debe tener exactamente 18 caracteres")
+        
+        # Validación básica de formato CURP
+        import re
+        if not re.match(r'^[A-Z0-9]{18}$', curp_upper):
+            raise HTTPException(status_code=400, detail="La CURP debe contener solo letras mayúsculas y números")
+        
         # Comprobar si el correo ya existe
         cursor.execute("SELECT id FROM usuarios WHERE correo = %s", (usuario.correo,))
         if cursor.fetchone():
             raise HTTPException(status_code=400, detail="El correo ya está registrado")
         
+        # Comprobar si la CURP ya existe
+        cursor.execute("SELECT id FROM usuarios WHERE curp = %s", (curp_upper,))
+        if cursor.fetchone():
+            raise HTTPException(status_code=400, detail="La CURP ya está registrada")
+        
         # Hash de la contraseña
         hashed_password = bcrypt.hashpw(usuario.contrasena.encode('utf-8'), bcrypt.gensalt())
         
-        # Insertar usuario
+        # Insertar usuario con CURP
         cursor.execute(
-            "INSERT INTO usuarios (correo, nombre_completo, cargo, supervisor, contrasena) VALUES (%s, %s, %s, %s, %s) RETURNING id",
-            (usuario.correo, usuario.nombre_completo, usuario.cargo, usuario.supervisor, hashed_password.decode('utf-8'))
+            "INSERT INTO usuarios (correo, nombre_completo, cargo, supervisor, contrasena, curp) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+            (usuario.correo, usuario.nombre_completo, usuario.cargo, usuario.supervisor, hashed_password.decode('utf-8'), curp_upper)
         )
         
         user_id = cursor.fetchone()[0]
         conn.commit()
         
-        return {"id": user_id, "mensaje": "Usuario creado exitosamente"}
+        return {"id": user_id, "mensaje": "Usuario creado exitosamente", "curp": curp_upper}
+    except HTTPException:
+        raise
     except Exception as e:
         conn.rollback()
+        print(f"❌ Error completo: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error al crear usuario: {str(e)}")
 
 @app.post("/login")
@@ -226,14 +249,16 @@ async def obtener_usuarios():
     try:
         if not conn:
             raise HTTPException(status_code=500, detail="No hay conexión a la base de datos")
-          # Obtener todos los usuarios (sin la contraseña por seguridad)
+        
+        # Obtener todos los usuarios con CURP
         cursor.execute(
-            "SELECT id, correo, nombre_completo, cargo, supervisor FROM usuarios ORDER BY id DESC"
+            "SELECT id, correo, nombre_completo, cargo, supervisor, curp FROM usuarios ORDER BY id DESC"
         )
         
         resultados = cursor.fetchall()
         print(f"📊 Encontrados {len(resultados)} usuarios")
-          # Convertir tuplas a diccionarios manualmente
+        
+        # Convertir tuplas a diccionarios manualmente
         usuarios = []
         for row in resultados:
             usuario = {
@@ -241,7 +266,8 @@ async def obtener_usuarios():
                 "correo": row[1],
                 "nombre_completo": row[2],
                 "cargo": row[3],
-                "supervisor": row[4]
+                "supervisor": row[4],
+                "curp": row[5]
             }
             usuarios.append(usuario)
         
@@ -261,9 +287,10 @@ async def obtener_usuario(user_id: int):
     try:
         if not conn:
             raise HTTPException(status_code=500, detail="No hay conexión a la base de datos")
-          # Buscar usuario por ID (sin la contraseña por seguridad)
+        
+        # Buscar usuario por ID con CURP
         cursor.execute(
-            "SELECT id, correo, nombre_completo, cargo, supervisor FROM usuarios WHERE id = %s",
+            "SELECT id, correo, nombre_completo, cargo, supervisor, curp FROM usuarios WHERE id = %s",
             (user_id,)
         )
         
@@ -276,7 +303,8 @@ async def obtener_usuario(user_id: int):
             "correo": resultado[1],
             "nombre_completo": resultado[2],
             "cargo": resultado[3],
-            "supervisor": resultado[4]
+            "supervisor": resultado[4],
+            "curp": resultado[5]
         }
         
         print(f"✅ Usuario {user_id} encontrado correctamente")
@@ -866,6 +894,59 @@ async def eliminar_todas_asistencias():
         conn.rollback()
         print(f"❌ Error general al eliminar asistencias: {e}")
         raise HTTPException(status_code=500, detail=f"Error al eliminar asistencias: {str(e)}")
+
+# Endpoint para verificar estructura de tabla usuarios y CURP
+@app.get("/debug/usuarios-estructura")
+async def verificar_estructura_usuarios():
+    """Endpoint para verificar que la tabla usuarios tenga la columna CURP"""
+    try:
+        if not conn:
+            raise HTTPException(status_code=500, detail="No hay conexión a la base de datos")
+        
+        # Verificar si la tabla existe
+        cursor.execute("""
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_name = 'usuarios'
+        """)
+        tabla_existe = cursor.fetchone()
+        
+        if not tabla_existe:
+            return {"error": "La tabla 'usuarios' no existe"}
+        
+        # Obtener la estructura de la tabla
+        cursor.execute("""
+            SELECT column_name, data_type, is_nullable, column_default
+            FROM information_schema.columns 
+            WHERE table_name = 'usuarios' 
+            ORDER BY ordinal_position
+        """)
+        columnas = cursor.fetchall()
+        
+        # Verificar específicamente si existe la columna CURP
+        cursor.execute("""
+            SELECT 1 
+            FROM information_schema.columns 
+            WHERE table_name = 'usuarios' 
+            AND column_name = 'curp'
+        """)
+        curp_existe = cursor.fetchone() is not None
+        
+        # Obtener algunos registros de ejemplo (sin contraseñas)
+        cursor.execute("SELECT id, correo, nombre_completo, curp FROM usuarios LIMIT 3")
+        registros_ejemplo = cursor.fetchall()
+        
+        return {
+            "tabla_existe": True,
+            "curp_columna_existe": curp_existe,
+            "columnas": [{"nombre": col[0], "tipo": col[1], "nullable": col[2], "default": col[3]} for col in columnas],
+            "total_registros": len(registros_ejemplo),
+            "registros_ejemplo": registros_ejemplo
+        }
+        
+    except Exception as e:
+        print(f"❌ Error verificando estructura: {e}")
+        raise HTTPException(status_code=500, detail=f"Error verificando estructura: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
