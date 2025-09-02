@@ -32,21 +32,110 @@ app.add_middleware(
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 SECRET_KEY = "***REMOVED***"
 
-# Conexión a PostgreSQL
+# Conexión a PostgreSQL con manejo robusto
 DB_HOST = "***REMOVED***"
 DB_NAME = "app_registros"
 DB_USER = "jesus"
 DB_PASS = "2025"
 
+# Variables globales para la conexión
+conn = None
+cursor = None
+
+def conectar_base_datos():
+    """Función para establecer/reestablecer conexión a la base de datos"""
+    global conn, cursor
+    try:
+        if conn:
+            conn.close()
+        
+        conn = psycopg2.connect(
+            host=DB_HOST, 
+            database=DB_NAME, 
+            user=DB_USER, 
+            password=DB_PASS,
+            # Configuraciones para mejor manejo de conexiones
+            connect_timeout=10,
+            keepalives=1,
+            keepalives_idle=30,
+            keepalives_interval=5,
+            keepalives_count=5
+        )
+        cursor = conn.cursor()
+        print("✅ Conexión a la base de datos exitosa")
+        return True
+    except Exception as e:
+        print(f"❌ Error conectando a la base de datos: {e}")
+        conn = None
+        cursor = None
+        return False
+
+def verificar_conexion_db():
+    """Verificar y reestablecer conexión si es necesario"""
+    global conn, cursor
+    try:
+        if not conn or conn.closed:
+            print("🔄 Reestableciendo conexión cerrada...")
+            return conectar_base_datos()
+        
+        # Test de conexión simple
+        cursor.execute("SELECT 1")
+        cursor.fetchone()
+        return True
+    except (psycopg2.Error, psycopg2.OperationalError, AttributeError):
+        print("🔄 Conexión perdida, reestableciendo...")
+        return conectar_base_datos()
+
+def ejecutar_consulta_segura(query, params=None, fetch_type='all'):
+    """Ejecutar consulta con manejo robusto de errores y reconexión"""
+    global conn, cursor
+    max_reintentos = 3
+    
+    for intento in range(1, max_reintentos + 1):
+        try:
+            # Verificar conexión antes de ejecutar
+            if not verificar_conexion_db():
+                raise HTTPException(status_code=500, detail="No se pudo establecer conexión a la base de datos")
+            
+            # Ejecutar la consulta
+            if params:
+                cursor.execute(query, params)
+            else:
+                cursor.execute(query)
+            
+            # Obtener resultados según el tipo
+            if fetch_type == 'one':
+                result = cursor.fetchone()
+            elif fetch_type == 'all':
+                result = cursor.fetchall()
+            else:  # fetch_type == 'none' para INSERT/UPDATE/DELETE
+                result = None
+            
+            # Commit si es necesario
+            if query.strip().upper().startswith(('INSERT', 'UPDATE', 'DELETE')):
+                conn.commit()
+            
+            return result
+            
+        except psycopg2.Error as e:
+            print(f"❌ Error de PostgreSQL en intento {intento}: {e}")
+            if intento == max_reintentos:
+                raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
+            
+            # Intentar reconectar para el siguiente intento
+            conectar_base_datos()
+            
+        except Exception as e:
+            print(f"❌ Error general en intento {intento}: {e}")
+            if intento == max_reintentos:
+                raise HTTPException(status_code=500, detail=f"Error al ejecutar consulta: {str(e)}")
+
+# Establecer conexión inicial
 try:
-    conn = psycopg2.connect(
-        host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS
-    )
-    cursor = conn.cursor()
-    print("✅ Conexión a la base de datos exitosa")
+    conectar_base_datos()
     
     # Crear tabla admin_users si no existe
-    cursor.execute("""
+    ejecutar_consulta_segura("""
         CREATE TABLE IF NOT EXISTS admin_users (
             id SERIAL PRIMARY KEY,
             username VARCHAR(100) UNIQUE NOT NULL,
@@ -54,31 +143,73 @@ try:
             rol VARCHAR(20) DEFAULT 'admin' CHECK (rol IN ('admin', 'user')),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-    """)
+    """, fetch_type='none')
     
     # Verificar si existen usuarios admin, si no crear uno por defecto
-    cursor.execute("SELECT COUNT(*) FROM admin_users")
-    count = cursor.fetchone()[0]
+    count_result = ejecutar_consulta_segura("SELECT COUNT(*) FROM admin_users", fetch_type='one')
+    count = count_result[0] if count_result else 0
     
     if count == 0:
         # Crear usuario admin por defecto
         default_password = pwd_context.hash("admin123")
-        cursor.execute(
+        ejecutar_consulta_segura(
             "INSERT INTO admin_users (username, password, rol) VALUES (%s, %s, %s)",
-            ("admin", default_password, "admin")
+            ("admin", default_password, "admin"),
+            fetch_type='none'
         )
         print("✅ Usuario administrador por defecto creado: admin/admin123")
     
-    conn.commit()
-    
 except Exception as e:
-    print(f"❌ Error conectando a la base de datos: {e}")
+    print(f"❌ Error en inicialización de base de datos: {e}")
     conn = None
     cursor = None
 
 # Carpeta para guardar fotos
 FOTOS_DIR = "fotos"
 os.makedirs(FOTOS_DIR, exist_ok=True)
+
+# ==================== ENDPOINT DE SALUD ====================
+
+@app.get("/health")
+async def health_check():
+    """Endpoint para verificar el estado de la API y la base de datos"""
+    try:
+        # Verificar conexión a la base de datos
+        if not verificar_conexion_db():
+            return {
+                "status": "unhealthy",
+                "database": "disconnected",
+                "message": "No se pudo conectar a la base de datos",
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        # Prueba simple de consulta
+        test_result = ejecutar_consulta_segura("SELECT 1 as test", fetch_type='one')
+        
+        if test_result and test_result[0] == 1:
+            return {
+                "status": "healthy",
+                "database": "connected",
+                "message": "API y base de datos funcionando correctamente",
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            return {
+                "status": "unhealthy", 
+                "database": "error",
+                "message": "Error en consulta de prueba",
+                "timestamp": datetime.now().isoformat()
+            }
+            
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "database": "error",
+            "message": f"Error en health check: {str(e)}",
+            "timestamp": datetime.now().isoformat()
+        }
+
+# ==================== FIN ENDPOINT DE SALUD ====================
 
 # Modelos para autenticación
 class UserCreate(BaseModel):
@@ -447,33 +578,28 @@ def obtener_registros(usuario_id: int = None, limit: int = None):
     try:
         print(f"🔍 Obteniendo registros para usuario: {usuario_id}, límite: {limit if limit else 'Sin límite'}")
         
-        if not conn:
-            raise HTTPException(status_code=500, detail="No hay conexión a la base de datos")
-        
-        # Usar cursor directo - NO usar cursor_factory aquí
+        # Construir consulta según parámetros
         if usuario_id:
             if limit:
-                cursor.execute(
-                    "SELECT id, usuario_id, latitud, longitud, descripcion, foto_url, fecha_hora FROM registros WHERE usuario_id = %s ORDER BY fecha_hora DESC LIMIT %s",
-                    (usuario_id, limit)
-                )
+                query = "SELECT id, usuario_id, latitud, longitud, descripcion, foto_url, fecha_hora FROM registros WHERE usuario_id = %s ORDER BY fecha_hora DESC LIMIT %s"
+                params = (usuario_id, limit)
             else:
-                cursor.execute(
-                    "SELECT id, usuario_id, latitud, longitud, descripcion, foto_url, fecha_hora FROM registros WHERE usuario_id = %s ORDER BY fecha_hora DESC",
-                    (usuario_id,)
-                )
+                query = "SELECT id, usuario_id, latitud, longitud, descripcion, foto_url, fecha_hora FROM registros WHERE usuario_id = %s ORDER BY fecha_hora DESC"
+                params = (usuario_id,)
         else:
             if limit:
-                cursor.execute(
-                    "SELECT id, usuario_id, latitud, longitud, descripcion, foto_url, fecha_hora FROM registros ORDER BY fecha_hora DESC LIMIT %s",
-                    (limit,)
-                )
+                query = "SELECT id, usuario_id, latitud, longitud, descripcion, foto_url, fecha_hora FROM registros ORDER BY fecha_hora DESC LIMIT %s"
+                params = (limit,)
             else:
-                cursor.execute(
-                    "SELECT id, usuario_id, latitud, longitud, descripcion, foto_url, fecha_hora FROM registros ORDER BY fecha_hora DESC"
-                )
+                query = "SELECT id, usuario_id, latitud, longitud, descripcion, foto_url, fecha_hora FROM registros ORDER BY fecha_hora DESC"
+                params = None
         
-        resultados = cursor.fetchall()
+        # Ejecutar consulta con manejo seguro
+        resultados = ejecutar_consulta_segura(query, params, fetch_type='all')
+        
+        if not resultados:
+            resultados = []
+        
         print(f"📊 Encontrados {len(resultados)} registros")
         
         # Convertir tuplas a diccionarios manualmente
@@ -493,9 +619,8 @@ def obtener_registros(usuario_id: int = None, limit: int = None):
         print(f"✅ Registros procesados correctamente")
         return {"registros": registros}
         
-    except psycopg2.Error as e:
-        print(f"❌ Error de PostgreSQL: {e}")
-        raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"❌ Error general: {e}")
         raise HTTPException(status_code=500, detail=f"Error al obtener registros: {str(e)}")
@@ -796,29 +921,28 @@ def obtener_actividades_dia():
 @app.get("/usuarios")
 async def obtener_usuarios():
     try:
-        if not conn:
-            raise HTTPException(status_code=500, detail="No hay conexión a la base de datos")
+        print("🔍 Obteniendo usuarios...")
         
         # Verificar si la columna 'rol' existe
-        cursor.execute("""
+        rol_check = ejecutar_consulta_segura("""
             SELECT column_name FROM information_schema.columns 
             WHERE table_name = 'usuarios' AND column_name = 'rol'
-        """)
+        """, fetch_type='one')
         
-        tiene_columna_rol = bool(cursor.fetchone())
+        tiene_columna_rol = bool(rol_check)
         
         if tiene_columna_rol:
             # Obtener todos los usuarios con rol
-            cursor.execute(
-                "SELECT id, correo, nombre_completo, cargo, supervisor, curp, contrasena, telefono, rol FROM usuarios ORDER BY id DESC"
-            )
+            query = "SELECT id, correo, nombre_completo, cargo, supervisor, curp, contrasena, telefono, rol FROM usuarios ORDER BY id DESC"
         else:
             # Obtener usuarios sin rol (por compatibilidad)
-            cursor.execute(
-                "SELECT id, correo, nombre_completo, cargo, supervisor, curp, contrasena, telefono FROM usuarios ORDER BY id DESC"
-            )
+            query = "SELECT id, correo, nombre_completo, cargo, supervisor, curp, contrasena, telefono FROM usuarios ORDER BY id DESC"
         
-        resultados = cursor.fetchall()
+        resultados = ejecutar_consulta_segura(query, fetch_type='all')
+        
+        if not resultados:
+            resultados = []
+        
         print(f"📊 Encontrados {len(resultados)} usuarios")
         
         # Convertir tuplas a diccionarios manualmente
@@ -840,9 +964,8 @@ async def obtener_usuarios():
         print(f"✅ Usuarios procesados correctamente con información de roles")
         return {"usuarios": usuarios}
         
-    except psycopg2.Error as e:
-        print(f"❌ Error de PostgreSQL: {e}")
-        raise HTTPException(status_code=500, detail=f"Error de base de datos: {str(e)}")
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"❌ Error general: {e}")
         raise HTTPException(status_code=500, detail=f"Error al obtener usuarios: {str(e)}")
