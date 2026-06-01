@@ -56,7 +56,7 @@ SECRET_KEY = "***REMOVED***"
 DB_HOST = "***REMOVED***"
 DB_NAME = "app_registros"
 DB_USER = "jesus"
-DB_PASS = "2025"
+DB_PASS = "***REMOVED***"
 
 # Variables globales para la conexión
 conn = None
