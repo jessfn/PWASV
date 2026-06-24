@@ -54,7 +54,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 SECRET_KEY = "***REMOVED***"
 
 # Conexión a PostgreSQL con manejo robusto
-DB_HOST = "***REMOVED***"
+DB_HOST = "localhost"
 DB_NAME = "app_registros"
 DB_USER = "jesus"
 DB_PASS = "***REMOVED***"
