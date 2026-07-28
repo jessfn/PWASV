@@ -5,6 +5,8 @@
 import jsPDF from 'jspdf'
 import superiorImage from '../assets/images/superior2.png'
 
+const API_URL = import.meta.env.VITE_API_URL || 'https://apipwa.sembrandodatos.com'
+
 /**
  * Genera un PDF desde los datos estructurados del reporte
  * @param {Object} datos - Datos del reporte (datos_reporte)
@@ -737,39 +739,49 @@ export async function generarPDFDesdesDatos(datos, firmaUsuario, firmaSupervisor
 }
 
 /**
- * Carga una imagen como base64 con dimensiones
+ * Carga una imagen como base64 con dimensiones.
+ *
+ * Usa el endpoint proxy /fotos-base64/<archivo> del backend en lugar de
+ * cargar la imagen con <img crossOrigin> + canvas.toDataURL(). Ese método
+ * falla silenciosamente (canvas "tainted" / SecurityError) si el navegador
+ * ya tiene la imagen cacheada sin cabeceras CORS de una carga previa sin
+ * crossOrigin, o si el origen no calza exactamente. pwasuper ya resolvió
+ * este mismo problema con este proxy — aquí se replica el mismo enfoque
+ * para mantener el flujo funcional idéntico entre ambas apps.
  */
 async function cargarImagenComoBase64(imageSrc) {
-  return new Promise((resolve, reject) => {
+  // Extraer el nombre del archivo sin importar si viene como URL completa
+  // (https://.../fotos/archivo.jpg) o como ruta relativa (fotos/archivo.jpg)
+  let nombreArchivo = imageSrc
+  if (imageSrc.includes('/fotos/')) {
+    nombreArchivo = imageSrc.split('/fotos/').pop()
+  } else if (imageSrc.includes('fotos/')) {
+    nombreArchivo = imageSrc.split('fotos/').pop()
+  }
+
+  const proxyUrl = `${API_URL}/fotos-base64/${nombreArchivo}`
+  const response = await fetch(proxyUrl)
+
+  if (!response.ok) {
+    throw new Error(`Proxy de imagen respondió ${response.status} para ${nombreArchivo}`)
+  }
+
+  const json = await response.json()
+  if (!json.success || !json.data) {
+    throw new Error(`Proxy de imagen no devolvió datos válidos para ${nombreArchivo}`)
+  }
+
+  // Obtener dimensiones reales decodificando el data URI ya en memoria
+  return new Promise((resolve) => {
     const img = new Image()
-    img.crossOrigin = 'Anonymous'
-    
-    img.onload = function() {
-      try {
-        const canvas = document.createElement('canvas')
-        canvas.width = img.width
-        canvas.height = img.height
-        
-        const ctx = canvas.getContext('2d')
-        ctx.drawImage(img, 0, 0)
-        
-        const dataURL = canvas.toDataURL('image/png')
-        resolve({
-          data: dataURL,
-          dimensions: {
-            width: img.width,
-            height: img.height
-          }
-        })
-      } catch (error) {
-        reject(error)
-      }
+    img.onload = () => {
+      resolve({ data: json.data, dimensions: { width: img.width, height: img.height } })
     }
-    
-    img.onerror = function(error) {
-      reject(error)
+    img.onerror = () => {
+      // Si por algún motivo no se puede decodificar para medir, igual
+      // entregamos el data URI: jsPDF solo necesita el base64 para addImage
+      resolve({ data: json.data, dimensions: { width: 800, height: 600 } })
     }
-    
-    img.src = imageSrc
+    img.src = json.data
   })
 }
