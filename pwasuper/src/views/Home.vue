@@ -3019,7 +3019,8 @@ async function cargarHistorial(forceRefresh = false) {
     );
     
     // Procesamos los registros del servidor
-    const registrosOnline = response.data.map(r => ({
+    // El backend responde { registros: [...], total, page, page_size }, no un arreglo plano
+    const registrosOnline = (response.data?.registros || []).map(r => ({
       fecha: new Date(r.timestamp).toLocaleString(),
       latitud: r.latitud,
       longitud: r.longitud,
