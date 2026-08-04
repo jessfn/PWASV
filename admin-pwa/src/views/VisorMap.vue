@@ -1204,10 +1204,13 @@ const cargarRegistrosConReintentos = async (token, maxReintentos = 3) => {
   
   for (let intento = 1; intento <= maxReintentos; intento++) {
     try {
-      // Construir URL con parámetro de territorio si aplica
-      let url = `${API_URL}/registros`
+      // Construir URL con parámetro de territorio si aplica.
+      // page_size explícito en el tope de seguridad (5000) del backend:
+      // sin esto, el backend usa su default de 1000 y el mapa pierde
+      // silenciosamente los registros más antiguos.
+      let url = `${API_URL}/registros?page_size=5000`
       if (territorioFilter) {
-        url += `?territorio=${encodeURIComponent(territorioFilter)}`
+        url += `&territorio=${encodeURIComponent(territorioFilter)}`
         console.log(`🔄 Intento ${intento}/${maxReintentos} - Cargando registros del territorio: ${territorioFilter}`)
       } else {
         console.log(`🔄 Intento ${intento}/${maxReintentos} - Cargando todos los registros (admin global)...`)
@@ -1247,8 +1250,9 @@ const cargarAsistenciasConReintentos = async (maxReintentos = 3) => {
   for (let intento = 1; intento <= maxReintentos; intento++) {
     try {
       console.log(`🔄 Intento ${intento}/${maxReintentos} - Cargando asistencias...`)
-      
-      return await asistenciasService.obtenerAsistenciasConUsuarios()
+
+      // Límite explícito alineado con el tope de seguridad del backend (20000)
+      return await asistenciasService.obtenerAsistenciasConUsuarios(20000)
       
     } catch (err) {
       console.error(`❌ Error en intento ${intento} al cargar asistencias:`, err.message)

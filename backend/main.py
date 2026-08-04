@@ -1,5 +1,6 @@
 from fastapi import FastAPI, File, UploadFile, Form, Depends, HTTPException, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import StreamingResponse, HTMLResponse
@@ -48,6 +49,11 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# Comprime respuestas JSON grandes (ej. /registros, /asistencias con miles
+# de filas para el mapa) antes de enviarlas — reduce drásticamente el tiempo
+# de transferencia en el visor de mapa sin cambiar los datos devueltos.
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # Configuración para autenticación JWT
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -5513,8 +5519,14 @@ async def obtener_historial_asistencias(usuario_id: int = None, limit: int = Non
         if not verificar_conexion_db():
             raise HTTPException(status_code=500, detail="No hay conexión a la base de datos")
         
-        print(f"🔍 Obteniendo historial de asistencias - Usuario: {usuario_id}, Límite: {limit if limit else 'Sin límite'}, Offset: {offset}, Territorio: {territorio}, Fecha: {fecha}, Rango: {fecha_inicio} - {fecha_fin}")
-        
+        # Límite de seguridad: sin esto, la consulta trae la tabla completa de
+        # asistencias en cada carga del visor de mapa, creciendo sin límite y
+        # ralentizando cada vez más el mapa a medida que se acumulan datos.
+        if limit is None or limit > 20000:
+            limit = 20000
+
+        print(f"🔍 Obteniendo historial de asistencias - Usuario: {usuario_id}, Límite: {limit}, Offset: {offset}, Territorio: {territorio}, Fecha: {fecha}, Rango: {fecha_inicio} - {fecha_fin}")
+
         # Construir la query base con JOIN a usuarios si hay filtro de territorio
         base_select = """SELECT a.id, a.usuario_id, a.fecha, a.hora_entrada, a.hora_salida, 
                          a.latitud_entrada, a.longitud_entrada, a.latitud_salida, a.longitud_salida,
