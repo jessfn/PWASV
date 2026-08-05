@@ -731,7 +731,7 @@ const onLeave = (el) => {
 
 <style scoped>
 /* Importación de fuentes */
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap');
 
 /* Variables de colores */
 :root {
@@ -1683,25 +1683,32 @@ const onLeave = (el) => {
  * Mismo lenguaje visual que los logins: vidrio translúcido + blur +
  * blobs radiales en movimiento continuo, en vez de un fondo sólido plano.
  */
+/*
+ * width: calc(100% + 2×padding del contenedor) + márgenes negativos
+ * hacen que la tarjeta llegue de borde a borde del sidebar, en vez de
+ * quedar flotando con aire a los costados como una tarjeta "flotante".
+ */
 .user-card {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 12px 12px 11px;
-  margin-top: 12px;
+  padding: 12px 16px 11px;
+  margin: 12px -12px 0;
+  width: calc(100% + 24px);
   background: rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(14px) saturate(1.4);
   -webkit-backdrop-filter: blur(14px) saturate(1.4);
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
   box-shadow:
     0 1px 0 0 rgba(255, 255, 255, 0.14) inset,
-    0 6px 24px rgba(0, 0, 0, 0.35),
-    0 0 0 1px rgba(74, 222, 128, 0.12);
+    0 6px 24px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(74, 222, 128, 0.1);
   position: relative;
   overflow: hidden;
-  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s ease;
+  transition: box-shadow 0.4s ease;
 }
 
 /* Manchas de luz fluidas — se desplazan y respiran en bucle continuo */
@@ -1755,12 +1762,11 @@ const onLeave = (el) => {
 }
 
 .user-card:hover {
-  transform: translateY(-2px);
   box-shadow:
     0 1px 0 0 rgba(255, 255, 255, 0.2) inset,
-    0 10px 32px rgba(0, 0, 0, 0.45),
-    0 0 0 1px rgba(74, 222, 128, 0.3),
-    0 0 22px rgba(74, 222, 128, 0.12);
+    0 8px 28px rgba(0, 0, 0, 0.32),
+    0 0 0 1px rgba(74, 222, 128, 0.25),
+    0 0 22px rgba(74, 222, 128, 0.1);
 }
 
 /* Fila horizontal: avatar + nombre, layout moderno en vez de todo apilado */
@@ -1796,7 +1802,7 @@ const onLeave = (el) => {
   color: white;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   letter-spacing: 0.5px;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 .avatar-status {
@@ -1835,13 +1841,13 @@ const onLeave = (el) => {
 
 .user-name-title {
   margin: 0;
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 700;
   color: #dcfce7;
   text-align: left;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.2px;
   line-height: 1.3;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, sans-serif;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
   white-space: nowrap;
   overflow: hidden;
@@ -1865,7 +1871,7 @@ const onLeave = (el) => {
     rgba(74, 222, 128, 0.22) 100%);
   border: 1px solid rgba(134, 239, 172, 0.4);
   border-radius: 20px;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, sans-serif;
   box-shadow:
     0 2px 6px rgba(74, 222, 128, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
@@ -1886,10 +1892,10 @@ const onLeave = (el) => {
 }
 
 .user-handle {
-  font-size: 10px;
+  font-size: 10.5px;
   color: #bbf7d0;
   font-weight: 500;
-  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, sans-serif;
   letter-spacing: 0.2px;
   opacity: 0.85;
   transition: color 0.3s ease;
@@ -1929,7 +1935,7 @@ const onLeave = (el) => {
   font-size: 8px;
   font-weight: 600;
   color: #fdba74;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, sans-serif;
   box-shadow: 0 2px 6px rgba(249, 115, 22, 0.15);
   transition: all 0.3s ease;
 }
