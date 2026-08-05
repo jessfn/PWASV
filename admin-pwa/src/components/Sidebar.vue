@@ -1696,8 +1696,9 @@ const onLeave = (el) => {
   align-items: center;
   gap: 8px;
   padding: 13px 16px 12px;
-  margin: 12px 0 0;
-  width: 100%;
+  margin: 12px auto 0;
+  width: calc(100% - 12px);
+  box-sizing: border-box;
   background: rgba(255, 255, 255, 0.07);
   backdrop-filter: blur(14px) saturate(1.4);
   -webkit-backdrop-filter: blur(14px) saturate(1.4);
