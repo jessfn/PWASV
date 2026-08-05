@@ -819,41 +819,41 @@ const obtenerInfoTerritorio = () => {
 }
 
 // Función para manejar el cambio de territorio por admin general
-const onTerritorioChange = async () => {
+const onTerritorioChange = () => {
   // Restablecer el filtro de tipo de actividad a "Todas las actividades"
   filtroTipo.value = ''
-  
+
   if (territorioSeleccionado.value) {
     // Actualizar estados del territorio seleccionado
     estadosTerritorio.value = TERRITORIOS_ESTADOS[territorioSeleccionado.value] || []
     console.log(`🌍 Territorio seleccionado: ${territorioSeleccionado.value} → Estados: ${estadosTerritorio.value.join(', ')}`)
-    
-    // Mostrar contornos de estados del territorio
+
+    // Filtrar puntos del mapa por territorio — 100% en memoria, instantáneo
+    filtrarPuntosPorTerritorio(territorioSeleccionado.value)
+
+    // Contornos de estados y estadísticas del backend se cargan en paralelo,
+    // sin bloquear el filtrado de puntos que el usuario ya está viendo
     if (map) {
-      await cargarContornosEstadosPorTerritorio(map, territorioSeleccionado.value)
+      cargarContornosEstadosPorTerritorio(map, territorioSeleccionado.value)
     }
-    
-    // Filtrar puntos del mapa por territorio
-    await filtrarPuntosPorTerritorio(territorioSeleccionado.value)
-    
   } else {
     // Limpiar estados si no hay territorio seleccionado
     estadosTerritorio.value = []
     usuariosTerritorioIds = [] // Limpiar filtro de usuarios
     console.log('🌍 Sin territorio seleccionado - mostrando todos')
-    
+
     // Quitar contornos de estados
     quitarContornosEstados()
-    
-    // Restaurar contador de usuarios totales
-    await cargarTotalUsuarios()
-    
+
+    // Restaurar contador de usuarios totales (en memoria, ya cargados)
+    totalUsuariosRegistrados.value = usuarios.value.length.toLocaleString('es')
+
     // Mostrar todos los puntos (aplicar solo filtro de tipo si hay)
     aplicarFiltrosConTerritorio()
   }
-  
-  // Recargar estadísticas con el nuevo filtro de territorio
-  await actualizarEstadisticasConTerritorio()
+
+  // Recargar estadísticas con el nuevo filtro de territorio en segundo plano
+  actualizarEstadisticasConTerritorio()
 }
 
 // Función para actualizar estadísticas con filtro de territorio
@@ -909,38 +909,28 @@ const actualizarEstadisticasConTerritorio = async () => {
 }
 
 // Función para filtrar puntos del mapa por territorio
-const filtrarPuntosPorTerritorio = async (territorio) => {
+// Filtra 100% en memoria usando `usuarios.value` (ya cargado al montar el
+// componente) — antes volvía a pedir /usuarios al backend en cada cambio
+// de filtro, añadiendo un round-trip de red innecesario que hacía sentir
+// el panel lento y no reactivo.
+const filtrarPuntosPorTerritorio = (territorio) => {
   if (!datosMapaOriginales.length) {
     console.log('⚠️ No hay datos originales para filtrar')
     return
   }
-  
-  try {
-    const token = localStorage.getItem('admin_token')
-    
-    // Obtener usuarios del territorio desde el backend
-    const response = await axios.get(`${API_URL}/usuarios`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    })
-    
-    const usuariosLista = response.data.usuarios || response.data || []
-    
-    // Filtrar usuarios que pertenecen al territorio seleccionado
-    usuariosTerritorioIds = usuariosLista
-      .filter(u => u.territorio === territorio)
-      .map(u => u.id)
-    
-    console.log(`👥 Usuarios del territorio "${territorio}": ${usuariosTerritorioIds.length}`)
-    
-    // Actualizar el contador de total usuarios con los del territorio
-    totalUsuariosRegistrados.value = usuariosTerritorioIds.length.toLocaleString('es')
-    
-    // Aplicar filtros (esto también aplicará el filtro de tipo si hay uno seleccionado)
-    aplicarFiltrosConTerritorio()
-    
-  } catch (error) {
-    console.error('❌ Error filtrando puntos por territorio:', error)
-  }
+
+  // Filtrar usuarios que pertenecen al territorio seleccionado (en memoria)
+  usuariosTerritorioIds = usuarios.value
+    .filter(u => u.territorio === territorio)
+    .map(u => u.id)
+
+  console.log(`👥 Usuarios del territorio "${territorio}": ${usuariosTerritorioIds.length}`)
+
+  // Actualizar el contador de total usuarios con los del territorio
+  totalUsuariosRegistrados.value = usuariosTerritorioIds.length.toLocaleString('es')
+
+  // Aplicar filtros (esto también aplicará el filtro de tipo si hay uno seleccionado)
+  aplicarFiltrosConTerritorio()
 }
 
 // Función para cargar contornos de estados por territorio seleccionado
