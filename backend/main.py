@@ -97,6 +97,29 @@ def conectar_base_datos():
         cursor = None
         return False
 
+def abrir_conexion_aislada():
+    """
+    Abre una conexión y cursor propios, independientes del cursor global
+    compartido (`cursor`). El cursor global es compartido por TODOS los
+    endpoints; cuando dos requests concurrentes (ej. /estadisticas/dia-actual
+    y /registros) hacen cursor.execute()/fetchone() en threads distintos
+    sobre el MISMO objeto cursor, un request puede terminar leyendo los
+    resultados de la consulta de otro — provocando estadísticas en cero de
+    forma intermitente bajo carga concurrente.
+    Los endpoints de estadísticas (llamados en paralelo con /registros y
+    /asistencias desde el visor de mapa) usan esta conexión aislada para
+    eliminar esa condición de carrera sin tener que tocar el resto de
+    endpoints que aún usan el cursor global.
+    """
+    conexion = psycopg2.connect(
+        host=DB_HOST,
+        database=DB_NAME,
+        user=DB_USER,
+        password=DB_PASS,
+        connect_timeout=10
+    )
+    return conexion, conexion.cursor()
+
 def verificar_conexion_db():
     """Verificar y reestablecer conexión si es necesario"""
     global conn, cursor
@@ -1696,12 +1719,13 @@ def obtener_estadisticas_rapidas(territorio: str = None):
 def obtener_estadisticas_dia_actual(territorio: str = None):
     """Obtener estadísticas del día actual en horario CDMX (America/Mexico_City).
     Si se proporciona territorio, filtra las estadísticas solo para usuarios de ese territorio."""
+    conexion_local = None
     try:
         print(f"🔍 Obteniendo estadísticas del día actual en horario CDMX (territorio: {territorio or 'TODOS'})")
-        
-        if not conn:
-            raise HTTPException(status_code=500, detail="No hay conexión a la base de datos")
-        
+
+        # Cursor propio y aislado del global — ver abrir_conexion_aislada()
+        conexion_local, cursor = abrir_conexion_aislada()
+
         # Configurar zona horaria CDMX
         cdmx_tz = pytz.timezone('America/Mexico_City')
         ahora_cdmx = datetime.now(cdmx_tz)
@@ -1821,6 +1845,9 @@ def obtener_estadisticas_dia_actual(territorio: str = None):
     except Exception as e:
         print(f"❌ Error general: {e}")
         raise HTTPException(status_code=500, detail=f"Error al obtener estadísticas del día: {str(e)}")
+    finally:
+        if conexion_local:
+            conexion_local.close()
 
 @app.get("/estadisticas/usuarios-dia")
 def obtener_usuarios_activos_dia():
@@ -1986,12 +2013,13 @@ def obtener_actividades_dia():
 def obtener_estadisticas_tipo_actividad(territorio: str = None):
     """Obtener estadísticas de registros por tipo de actividad.
     Si se proporciona territorio, filtra las estadísticas solo para usuarios de ese territorio."""
+    conexion_local = None
     try:
         print(f"📊 Obteniendo estadísticas por tipo de actividad (territorio: {territorio or 'TODOS'})")
-        
-        if not conn:
-            raise HTTPException(status_code=500, detail="No hay conexión a la base de datos")
-        
+
+        # Cursor propio y aislado del global — ver abrir_conexion_aislada()
+        conexion_local, cursor = abrir_conexion_aislada()
+
         # Si hay filtro por territorio, obtener los IDs de usuarios de ese territorio
         usuario_ids_territorio = None
         filtro_usuarios_sql = ""
@@ -2107,6 +2135,9 @@ def obtener_estadisticas_tipo_actividad(territorio: str = None):
     except Exception as e:
         print(f"❌ Error obteniendo estadísticas por tipo: {e}")
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+    finally:
+        if conexion_local:
+            conexion_local.close()
 
 # ==================== ENDPOINTS PARA REPORTES GENERADOS ====================
 
