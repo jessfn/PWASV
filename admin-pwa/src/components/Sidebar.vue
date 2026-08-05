@@ -1685,30 +1685,36 @@ const onLeave = (el) => {
  */
 /*
  * width: calc(100% + 2×padding del contenedor) + márgenes negativos
- * hacen que la tarjeta llegue de borde a borde del sidebar, en vez de
- * quedar flotando con aire a los costados como una tarjeta "flotante".
+ * hacen que la tarjeta llegue de borde a borde del sidebar (sin gutter
+ * verde a los lados), conservando esquinas redondeadas y un relieve 3D
+ * (varias sombras en capas: elevación exterior + bisel de luz arriba +
+ * sombra interior abajo) en vez del look de banda plana anterior.
  */
 .user-card {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 12px 16px 11px;
+  padding: 13px 16px 12px;
   margin: 12px -12px 0;
   width: calc(100% + 24px);
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.07);
   backdrop-filter: blur(14px) saturate(1.4);
   -webkit-backdrop-filter: blur(14px) saturate(1.4);
-  border-radius: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.14);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
   box-shadow:
-    0 1px 0 0 rgba(255, 255, 255, 0.14) inset,
-    0 6px 24px rgba(0, 0, 0, 0.25),
-    0 0 0 1px rgba(74, 222, 128, 0.1);
+    /* bisel de luz superior (relieve 3D) */
+    0 1px 0 0 rgba(255, 255, 255, 0.35) inset,
+    /* sombra interior inferior (profundidad) */
+    0 -3px 8px 0 rgba(0, 0, 0, 0.18) inset,
+    /* elevación exterior sobre el sidebar */
+    0 10px 26px rgba(0, 0, 0, 0.38),
+    0 3px 8px rgba(0, 0, 0, 0.22),
+    0 0 0 1px rgba(74, 222, 128, 0.12);
   position: relative;
   overflow: hidden;
-  transition: box-shadow 0.4s ease;
+  transition: box-shadow 0.35s ease, transform 0.35s ease;
 }
 
 /* Manchas de luz fluidas — se desplazan y respiran en bucle continuo */
@@ -1762,11 +1768,14 @@ const onLeave = (el) => {
 }
 
 .user-card:hover {
+  transform: translateY(-1px);
   box-shadow:
-    0 1px 0 0 rgba(255, 255, 255, 0.2) inset,
-    0 8px 28px rgba(0, 0, 0, 0.32),
-    0 0 0 1px rgba(74, 222, 128, 0.25),
-    0 0 22px rgba(74, 222, 128, 0.1);
+    0 1px 0 0 rgba(255, 255, 255, 0.45) inset,
+    0 -3px 8px 0 rgba(0, 0, 0, 0.2) inset,
+    0 14px 32px rgba(0, 0, 0, 0.45),
+    0 4px 10px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(74, 222, 128, 0.3),
+    0 0 22px rgba(74, 222, 128, 0.12);
 }
 
 /* Fila horizontal: avatar + nombre, layout moderno en vez de todo apilado */
