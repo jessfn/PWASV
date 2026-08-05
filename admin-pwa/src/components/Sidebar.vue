@@ -109,21 +109,28 @@
           <h1 class="brand-name">SEMBRANDO VIDA</h1>
           <p class="brand-tagline">App de Seguimiento</p>
           
-          <!-- Información del usuario - Diseño moderno tipo tarjeta -->
+          <!-- Información del usuario - Liquid glass, fondo fluido animado -->
           <div class="user-card">
-            <!-- Avatar con iniciales -->
-            <div class="user-avatar">
-              <span class="avatar-initials">{{ userInitials }}</span>
-              <div class="avatar-status"></div>
+            <!-- Manchas de luz fluidas detrás del contenido (canvas orgánico) -->
+            <span class="user-card-blob blob-a" aria-hidden="true"></span>
+            <span class="user-card-blob blob-b" aria-hidden="true"></span>
+
+            <div class="user-card-row">
+              <!-- Avatar con iniciales -->
+              <div class="user-avatar">
+                <span class="avatar-initials">{{ userInitials }}</span>
+                <div class="avatar-status"></div>
+              </div>
+
+              <!-- Info principal -->
+              <div class="user-main-info">
+                <h4 class="user-name-title">{{ userFullName }}</h4>
+                <span class="user-handle">@{{ userDisplayName }}</span>
+              </div>
             </div>
-            
-            <!-- Info principal -->
-            <div class="user-main-info">
-              <h4 class="user-name-title">{{ userFullName }}</h4>
-              <span v-if="userCargo" class="user-role-badge">{{ userCargo }}</span>
-              <span class="user-handle">@{{ userDisplayName }}</span>
-            </div>
-            
+
+            <span v-if="userCargo" class="user-role-badge">{{ userCargo }}</span>
+
             <!-- Territorio (solo para usuarios territoriales) -->
             <div v-if="isTerritorial && territorioAsignado" class="user-territory-section">
               <div class="territory-badge">
@@ -1671,26 +1678,63 @@ const onLeave = (el) => {
 /* ============================================
    NUEVO DISEÑO: User Card Premium Verde
    ============================================ */
+/*
+ * Tarjeta de usuario — liquid glass con manchas de luz fluidas animadas.
+ * Mismo lenguaje visual que los logins: vidrio translúcido + blur +
+ * blobs radiales en movimiento continuo, en vez de un fondo sólido plano.
+ */
 .user-card {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 12px 10px 10px;
+  padding: 12px 12px 11px;
   margin-top: 12px;
-  background: linear-gradient(165deg, 
-    rgba(20, 83, 45, 0.95) 0%, 
-    rgba(5, 46, 22, 0.98) 100%);
-  border-radius: 14px;
-  border: 1px solid rgba(74, 222, 128, 0.3);
-  background-clip: padding-box;
-  box-shadow: 
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.14) inset,
     0 6px 24px rgba(0, 0, 0, 0.35),
-    0 0 0 1px rgba(74, 222, 128, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    0 0 0 1px rgba(74, 222, 128, 0.12);
   position: relative;
   overflow: hidden;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s ease;
+}
+
+/* Manchas de luz fluidas — se desplazan y respiran en bucle continuo */
+.user-card-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(18px);
+  pointer-events: none;
+  z-index: 0;
+}
+.blob-a {
+  width: 70px;
+  height: 70px;
+  top: -20px;
+  left: -16px;
+  background: radial-gradient(circle, rgba(74, 222, 128, 0.55) 0%, transparent 72%);
+  animation: userCardDrift1 7s ease-in-out infinite;
+}
+.blob-b {
+  width: 60px;
+  height: 60px;
+  bottom: -18px;
+  right: -14px;
+  background: radial-gradient(circle, rgba(34, 197, 94, 0.5) 0%, transparent 72%);
+  animation: userCardDrift2 9s ease-in-out infinite;
+}
+@keyframes userCardDrift1 {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.7; }
+  50%       { transform: translate(10px, 12px) scale(1.25); opacity: 1; }
+}
+@keyframes userCardDrift2 {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.6; }
+  50%       { transform: translate(-8px, -10px) scale(1.2); opacity: 0.95; }
 }
 
 /* Efecto de brillo superior */
@@ -1701,56 +1745,44 @@ const onLeave = (el) => {
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(90deg, 
+  z-index: 1;
+  background: linear-gradient(90deg,
     transparent 0%,
-    #22c55e 20%, 
-    #4ade80 50%, 
+    #22c55e 20%,
+    #4ade80 50%,
     #22c55e 80%,
     transparent 100%);
 }
 
-/* Efecto de gradiente decorativo */
-.user-card::after {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(
-    ellipse at center,
-    rgba(74, 222, 128, 0.08) 0%,
-    transparent 50%
-  );
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.4s ease;
-}
-
-.user-card:hover::after {
-  opacity: 1;
-}
-
 .user-card:hover {
   transform: translateY(-2px);
-  box-shadow: 
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.2) inset,
     0 10px 32px rgba(0, 0, 0, 0.45),
-    0 0 0 1px rgba(74, 222, 128, 0.35),
-    0 0 20px rgba(74, 222, 128, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    0 0 0 1px rgba(74, 222, 128, 0.3),
+    0 0 22px rgba(74, 222, 128, 0.12);
+}
+
+/* Fila horizontal: avatar + nombre, layout moderno en vez de todo apilado */
+.user-card-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  z-index: 1;
 }
 
 /* Avatar compacto */
 .user-avatar {
   position: relative;
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   background: linear-gradient(145deg, #4ade80 0%, #22c55e 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 
+  box-shadow:
     0 4px 14px rgba(74, 222, 128, 0.45),
     0 0 0 2px rgba(5, 46, 22, 1),
     0 0 0 4px rgba(74, 222, 128, 0.25);
@@ -1759,7 +1791,7 @@ const onLeave = (el) => {
 }
 
 .avatar-initials {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: white;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
@@ -1781,11 +1813,11 @@ const onLeave = (el) => {
 }
 
 @keyframes pulse-glow {
-  0%, 100% { 
+  0%, 100% {
     box-shadow: 0 0 8px rgba(134, 239, 172, 0.7);
     transform: scale(1);
   }
-  50% { 
+  50% {
     box-shadow: 0 0 14px rgba(134, 239, 172, 0.9);
     transform: scale(1.05);
   }
@@ -1795,10 +1827,10 @@ const onLeave = (el) => {
 .user-main-info {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  width: 100%;
-  z-index: 1;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
 }
 
 .user-name-title {
@@ -1806,43 +1838,49 @@ const onLeave = (el) => {
   font-size: 11px;
   font-weight: 700;
   color: #dcfce7;
-  text-align: center;
-  letter-spacing: 0.4px;
+  text-align: left;
+  letter-spacing: 0.3px;
   line-height: 1.3;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .user-role-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  align-self: center;
   padding: 4px 10px;
   font-size: 7px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.8px;
   color: #86efac;
-  background: linear-gradient(135deg, 
-    rgba(134, 239, 172, 0.15) 0%, 
+  background: linear-gradient(135deg,
+    rgba(134, 239, 172, 0.15) 0%,
     rgba(74, 222, 128, 0.22) 100%);
   border: 1px solid rgba(134, 239, 172, 0.4);
   border-radius: 20px;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  box-shadow: 
+  box-shadow:
     0 2px 6px rgba(74, 222, 128, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   transition: all 0.3s ease;
   text-align: center;
   line-height: 1.3;
+  z-index: 1;
 }
 
 .user-role-badge:hover {
-  background: linear-gradient(135deg, 
-    rgba(134, 239, 172, 0.22) 0%, 
+  background: linear-gradient(135deg,
+    rgba(134, 239, 172, 0.22) 0%,
     rgba(74, 222, 128, 0.3) 100%);
   border-color: rgba(134, 239, 172, 0.55);
-  box-shadow: 
+  box-shadow:
     0 3px 10px rgba(74, 222, 128, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
@@ -1855,6 +1893,10 @@ const onLeave = (el) => {
   letter-spacing: 0.2px;
   opacity: 0.85;
   transition: color 0.3s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .user-handle:hover {
