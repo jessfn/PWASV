@@ -178,7 +178,7 @@
                     <line x1="15" y1="12" x2="3" y2="12"/>
                   </svg>
                 </div>
-                <span class="apple-stat-value blue">{{ estadisticasDiaActual.entradasDia }}</span>
+                <span class="apple-stat-value blue">{{ estadisticasCargando ? '…' : estadisticasDiaActual.entradasDia }}</span>
                 <span class="apple-stat-label">Entradas</span>
               </div>
               <div class="apple-stat-item">
@@ -189,7 +189,7 @@
                     <line x1="21" y1="12" x2="9" y2="12"/>
                   </svg>
                 </div>
-                <span class="apple-stat-value red">{{ estadisticasDiaActual.salidasDia }}</span>
+                <span class="apple-stat-value red">{{ estadisticasCargando ? '…' : estadisticasDiaActual.salidasDia }}</span>
                 <span class="apple-stat-label">Salidas</span>
               </div>
               <div class="apple-stat-item">
@@ -201,7 +201,7 @@
                     <path d="M16 14v-8"/>
                   </svg>
                 </div>
-                <span class="apple-stat-value campo-green">{{ estadisticasDiaActual.campoHoy }}</span>
+                <span class="apple-stat-value campo-green">{{ estadisticasCargando ? '…' : estadisticasDiaActual.campoHoy }}</span>
                 <span class="apple-stat-label">Campo</span>
               </div>
               <div class="apple-stat-item">
@@ -211,7 +211,7 @@
                     <polyline points="14 2 14 8 20 8"/>
                   </svg>
                 </div>
-                <span class="apple-stat-value orange">{{ estadisticasDiaActual.gabineteHoy }}</span>
+                <span class="apple-stat-value orange">{{ estadisticasCargando ? '…' : estadisticasDiaActual.gabineteHoy }}</span>
                 <span class="apple-stat-label">Gabinete</span>
               </div>
               <div class="apple-stat-item">
@@ -220,7 +220,7 @@
                     <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                   </svg>
                 </div>
-                <span class="apple-stat-value gray">{{ estadisticasDiaActual.campoHoy + estadisticasDiaActual.gabineteHoy }}</span>
+                <span class="apple-stat-value gray">{{ estadisticasCargando ? '…' : (estadisticasDiaActual.campoHoy + estadisticasDiaActual.gabineteHoy) }}</span>
                 <span class="apple-stat-label">Total Hoy</span>
               </div>
             </div>
@@ -633,7 +633,6 @@ import mapboxgl from 'mapbox-gl'
 import { usuariosService } from '../services/usuariosService.js'
 import asistenciasService from '../services/asistenciasService.js'
 import { estadisticasService } from '../services/estadisticasService.js'
-import healthCheckService from '../services/healthCheckService.js'
 import authService from '../services/authService.js'
 
 // Token de acceso de Mapbox - En producción debe estar en variables de entorno
@@ -660,6 +659,11 @@ let map = null
 let puntosSource = null
 let hasDatosUsuario = ref(false)
 const mapInitialized = ref(false)
+// Datos a aplicar en cuanto el mapa termine de cargar su estilo/tiles.
+// Permite iniciar la creación del mapa en paralelo con la carga de datos
+// (en vez de esperar a que los datos lleguen para empezar a crear el mapa),
+// sin perder los puntos que lleguen mientras el mapa aún está cargando.
+let datosPendientesMapa = []
 
 // Datos originales para filtrado por territorio
 let datosMapaOriginales = []
@@ -769,6 +773,10 @@ const estadisticasDiaActual = reactive({
   gabineteHoy: 0,
   fechaCDMX: null
 })
+
+// Distingue "aún no llegó del backend" de "confirmado en cero" en la UI,
+// para no mostrar 0 engañoso mientras la primera carga está en curso
+const estadisticasCargando = ref(true)
 
 // Estado para el total de usuarios registrados en el sistema
 const totalUsuariosRegistrados = ref('0')
@@ -1095,9 +1103,20 @@ const cargarDatos = async () => {
   
   try {
     console.log('🔄 Iniciando carga de datos para VisorMap...')
-    
+
     const token = localStorage.getItem('admin_token')
-    
+
+    // Estadísticas del día y total de usuarios arrancan YA, en paralelo con
+    // registros/asistencias/usuarios — antes esperaban a que esos tres
+    // terminaran primero, retrasando innecesariamente el panel de contadores
+    // (por eso se veían en 0 varios segundos tras la primera carga).
+    cargarEstadisticasDiaActual().catch(err => {
+      console.error('⚠️ Error al cargar estadísticas (no crítico):', err)
+    })
+    cargarTotalUsuarios().catch(err => {
+      console.error('⚠️ Error al cargar total de usuarios (no crítico):', err)
+    })
+
     // Cargar datos con manejo individual de errores y reintentos
     const [registrosData, asistenciasData, usuariosData] = await Promise.allSettled([
       cargarRegistrosConReintentos(token),
@@ -1144,22 +1163,9 @@ const cargarDatos = async () => {
     // Guardar datos originales para filtrado posterior por territorio
     datosMapaOriginales = [...ultimasActividades]
     
-    // Si el mapa ya está cargado, actualizar puntos
-    if (map && mapInitialized.value) {
-      actualizarPuntosMapa(ultimasActividades)
-    } else {
-      inicializarMapa(ultimasActividades)
-    }
-    
-    // Cargar estadísticas del día actual en paralelo (sin bloquear)
-    cargarEstadisticasDiaActual().catch(err => {
-      console.error('⚠️ Error al cargar estadísticas (no crítico):', err)
-    })
-    
-    // Cargar total de usuarios registrados en el sistema (sin bloquear)
-    cargarTotalUsuarios().catch(err => {
-      console.error('⚠️ Error al cargar total de usuarios (no crítico):', err)
-    })
+    // inicializarMapa decide internamente si debe crear el mapa, aplicar los
+    // datos cuando termine de cargar, o actualizar los puntos si ya está listo
+    inicializarMapa(ultimasActividades)
     
     hasDatosUsuario.value = true
     loading.value = false
@@ -1183,12 +1189,6 @@ const cargarDatos = async () => {
 
 // Función auxiliar para cargar registros con reintentos
 const cargarRegistrosConReintentos = async (token, maxReintentos = 3) => {
-  // Verificar salud de la API primero
-  const endpointDisponible = await healthCheckService.isEndpointAvailable('/registros')
-  if (!endpointDisponible) {
-    console.log('⚠️ Endpoint de registros no disponible según health check')
-  }
-  
   // Obtener filtro de territorio si el admin es territorial
   const territorioFilter = authService.getTerritorioFilter()
   
@@ -1231,12 +1231,6 @@ const cargarRegistrosConReintentos = async (token, maxReintentos = 3) => {
 
 // Función auxiliar para cargar asistencias con reintentos
 const cargarAsistenciasConReintentos = async (maxReintentos = 3) => {
-  // Verificar salud de la API primero
-  const endpointDisponible = await healthCheckService.isEndpointAvailable('/asistencias')
-  if (!endpointDisponible) {
-    console.log('⚠️ Endpoint de asistencias no disponible según health check')
-  }
-  
   for (let intento = 1; intento <= maxReintentos; intento++) {
     try {
       console.log(`🔄 Intento ${intento}/${maxReintentos} - Cargando asistencias...`)
@@ -1259,12 +1253,6 @@ const cargarAsistenciasConReintentos = async (maxReintentos = 3) => {
 
 // Función auxiliar para cargar usuarios con reintentos
 const cargarUsuariosConReintentos = async (maxReintentos = 3) => {
-  // Verificar salud de la API primero
-  const endpointDisponible = await healthCheckService.isEndpointAvailable('/usuarios')
-  if (!endpointDisponible) {
-    console.log('⚠️ Endpoint de usuarios no disponible según health check')
-  }
-  
   for (let intento = 1; intento <= maxReintentos; intento++) {
     try {
       console.log(`🔄 Intento ${intento}/${maxReintentos} - Cargando usuarios...`)
@@ -1346,6 +1334,8 @@ const cargarEstadisticasDiaActual = async () => {
     estadisticasDiaActual.actividadesDia = 0
     estadisticasDiaActual.campoHoy = 0
     estadisticasDiaActual.gabineteHoy = 0
+  } finally {
+    estadisticasCargando.value = false
   }
 }
 
@@ -1731,9 +1721,23 @@ const ajustarVistaAEstados = (mapInstance, geojsonData, estadosDelTerritorio) =>
 
 // Función para inicializar el mapa con Mapbox
 const inicializarMapa = (datos) => {
+  // El mapa ya se creó (o está en proceso de cargar su estilo/tiles):
+  // no crear una segunda instancia de Mapbox sobre el mismo contenedor.
+  // Esto ocurre cuando el mapa se inicia en paralelo con la carga de datos
+  // y los datos llegan antes de que termine el evento 'load' del mapa.
+  if (map) {
+    if (mapInitialized.value) {
+      actualizarPuntosMapa(datos)
+    } else {
+      datosPendientesMapa = datos
+    }
+    return
+  }
+
+  datosPendientesMapa = datos
   loading.value = true
   error.value = ''
-  
+
   try {
     // Verificar que el token esté disponible
     if (!mapboxgl.accessToken) {
@@ -2052,9 +2056,10 @@ const inicializarMapa = (datos) => {
         }
       });
       
-      // Actualizar puntos en el mapa
-      if (datos && datos.length > 0) {
-        actualizarPuntosMapa(datos);
+      // Actualizar puntos en el mapa con los datos más recientes disponibles
+      // (pueden haber llegado mientras el mapa aún cargaba su estilo)
+      if (datosPendientesMapa && datosPendientesMapa.length > 0) {
+        actualizarPuntosMapa(datosPendientesMapa);
       }
       
       // Cargar contornos de estados si el admin es territorial
@@ -2711,11 +2716,16 @@ onMounted(async () => {
   };
   
   addMapboxCSS();
-  
-  // Esperar un poco para que el DOM esté completamente listo
-  await new Promise(resolve => setTimeout(resolve, 100))
-  
-  // Cargar datos y mapa
+
+  // Iniciar la creación del mapa (tiles/estilo de Mapbox) YA, en paralelo con
+  // la carga de datos — antes se esperaba a que registros/asistencias/usuarios
+  // llegaran del backend para siquiera empezar a crear el mapa, sumando esa
+  // espera de red al tiempo antes de ver algo en pantalla en la carga fría.
+  // Con datos vacíos, inicializarMapa solo crea el mapa y sus capas; los
+  // puntos reales se aplican en cuanto cargarDatos() resuelve.
+  inicializarMapa([]);
+
+  // Cargar datos (arranca en paralelo con la creación del mapa de arriba)
   await cargarDatos();
   
   // Escuchar cambios de conexión
