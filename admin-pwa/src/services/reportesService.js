@@ -49,12 +49,17 @@ const reportesService = {
   /**
    * Obtener estadísticas de reportes
    * @param {string} territorio - Territorio para filtrar (opcional)
+   * @param {number} facilitadorAdminId - ID del facilitador (opcional)
+   * @param {Object} extraFiltros - { mes, anio, tipo } para acotar las estadísticas a los mismos filtros de la tabla
    */
-  async obtenerEstadisticas(territorio = null, facilitadorAdminId = null) {
+  async obtenerEstadisticas(territorio = null, facilitadorAdminId = null, extraFiltros = {}) {
     try {
       const params = new URLSearchParams()
       if (territorio) params.append('territorio', territorio)
       if (facilitadorAdminId) params.append('facilitador_admin_id', facilitadorAdminId)
+      if (extraFiltros.mes) params.append('mes', extraFiltros.mes)
+      if (extraFiltros.anio) params.append('anio', extraFiltros.anio)
+      if (extraFiltros.tipo) params.append('tipo', extraFiltros.tipo)
       const qs = params.toString()
       const url = `${API_URL}/reportes/admin/estadisticas${qs ? '?' + qs : ''}`
       console.log('📊 [ReportesService] Obteniendo estadísticas...' + (territorio ? ` (Territorio: ${territorio})` : '') + (facilitadorAdminId ? ` (Facilitador: ${facilitadorAdminId})` : ''))

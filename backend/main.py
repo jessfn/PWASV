@@ -3229,6 +3229,7 @@ async def obtener_todos_reportes_admin(
     mes: str = None,
     anio: int = None,
     territorio: str = None,
+    tipo: str = None,
     usuario_id: int = None,
     facilitador_admin_id: int = None
 ):
@@ -3282,7 +3283,11 @@ async def obtener_todos_reportes_admin(
         if territorio:
             query += " AND u.territorio = %s"
             params.append(territorio)
-            
+
+        if tipo:
+            query += " AND r.tipo = %s"
+            params.append(tipo)
+
         if usuario_id:
             query += " AND r.usuario_id = %s"
             params.append(usuario_id)
@@ -3755,10 +3760,16 @@ async def descargar_reportes_zip(
         raise HTTPException(status_code=500, detail=f"Error generando ZIP: {str(e)}")
 
 @app.get("/reportes/admin/estadisticas")
-async def obtener_estadisticas_reportes_admin(territorio: str = None, facilitador_admin_id: int = None):
+async def obtener_estadisticas_reportes_admin(
+    territorio: str = None,
+    facilitador_admin_id: int = None,
+    mes: str = None,
+    anio: int = None,
+    tipo: str = None
+):
     """
     Obtener estadísticas de reportes para el dashboard admin
-    Opcionalmente filtrar por territorio para admins territoriales
+    Opcionalmente filtrar por territorio, mes, año o tipo (mismos filtros que /reportes/admin/todos)
     """
     try:
         # Resolver filtro de IDs de técnicos si es facilitador
@@ -3782,7 +3793,7 @@ async def obtener_estadisticas_reportes_admin(territorio: str = None, facilitado
                 tecnicos_ids = [-1]
 
         def build_filter(extra_where="", extra_params=None):
-            """Construye WHERE + params para el filtro activo (territorio o facilitador)"""
+            """Construye WHERE + params para el filtro activo (territorio, facilitador, mes, año, tipo)"""
             wheres = []
             p = list(extra_params or [])
             if territorio:
@@ -3792,6 +3803,15 @@ async def obtener_estadisticas_reportes_admin(territorio: str = None, facilitado
                 placeholders = ','.join(['%s'] * len(tecnicos_ids))
                 wheres.append(f"r.usuario_id IN ({placeholders})")
                 p.extend(tecnicos_ids)
+            if mes:
+                wheres.append("r.mes = %s")
+                p.append(mes)
+            if anio:
+                wheres.append("r.anio = %s")
+                p.append(anio)
+            if tipo:
+                wheres.append("r.tipo = %s")
+                p.append(tipo)
             if extra_where:
                 wheres.append(extra_where)
             clause = ("WHERE " + " AND ".join(wheres)) if wheres else ""
