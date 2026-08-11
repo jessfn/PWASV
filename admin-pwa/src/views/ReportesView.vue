@@ -1716,19 +1716,29 @@ const contadoresFiltrados = computed(() => {
   }
 })
 
+// Filtros que el backend SÍ sabe calcular de forma exacta (mes/año/territorio/tipo).
+// La búsqueda de texto libre no tiene equivalente en /reportes/admin/estadisticas,
+// así que para esa seguimos usando el conteo local sobre lo ya cargado.
+const hayFiltrosSoloLocales = computed(() => {
+  return !!filtros.value.busqueda && !filtros.value.mes && !filtros.value.anio &&
+         !filtros.value.territorio && !filtros.value.tipo
+})
+
 // ====================== ACTUALIZACIÓN DE STATS TARGET ======================
-// Watcher para actualizar statsTarget - usa filtrados si hay filtros de fecha/territorio, o backend si no
-watch([estadisticas, contadoresFiltrados, hayFiltrosParaContadores], () => {
+// Watcher para actualizar statsTarget - usa el backend siempre que pueda filtrar
+// exactamente (mes/año/territorio/tipo); solo cae a conteo local para búsqueda de texto,
+// ya que reportes.value es apenas una página cargada en memoria y no el total real en BD.
+watch([estadisticas, contadoresFiltrados, hayFiltrosParaContadores, hayFiltrosSoloLocales], () => {
   let newTotal, newFirmados, newPendientes, newUsuarios
-  
-  if (hayFiltrosParaContadores.value) {
-    // Usar datos filtrados localmente
+
+  if (hayFiltrosSoloLocales.value) {
+    // Solo hay búsqueda de texto activa: filtrar localmente lo ya cargado
     newTotal = contadoresFiltrados.value.total
     newFirmados = contadoresFiltrados.value.firmados
     newPendientes = contadoresFiltrados.value.pendientes
     newUsuarios = contadoresFiltrados.value.usuarios
   } else {
-    // Usar datos exactos del backend
+    // Sin filtros, o con mes/año/territorio/tipo: usar el total exacto del backend
     newTotal = estadisticas.value.totalReportes || 0
     newFirmados = estadisticas.value.reportesFirmados || 0
     newPendientes = estadisticas.value.reportesPendientes || 0
@@ -1831,7 +1841,8 @@ async function cargarReportes() {
     const params = { limite: 500 }
     if (filtros.value.mes) params.mes = filtros.value.mes
     if (filtros.value.anio) params.anio = filtros.value.anio
-    
+    if (filtros.value.tipo) params.tipo = filtros.value.tipo
+
     // Si el usuario es facilitador, filtrar solo sus técnicos asignados
     if (esFacilitador.value && facilitadorAdminId.value) {
       params.facilitador_admin_id = facilitadorAdminId.value
@@ -1863,9 +1874,16 @@ async function cargarReportes() {
 
 async function cargarEstadisticas() {
   try {
+    // Mismos filtros de mes/año/tipo que aplica la tabla, para que las tarjetas
+    // reflejen siempre el total real en la BD (no un subconjunto cargado en memoria)
+    const extraFiltros = {
+      mes: filtros.value.mes || null,
+      anio: filtros.value.anio || null,
+      tipo: filtros.value.tipo || null
+    }
     // Si es facilitador, filtrar por sus técnicos asignados
     if (esFacilitador.value && facilitadorAdminId.value) {
-      const response = await reportesService.obtenerEstadisticas(null, facilitadorAdminId.value)
+      const response = await reportesService.obtenerEstadisticas(null, facilitadorAdminId.value, extraFiltros)
       if (response.success) {
         estadisticas.value = {
           totalReportes: response.estadisticas.total_reportes || 0,
@@ -1879,9 +1897,9 @@ async function cargarEstadisticas() {
       }
       return
     }
-    // Pasar territorio si el usuario es territorial
-    const territorio = territorioUsuario.value || null
-    const response = await reportesService.obtenerEstadisticas(territorio)
+    // Pasar territorio si el usuario es territorial, o el filtro manual de territorio
+    const territorio = territorioUsuario.value || filtros.value.territorio || null
+    const response = await reportesService.obtenerEstadisticas(territorio, null, extraFiltros)
     if (response.success) {
       estadisticas.value = {
         totalReportes: response.estadisticas.total_reportes || 0,
@@ -1897,6 +1915,19 @@ async function cargarEstadisticas() {
     console.error('Error cargando estadísticas:', error)
   }
 }
+
+// Al cambiar mes/año/territorio/tipo, volver a pedirle al backend la página de
+// reportes y las estadísticas ya filtradas (antes solo se filtraba en memoria
+// lo que ya estaba cargado, dando totales incorrectos si había más registros).
+watch([
+  () => filtros.value.mes,
+  () => filtros.value.anio,
+  () => filtros.value.territorio,
+  () => filtros.value.tipo
+], () => {
+  cargarReportes()
+  cargarEstadisticas()
+})
 
 async function verReporte(reporte) {
   viendoReporte.value = reporte.id
@@ -2448,10 +2479,17 @@ function logout() {
 // ====================== POLLING EN TIEMPO REAL APPLE-STYLE ======================
 async function actualizarEstadisticasEnVivo() {
   try {
-    // Actualizar estadísticas de la BD sin mostrar loading
-    const territorio = territorioUsuario.value || null
+    // Actualizar estadísticas de la BD sin mostrar loading, respetando los
+    // mismos filtros de mes/año/territorio/tipo que tiene activos la tabla
+    // (antes se pedían sin filtro y pisaban los conteos ya filtrados en pantalla)
+    const territorio = territorioUsuario.value || filtros.value.territorio || null
     const facId = (esFacilitador.value && facilitadorAdminId.value) ? facilitadorAdminId.value : null
-    const response = await reportesService.obtenerEstadisticas(facId ? null : territorio, facId)
+    const extraFiltros = {
+      mes: filtros.value.mes || null,
+      anio: filtros.value.anio || null,
+      tipo: filtros.value.tipo || null
+    }
+    const response = await reportesService.obtenerEstadisticas(facId ? null : territorio, facId, extraFiltros)
     if (response.success) {
       estadisticas.value = {
         totalReportes: response.estadisticas.total_reportes || 0,
@@ -2463,14 +2501,18 @@ async function actualizarEstadisticasEnVivo() {
         porTerritorio: response.estadisticas.por_territorio || {}
       }
     }
-    
-    // También actualizar lista de reportes silenciosamente
-    const params = { limite: 1000 }
+
+    // También actualizar lista de reportes silenciosamente, con los mismos filtros
+    const params = { limite: 500 }
     if (facId) {
       params.facilitador_admin_id = facId
     } else if (territorioUsuario.value) {
       params.territorio = territorioUsuario.value
+    } else if (filtros.value.territorio) {
+      params.territorio = filtros.value.territorio
     }
+    if (filtros.value.mes) params.mes = filtros.value.mes
+    if (filtros.value.anio) params.anio = filtros.value.anio
     const reportesResp = await reportesService.obtenerTodosReportes(params)
     if (reportesResp.success) {
       reportes.value = reportesResp.reportes || []
