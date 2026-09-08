@@ -55,3 +55,13 @@ backend/fotos/
 # Backups
 *.bak
 *.bak.*
+
+# Variables de entorno / secretos
+.env
+.env.local
+*.pem
+*.key
+
+# Bitácora (por si se instala/compila localmente)
+bitacora-pwa/node_modules/
+bitacora-pwa/dist/
