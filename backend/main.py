@@ -57,13 +57,13 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # Configuración para autenticación JWT
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-SECRET_KEY = "***REMOVED***"
+SECRET_KEY = os.environ.get("SECRET_KEY", "cambia-esto-por-una-clave-muy-larga-y-unica")
 
 # Conexión a PostgreSQL con manejo robusto
-DB_HOST = "localhost"
-DB_NAME = "app_registros"
-DB_USER = "jesus"
-DB_PASS = "***REMOVED***"
+DB_HOST = os.environ.get("DB_HOST", "localhost")
+DB_NAME = os.environ.get("DB_NAME", "app_registros")
+DB_USER = os.environ.get("DB_USER", "jesus")
+DB_PASS = os.environ.get("DB_PASS", "")
 
 # Variables globales para la conexión
 conn = None
