@@ -8,7 +8,11 @@ export default defineConfig({
     vue(),
     VitePWA({
       registerType: 'autoUpdate',
-      injectRegister: 'auto',
+      // El registro/actualización del SW lo maneja a mano
+      // src/utils/serviceWorkerRegistration.js (con su propio banner de UX).
+      // injectRegister:'auto' inyectaba un SEGUNDO registro automático de
+      // VitePWA que competía con el manual, causando un bucle de recargas.
+      injectRegister: false,
       manifest: false,
       workbox: {
         clientsClaim: true,
