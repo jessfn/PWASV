@@ -75,3 +75,4 @@ app.mount('#app')
 // Emitir evento para ocultar splash screen
 window.dispatchEvent(new CustomEvent('app-ready'))
 console.log('🚀 Aplicación Vue montada - Splash screen oculto')
+// test-marker-1790119312
