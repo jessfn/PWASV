@@ -872,6 +872,13 @@ const currentUserId = computed(() => {
   background: #e8f8ee;
 }
 
+.app-bg::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: calc(env(safe-area-inset-top, 0px) + 64px);
+  background: linear-gradient(180deg, #f6fffa 0%, rgba(246, 255, 250, 0.85) 45%, rgba(246, 255, 250, 0) 100%);
+}
 .app-bg {
   z-index: 0;
   pointer-events: none;

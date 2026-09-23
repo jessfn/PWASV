@@ -191,9 +191,17 @@
           </button>
         </div>
 
+        <!-- Sincronizando: pestaña pequeña unida a la barra de conexión -->
+        <transition name="hm-sync">
+          <div v-if="mensajeAsistencia && mensajeTipo === 'sync'" class="hm-syncbar" :style="{ top: syncTop + 'px' }" role="status" aria-live="polite">
+            <i class="hm-toast__spin"></i>
+            <span>{{ mensajeAsistencia }}</span>
+          </div>
+        </transition>
+
         <!-- Mensaje de estado (sincronización / éxito / error): tarjeta con aire propio -->
         <transition name="hm-toast">
-          <div v-if="mensajeAsistencia && !modoAsistencia" class="hm-toast" :class="'hm-toast--' + mensajeTipo" role="status" aria-live="polite">
+          <div v-if="mensajeAsistencia && !modoAsistencia && mensajeTipo !== 'sync'" class="hm-toast" :class="'hm-toast--' + mensajeTipo" role="status" aria-live="polite">
             <span class="hm-toast__icon">
               <svg v-if="mensajeTipo === 'ok'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7" /></svg>
               <svg v-else-if="mensajeTipo === 'error'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18L18 6M6 6l12 12" /></svg>
@@ -1188,7 +1196,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed, watch } from "vue";
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import axios from "axios";
 import { API_URL, checkInternetConnection, getOfflineMessage } from '../utils/network.js';
@@ -1209,7 +1217,15 @@ const salidaMarcada = ref(false);
 const enviandoAsistencia = ref(false);
 const obteniendoUbicacion = ref(false);
 const obteniendoUbicacionRegistro = ref(false);
+const syncTop = ref(112);
+function medirSyncTop() {
+  const el = document.querySelector('.cs-strip');
+  if (el) syncTop.value = Math.round(el.getBoundingClientRect().bottom) - 1;
+}
+onMounted(() => { medirSyncTop(); window.addEventListener('resize', medirSyncTop); });
+onUnmounted(() => window.removeEventListener('resize', medirSyncTop));
 const mensajeAsistencia = ref('');
+watch(() => mensajeAsistencia.value, () => nextTick(medirSyncTop));
 const datosEntrada = ref({});
 const datosSalida = ref({});
 const asistenciaHoy = ref(null);
@@ -7932,4 +7948,26 @@ watch([entradaMarcada, salidaMarcada], () => {
   .apple-location-btn-loading::before { animation-duration: 2.4s; }
 }
 
+
+.hm-syncbar {
+  position: fixed;
+  z-index: 39;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: calc(100vw - 48px);
+  padding: 4px 14px 5px;
+  border-radius: 0 0 14px 14px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  box-shadow: 0 8px 16px -8px rgba(3, 105, 161, 0.7);
+}
+.hm-syncbar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hm-syncbar .hm-toast__spin { width: 10px; height: 10px; border-width: 2px; flex: none; }
+.hm-sync-enter-active, .hm-sync-leave-active { transition: opacity 0.22s ease, transform 0.22s ease; }
+.hm-sync-enter-from, .hm-sync-leave-to { opacity: 0; transform: translate(-50%, -100%); }
 </style>
