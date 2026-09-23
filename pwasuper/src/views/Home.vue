@@ -204,29 +204,17 @@
           </div>
         </transition>
 
-        <!-- Información importante: dos notas rápidas -->
-        <aside v-if="!modoAsistencia" class="hm-notes" aria-label="Información importante">
-          <p class="hm-notes__label">Información importante</p>
-          <div class="hm-notes__grid">
-            <div class="hm-note hm-note--blue">
-              <span class="hm-note__ico">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              </span>
-              <strong>Inicio requerido</strong>
-              <span class="hm-note__txt">Regístralo para acceder al módulo de actividades</span>
-            </div>
-            <div class="hm-note hm-note--rose">
-              <span class="hm-note__ico">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              </span>
-              <strong>Cierre de jornada</strong>
-              <span class="hm-note__txt">El término finaliza el acceso del día actual</span>
-            </div>
-          </div>
+        <!-- Aviso importante (un solo mensaje) -->
+        <aside v-if="!modoAsistencia" class="hm-alert" role="note">
+          <span class="hm-alert__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" /></svg>
+          </span>
+          <p class="hm-alert__title">Aviso importante</p>
+          <p class="hm-alert__text">Debe registrar su inicio para acceder al módulo de actividades. El registro de término finaliza el acceso del día actual.</p>
         </aside>
         
         <!-- Formulario de Asistencia (solo visible en modo asistencia) -->
-        <div v-if="modoAsistencia" class="apple-attendance-container mt-2 pt-2">
+        <div v-if="modoAsistencia" class="apple-attendance-container mt-2 pt-2" :class="tipoAsistencia === 'entrada' ? 'hm-tone-in' : 'hm-tone-out'">
           <!-- Header estilo Apple -->
           <div class="apple-header-card mb-3" :class="tipoAsistencia === 'entrada' ? 'apple-header-entrada' : 'apple-header-salida'">
             <div class="flex items-center justify-center">
@@ -7764,6 +7752,174 @@ watch([entradaMarcada, salidaMarcada], () => {
   z-index: 1;                        /* cubre la sombra del encabezado */
   padding: 10px 12px !important;
   box-shadow: 0 10px 20px -14px rgba(15, 42, 26, 0.45) !important;
+}
+
+/* =====================================================================
+   v5: registros en UNA sola tarjeta (separadas por líneas desvanecidas),
+   encabezado/usuario compactos, aviso único y anillo de carga GPS
+   ===================================================================== */
+
+/* ---------- Aviso (advertencia) ---------- */
+.hm-alert {
+  margin-top: 26px;
+  padding: 0 14px 12px;
+  border-radius: 16px;
+  text-align: center;
+  background: linear-gradient(180deg, #fffbeb 0%, #fff7dd 100%);
+  border: 1px solid #fcd34d;
+  color: #78350f;
+}
+.hm-alert__icon {
+  width: 30px;
+  height: 30px;
+  margin: -15px auto 4px;               /* el círculo "monta" sobre el borde superior */
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #f59e0b;
+  color: #fff;
+  border: 3px solid #fffbeb;
+  box-shadow: 0 6px 12px -4px rgba(245, 158, 11, 0.7);
+}
+.hm-alert__icon svg { width: 15px; height: 15px; }
+.hm-alert__title {
+  margin: 0 0 3px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #b45309;
+}
+.hm-alert__text {
+  margin: 0;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  text-align: justify;
+  text-align-last: center;
+  hyphens: auto;
+}
+
+/* ---------- Tarjeta única: contenedor ---------- */
+.hm-scroll > .apple-activities-container,
+.apple-attendance-container {
+  --hm-line: rgba(126, 34, 206, 0.32);
+  background: #fff !important;
+  border: 1px solid rgba(15, 42, 26, 0.08) !important;
+  border-radius: 20px !important;
+  overflow: hidden !important;
+  box-shadow: 0 14px 30px -18px rgba(15, 42, 26, 0.5) !important;
+  padding: 0 !important;
+  gap: 0 !important;
+}
+.apple-attendance-container.hm-tone-in { --hm-line: rgba(10, 103, 238, 0.32); }
+.apple-attendance-container.hm-tone-out { --hm-line: rgba(211, 27, 72, 0.32); }
+
+/* El formulario de actividades también se apila sin huecos */
+.hm-scroll > .apple-activities-container > form { gap: 0 !important; }
+
+/* Encabezado compacto, a sangre completa */
+.hm-scroll > .apple-activities-container > .apple-header-card,
+.apple-attendance-container > .apple-header-card {
+  border-radius: 0 !important;
+  padding: 8px 14px !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+}
+.hm-scroll > .apple-activities-container .apple-header-title,
+.apple-attendance-container .apple-header-title { font-size: 0.85rem !important; }
+.hm-scroll > .apple-activities-container .apple-header-icon,
+.apple-attendance-container .apple-header-icon { width: 26px !important; height: 26px !important; border-radius: 8px !important; }
+.hm-scroll > .apple-activities-container .apple-header-icon svg,
+.apple-attendance-container .apple-header-icon svg { width: 15px !important; height: 15px !important; }
+
+/* Usuario: fila compacta unida al encabezado */
+.hm-scroll > .apple-activities-container > .apple-header-card + .apple-user-card,
+.apple-attendance-container > .apple-header-card + .apple-user-card {
+  margin: 0 !important;
+  border-radius: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 8px 12px !important;
+}
+.hm-scroll > .apple-activities-container .apple-avatar,
+.apple-attendance-container .apple-avatar {
+  width: 32px !important;
+  height: 32px !important;
+  border-width: 2px !important;
+}
+.hm-scroll > .apple-activities-container .apple-avatar-initials,
+.apple-attendance-container .apple-avatar-initials { font-size: 0.7rem !important; }
+.hm-scroll > .apple-activities-container .apple-user-name,
+.apple-attendance-container .apple-user-name { font-size: 0.8rem !important; line-height: 1.15 !important; }
+.hm-scroll > .apple-activities-container .apple-user-role,
+.apple-attendance-container .apple-user-role { font-size: 0.64rem !important; }
+.hm-scroll > .apple-activities-container .apple-status-badge,
+.apple-attendance-container .apple-status-badge { font-size: 0.6rem !important; padding: 3px 9px !important; }
+
+/* Pasos, checklist y "listo": sin marco propio; separados por línea desvanecida */
+.hm-root .hm-scroll > .apple-activities-container > form > .apple-step-card-purple,
+.hm-root .hm-scroll > .apple-activities-container > form > .apple-checklist-card,
+.hm-root .hm-scroll > .apple-activities-container > form > .apple-ready-card,
+.hm-root .apple-attendance-container > .apple-step-card,
+.hm-root .apple-attendance-container > .apple-checklist-card,
+.hm-root .apple-attendance-container > .apple-ready-card,
+.hm-root .apple-attendance-container > .apple-action-buttons {
+  background: linear-gradient(90deg, transparent 0%, var(--hm-line) 50%, transparent 100%) top / 100% 1px no-repeat !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 11px 14px !important;
+  margin: 0 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.hm-root .hm-scroll > .apple-activities-container > form > .apple-checklist-card,
+.hm-root .hm-scroll > .apple-activities-container > form > .apple-ready-card,
+.hm-root .apple-attendance-container > .apple-checklist-card,
+.hm-root .apple-attendance-container > .apple-ready-card {
+  padding: 9px 14px !important;
+}
+.hm-scroll > .apple-activities-container .apple-checklist-item,
+.apple-attendance-container .apple-checklist-item { padding: 4px 9px !important; }
+.hm-root .apple-attendance-container > .apple-action-buttons { padding: 10px 14px 12px !important; }
+
+/* Botón guardar dentro de la tarjeta */
+.hm-scroll > .apple-activities-container > form > button {
+  width: auto !important;
+  margin: 2px 14px 14px !important;
+  display: block;
+}
+.hm-scroll > .apple-activities-container > form > button.glass-button-registro { width: calc(100% - 28px) !important; }
+
+/* Mensaje de bloqueo dentro del contenedor */
+.hm-scroll > .apple-activities-container > .apple-warning-card { margin: 10px 14px 0 !important; }
+
+/* ---------- Anillo de carga del GPS ---------- */
+.apple-location-btn,
+.apple-location-wrapper { overflow: visible !important; }
+.apple-location-ring {
+  inset: -8px !important;
+  animation: apple-ring-rotate 0.9s linear infinite !important;
+  filter: drop-shadow(0 0 6px rgba(10, 103, 238, 0.45));
+}
+.apple-location-ring-bg {
+  stroke: rgba(10, 103, 238, 0.14) !important;
+  stroke-width: 4 !important;
+}
+.apple-location-ring-progress {
+  stroke: #0a67ee !important;
+  stroke-width: 4.5 !important;
+  stroke-linecap: round !important;
+  stroke-dasharray: 96 187 !important;
+}
+.apple-location-btn-loading { animation: hm-gps-breathe 1.6s ease-in-out infinite; }
+@keyframes hm-gps-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(0.96); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .apple-location-btn-loading { animation: none; }
 }
 
 </style>
