@@ -651,12 +651,13 @@
               <button
                 type="button"
                 @click="getUbicacionRegistro"
-                :disabled="!entradaMarcada || salidaMarcada"
+                :disabled="!entradaMarcada || salidaMarcada || obteniendoUbicacionRegistro"
                 class="apple-location-btn"
                 :class="{
+                  'apple-location-btn-loading': obteniendoUbicacionRegistro,
                   'apple-location-btn-disabled': !entradaMarcada || salidaMarcada,
-                  'apple-location-btn-success': latitudRegistro && longitudRegistro && entradaMarcada && !salidaMarcada,
-                  'apple-location-btn-default': entradaMarcada && !salidaMarcada && !latitudRegistro && !longitudRegistro
+                  'apple-location-btn-success': latitudRegistro && longitudRegistro && entradaMarcada && !salidaMarcada && !obteniendoUbicacionRegistro,
+                  'apple-location-btn-default': entradaMarcada && !salidaMarcada && !latitudRegistro && !longitudRegistro && !obteniendoUbicacionRegistro
                 }"
               >
                 <!-- Pulso de éxito -->
@@ -685,6 +686,7 @@
                 <span class="apple-location-title">
                   <span v-if="!entradaMarcada">Bloqueado</span>
                   <span v-else-if="salidaMarcada">Cerrado</span>
+                  <span v-else-if="obteniendoUbicacionRegistro">Obteniendo...</span>
                   <span v-else-if="latitudRegistro && longitudRegistro">Ubicación lista</span>
                   <span v-else>Obtener GPS</span>
                 </span>
@@ -1206,6 +1208,7 @@ const entradaMarcada = ref(false);
 const salidaMarcada = ref(false);
 const enviandoAsistencia = ref(false);
 const obteniendoUbicacion = ref(false);
+const obteniendoUbicacionRegistro = ref(false);
 const mensajeAsistencia = ref('');
 const datosEntrada = ref({});
 const datosSalida = ref({});
@@ -1796,6 +1799,7 @@ async function getUbicacionRegistro() {
   }
 
   error.value = null;
+  obteniendoUbicacionRegistro.value = true;
 
   try {
     console.log('🔍 Iniciando obtención de ubicación GPS para registro (funciona offline)...');
@@ -1908,6 +1912,8 @@ async function getUbicacionRegistro() {
       error.value = 'Registro con ubicación por defecto (modo offline).';
       setTimeout(() => error.value = null, 8000);
     }
+  } finally {
+    obteniendoUbicacionRegistro.value = false;
   }
 }
 
@@ -7898,28 +7904,32 @@ watch([entradaMarcada, salidaMarcada], () => {
 /* ---------- Anillo de carga del GPS ---------- */
 .apple-location-btn,
 .apple-location-wrapper { overflow: visible !important; }
-.apple-location-ring {
-  inset: -8px !important;
-  animation: apple-ring-rotate 0.9s linear infinite !important;
-  filter: drop-shadow(0 0 6px rgba(10, 103, 238, 0.45));
+.apple-location-ring { display: none !important; }
+.apple-location-btn-loading { animation: none !important; }
+.apple-location-btn-loading::before,
+.apple-location-btn-loading::after {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
+  pointer-events: none;
 }
-.apple-location-ring-bg {
-  stroke: rgba(10, 103, 238, 0.14) !important;
-  stroke-width: 4 !important;
+/* pista tenue */
+.apple-location-btn-loading::after {
+  border: 4px solid rgba(10, 103, 238, 0.14);
 }
-.apple-location-ring-progress {
-  stroke: #0a67ee !important;
-  stroke-width: 4.5 !important;
-  stroke-linecap: round !important;
-  stroke-dasharray: 96 187 !important;
+/* arco giratorio pegado al borde */
+.apple-location-btn-loading::before {
+  z-index: 1;
+  background: conic-gradient(from 0deg, rgba(10,103,238,0) 0deg, rgba(10,103,238,0) 90deg, #3aa4ff 200deg, #0a67ee 330deg, rgba(10,103,238,0) 360deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 4px));
+  animation: hm-gps-spin 1s linear infinite;
+  will-change: transform;
 }
-.apple-location-btn-loading { animation: hm-gps-breathe 1.6s ease-in-out infinite; }
-@keyframes hm-gps-breathe {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(0.96); }
-}
+@keyframes hm-gps-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
-  .apple-location-btn-loading { animation: none; }
+  .apple-location-btn-loading::before { animation-duration: 2.4s; }
 }
 
 </style>
