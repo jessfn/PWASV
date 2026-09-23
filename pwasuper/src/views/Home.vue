@@ -191,69 +191,40 @@
           </button>
         </div>
 
-        <!-- Información importante sobre la jornada -->
-        <aside v-if="!modoAsistencia" class="hm-info">
-          <div class="hm-info__head">
-            <span class="hm-info__badge">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 8h.01M11 12h1v4h1" /></svg>
+        <!-- Mensaje de estado (sincronización / éxito / error): tarjeta con aire propio -->
+        <transition name="hm-toast">
+          <div v-if="mensajeAsistencia && !modoAsistencia" class="hm-toast" :class="'hm-toast--' + mensajeTipo" role="status" aria-live="polite">
+            <span class="hm-toast__icon">
+              <svg v-if="mensajeTipo === 'ok'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7" /></svg>
+              <svg v-else-if="mensajeTipo === 'error'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18L18 6M6 6l12 12" /></svg>
+              <i v-else-if="mensajeTipo === 'sync'" class="hm-toast__spin"></i>
+              <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8h.01M11 12h1v4h1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </span>
-            <div>
-              <h3 class="hm-info__title">Información Importante</h3>
-              <p class="hm-info__sub">Requisitos de jornada</p>
-            </div>
+            <span class="hm-toast__text">{{ mensajeAsistencia }}</span>
           </div>
+        </transition>
 
-          <ul class="hm-info__list">
-            <li>
-              <span class="hm-info__ico hm-info__ico--blue">
+        <!-- Información importante: dos notas rápidas -->
+        <aside v-if="!modoAsistencia" class="hm-notes" aria-label="Información importante">
+          <p class="hm-notes__label">Información importante</p>
+          <div class="hm-notes__grid">
+            <div class="hm-note hm-note--blue">
+              <span class="hm-note__ico">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               </span>
-              <div>
-                <strong>Registro de inicio requerido</strong>
-                <span>Debe registrar su inicio para acceder al módulo de actividades</span>
-              </div>
-            </li>
-            <li>
-              <span class="hm-info__ico hm-info__ico--red">
+              <strong>Inicio requerido</strong>
+              <span class="hm-note__txt">Regístralo para acceder al módulo de actividades</span>
+            </div>
+            <div class="hm-note hm-note--rose">
+              <span class="hm-note__ico">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               </span>
-              <div>
-                <strong>Cierre de jornada</strong>
-                <span>El registro de término finaliza el acceso del día actual</span>
-              </div>
-            </li>
-          </ul>
+              <strong>Cierre de jornada</strong>
+              <span class="hm-note__txt">El término finaliza el acceso del día actual</span>
+            </div>
+          </div>
         </aside>
         
-        <!-- Mensaje de estado de asistencia -->
-        <div v-if="mensajeAsistencia && !modoAsistencia" class="flex justify-center mb-3">
-          <transition name="fade-slide">
-            <div 
-              class="inline-flex items-center px-3 py-1.5 rounded-2xl text-xs font-medium shadow-sm border backdrop-blur-md"
-              :class="{
-                'bg-gradient-to-r from-emerald-50 to-green-50 text-emerald-700 border-emerald-200': mensajeAsistencia.includes('éxito') || mensajeAsistencia.includes('registrada') || mensajeAsistencia.includes('Sincronización exitosa'),
-                'bg-gradient-to-r from-red-50 to-rose-50 text-red-700 border-red-200': mensajeAsistencia.includes('Error') || mensajeAsistencia.includes('error'),
-                'bg-gradient-to-r from-slate-50 to-slate-100 text-slate-700 border-slate-300': mensajeAsistencia.includes('Sincronización') || mensajeAsistencia.includes('progreso'),
-                'bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-700 border-amber-200': mensajeAsistencia.includes('Ya') || mensajeAsistencia.includes('offline')
-              }"
-            >
-              <svg v-if="mensajeAsistencia.includes('éxito') || mensajeAsistencia.includes('registrada') || mensajeAsistencia.includes('Sincronización exitosa')" xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
-              </svg>
-              <svg v-else-if="mensajeAsistencia.includes('Error') || mensajeAsistencia.includes('error')" xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              <svg v-else-if="mensajeAsistencia.includes('Sincronización') || mensajeAsistencia.includes('progreso')" xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 mr-1.5 animate-spin text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span class="text-xs tracking-wide">{{ mensajeAsistencia }}</span>
-            </div>
-          </transition>
-        </div>
-
         <!-- Formulario de Asistencia (solo visible en modo asistencia) -->
         <div v-if="modoAsistencia" class="apple-attendance-container mt-2 pt-2">
           <!-- Header estilo Apple -->
@@ -1334,6 +1305,16 @@ const horaSalidaTexto = computed(() => {
   if (!salidaMarcada.value) return entradaMarcada.value ? 'En curso' : 'Bloqueado';
   if (asistenciaHoy.value && asistenciaHoy.value.salida) return formatearHora(asistenciaHoy.value.salida);
   return datosSalida.value?.hora || 'Registrada';
+});
+
+// Tipo visual del mensaje de estado (éxito / error / sincronizando / aviso / info)
+const mensajeTipo = computed(() => {
+  const m = mensajeAsistencia.value || '';
+  if (/error/i.test(m)) return 'error';
+  if (/[ée]xito|exitosa|registrada|completada/i.test(m)) return 'ok';
+  if (/sincroniz|progreso/i.test(m)) return 'sync';
+  if (/^ya|offline|sin conexi/i.test(m)) return 'warn';
+  return 'info';
 });
 
 // Posición del "pulgar" del control segmentado (null = ninguno activo)
@@ -7467,5 +7448,271 @@ watch([entradaMarcada, salidaMarcada], () => {
 @media (min-width: 768px) {
   .hm-scroll > .apple-activities-container { max-width: 36rem; }
 }
+
+/* =====================================================================
+   v3: notas informativas, mensaje de estado y formulario de asistencia
+   ===================================================================== */
+
+/* ---------- Mensaje de estado (toast en línea) ---------- */
+.hm-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 0;
+  padding: 10px 14px 10px 10px;
+  border-radius: 16px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.3;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  color: #334155;
+  box-shadow: 0 10px 22px -14px rgba(15, 42, 26, 0.45);
+}
+.hm-toast__icon {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #475569;
+}
+.hm-toast__icon svg { width: 14px; height: 14px; }
+.hm-toast__spin {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2.5px solid currentColor;
+  border-top-color: transparent;
+  animation: hm-rotate 0.8s linear infinite;
+}
+.hm-toast--ok { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+.hm-toast--ok .hm-toast__icon { background: #22c55e; color: #fff; }
+.hm-toast--error { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+.hm-toast--error .hm-toast__icon { background: #ef4444; color: #fff; }
+.hm-toast--sync { background: #f0f9ff; border-color: #bae6fd; color: #0c4a6e; }
+.hm-toast--sync .hm-toast__icon { background: #0ea5e9; color: #fff; }
+.hm-toast--warn { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+.hm-toast--warn .hm-toast__icon { background: #f59e0b; color: #fff; }
+
+.hm-toast-enter-active, .hm-toast-leave-active { transition: opacity 0.25s ease, transform 0.25s ease; }
+.hm-toast-enter-from, .hm-toast-leave-to { opacity: 0; transform: translateY(-6px); }
+
+/* ---------- Información importante: dos notas ---------- */
+.hm-notes { margin-top: 16px; }
+.hm-notes__label {
+  margin: 0 2px 8px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #6b7f74;
+}
+.hm-notes__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.hm-note {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 11px 12px 12px;
+  border-radius: 16px;
+  border: 1px solid transparent;
+}
+.hm-note strong { font-size: 0.74rem; line-height: 1.2; color: #0f172a; }
+.hm-note__txt { font-size: 0.64rem; line-height: 1.3; color: #64748b; }
+.hm-note__ico {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  margin-bottom: 3px;
+}
+.hm-note__ico svg { width: 13px; height: 13px; }
+.hm-note--blue { background: linear-gradient(160deg, #eff6ff, #f8fbff); border-color: #dbeafe; }
+.hm-note--blue .hm-note__ico { background: #dbeafe; color: #1d4ed8; }
+.hm-note--rose { background: linear-gradient(160deg, #fff1f2, #fff8f8); border-color: #ffe4e6; }
+.hm-note--rose .hm-note__ico { background: #ffe4e6; color: #be123c; }
+
+@media (max-width: 340px) {
+  .hm-notes__grid { grid-template-columns: 1fr; }
+}
+
+/* ---------- Formulario de ASISTENCIA (Inicio / Término) ---------- */
+.hm-root .glass-card-blue,
+.hm-root .glass-card-red {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  overflow: visible !important;
+}
+.hm-root .glass-card-blue::before,
+.hm-root .glass-card-red::before { display: none !important; }
+
+.apple-attendance-container {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px !important;
+}
+.apple-attendance-container::before { display: none !important; }
+.apple-attendance-container > * { margin-top: 0 !important; margin-bottom: 0 !important; }
+
+.apple-attendance-container > .apple-header-card {
+  padding: 11px 14px !important;
+  border-radius: 16px !important;
+}
+.apple-attendance-container > .apple-header-entrada {
+  background: linear-gradient(135deg, #3aa4ff 0%, #0a67ee 100%) !important;
+  box-shadow: 0 12px 22px -12px rgba(10, 103, 238, 0.7) !important;
+}
+.apple-attendance-container > .apple-header-salida {
+  background: linear-gradient(135deg, #ff5c7c 0%, #d31b48 100%) !important;
+  box-shadow: 0 12px 22px -12px rgba(211, 27, 72, 0.7) !important;
+}
+.apple-attendance-container .apple-header-title { font-size: 0.95rem !important; letter-spacing: 0 !important; }
+
+.apple-attendance-container > .apple-user-card {
+  padding: 9px 12px !important;
+  border-radius: 16px !important;
+  background: #fff !important;
+  border: 1px solid #e8eef7 !important;
+  box-shadow: 0 6px 16px -10px rgba(15, 42, 26, 0.35) !important;
+}
+
+/* Pasos 2-3 (el 1, Ubicación, conserva su diseño) */
+.apple-attendance-container > .apple-step-card:not(:nth-of-type(1)) {
+  background: #fff !important;
+  border: 1px solid #e8eef7 !important;
+  border-radius: 18px !important;
+  padding: 14px !important;
+  box-shadow: 0 8px 20px -14px rgba(15, 42, 26, 0.4) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.apple-attendance-container > .apple-step-card:not(:nth-of-type(1)) .apple-step-number {
+  width: 26px;
+  height: 26px;
+  border-radius: 9px !important;
+  background: #e0f2fe !important;
+  color: #0a55c4 !important;
+  box-shadow: none !important;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+.apple-attendance-container > .apple-step-card:not(:nth-of-type(1)) .apple-step-title {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #0f2a1a;
+}
+
+.apple-attendance-container .apple-textarea,
+.apple-attendance-container .apple-input {
+  border: 1.5px solid #dbe6f5 !important;
+  background: #f8fbff !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+.apple-attendance-container .apple-textarea:focus,
+.apple-attendance-container .apple-input:focus {
+  outline: none !important;
+  border-color: #3aa4ff !important;
+  box-shadow: 0 0 0 3px rgba(58, 164, 255, 0.18) !important;
+}
+
+/* Botones de foto */
+.apple-attendance-container .apple-photo-btn {
+  background: #f8fbff !important;
+  border: 1.5px solid #dbe6f5 !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+  color: #0a55c4 !important;
+}
+.apple-attendance-container .apple-photo-btn:active { background: #eaf3ff !important; }
+.apple-attendance-container .apple-photo-btn-icon { background: #e0f2fe !important; color: #0a67ee !important; border: 0 !important; }
+.apple-attendance-container .apple-photo-btn-title { color: #0f2a1a !important; font-weight: 700; }
+.apple-attendance-container .apple-photo-btn-subtitle { color: #64748b !important; }
+
+/* Checklist: chips */
+.apple-attendance-container .apple-checklist-card {
+  background: #fff !important;
+  border: 1.5px dashed #bcd3f0 !important;
+  border-radius: 16px !important;
+  padding: 11px 12px !important;
+  box-shadow: none !important;
+}
+.apple-attendance-container .apple-checklist-header { margin-bottom: 8px !important; }
+.apple-attendance-container .apple-checklist-icon { background: #e0f2fe !important; color: #0a55c4 !important; box-shadow: none !important; }
+.apple-attendance-container .apple-checklist-title { color: #0a3d8f !important; font-size: 0.8rem !important; }
+.apple-attendance-container .apple-checklist-items { display: flex !important; flex-wrap: wrap; gap: 6px !important; }
+.apple-attendance-container .apple-checklist-item {
+  flex: 0 0 auto;
+  width: auto !important;
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px !important;
+  border-radius: 999px !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  background: #f4f4f5 !important;
+  color: #71717a !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+.apple-attendance-container .apple-checklist-done { background: #dcfce7 !important; color: #166534 !important; }
+.apple-attendance-container .apple-checklist-check { width: 14px !important; height: 14px !important; }
+
+.apple-attendance-container .apple-ready-card {
+  background: #f0fdf4 !important;
+  border: 1px solid #bbf7d0 !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+  padding: 10px !important;
+}
+
+/* Botones de acción */
+.apple-attendance-container .apple-action-buttons { display: flex; gap: 10px; }
+.apple-attendance-container .apple-btn-cancel {
+  flex: 0 0 34%;
+  border-radius: 16px !important;
+  padding: 14px 10px !important;
+  font-weight: 700 !important;
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+.apple-attendance-container .apple-btn-submit {
+  flex: 1 1 auto;
+  border: 0 !important;
+  border-radius: 16px !important;
+  padding: 14px !important;
+  font-weight: 800 !important;
+  color: #fff !important;
+}
+.apple-attendance-container .apple-btn-entrada {
+  background: linear-gradient(135deg, #3aa4ff, #0a67ee) !important;
+  box-shadow: 0 14px 24px -12px rgba(10, 103, 238, 0.75) !important;
+}
+.apple-attendance-container .apple-btn-salida {
+  background: linear-gradient(135deg, #ff5c7c, #d31b48) !important;
+  box-shadow: 0 14px 24px -12px rgba(211, 27, 72, 0.75) !important;
+}
+.apple-attendance-container .apple-btn-disabled { filter: saturate(0.5); opacity: 0.55; box-shadow: none !important; }
+
+/* Aire consistente en el formulario de Actividades */
+.hm-scroll > .apple-activities-container { margin-top: 14px !important; }
 
 </style>
