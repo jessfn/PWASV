@@ -556,6 +556,7 @@ const currentUserId = computed(() => {
       pantalla completa + un degradado animado: muy costoso en gama baja.)
     -->
     <div class="app-bg fullscreen-layer" aria-hidden="true"></div>
+    <div v-if="isLoggedIn" class="top-fade" aria-hidden="true"></div>
 
     <!-- Modal de cuenta desactivada -->
     <AccountDeactivatedModal 
@@ -873,13 +874,13 @@ const currentUserId = computed(() => {
   background: #e8f8ee;
 }
 
-.app-bg::before {
-  content: "";
-  position: absolute;
+.top-fade {
+  position: fixed;
   top: 0; left: 0; right: 0;
-  height: calc(env(safe-area-inset-top, 0px) + 64px);
-  background: linear-gradient(180deg, #ffffff 0%, #ffffff calc(env(safe-area-inset-top, 0px) * 0.6), rgba(255, 255, 255, 0.7) calc(env(safe-area-inset-top, 0px) + 12px), rgba(255, 255, 255, 0) 100%);
-  height: calc(env(safe-area-inset-top, 0px) + 90px);
+  z-index: 35;
+  pointer-events: none;
+  height: calc(env(safe-area-inset-top, 0px) + 56px);
+  background: linear-gradient(180deg, #ffffff 0%, #ffffff calc(env(safe-area-inset-top, 0px) * 0.75), rgba(255,255,255,0.75) calc(env(safe-area-inset-top, 0px) + 10px), rgba(255,255,255,0) 100%);
 }
 .app-bg {
   z-index: 0;
