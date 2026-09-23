@@ -549,31 +549,13 @@ const currentUserId = computed(() => {
 </script>
 
 <template>
-  <div class="min-h-screen liquid-glass-bg relative fullscreen-bg">
-    <!-- Fondo de vidrio líquido con burbujas verdes -->
-    <div class="absolute inset-0 z-0 fullscreen-layer">
-      <!-- Degradado base blanco-verde más intenso -->
-      <div class="absolute inset-0 bg-gradient-to-br from-green-50 via-emerald-100 to-green-200"></div>
-      
-      <!-- Burbujas verdes grandes flotantes -->
-      <div class="absolute top-10 left-10 w-64 h-64 bg-green-300/40 rounded-full filter blur-3xl animate-bubble-float-1"></div>
-      <div class="absolute top-32 right-20 w-48 h-48 bg-emerald-300/35 rounded-full filter blur-3xl animate-bubble-float-2"></div>
-      <div class="absolute bottom-20 left-32 w-56 h-56 bg-teal-300/40 rounded-full filter blur-3xl animate-bubble-float-3"></div>
-      <div class="absolute bottom-40 right-16 w-40 h-40 bg-green-400/35 rounded-full filter blur-2xl animate-bubble-float-4"></div>
-      <div class="absolute top-1/2 left-1/3 w-52 h-52 bg-emerald-400/30 rounded-full filter blur-3xl animate-bubble-float-5"></div>
-      
-      <!-- Burbujas pequeñas dispersas -->
-      <div class="absolute top-1/4 right-1/4 w-24 h-24 bg-green-300/50 rounded-full filter blur-xl animate-bubble-rise-1"></div>
-      <div class="absolute top-2/3 left-1/5 w-32 h-32 bg-emerald-300/45 rounded-full filter blur-xl animate-bubble-rise-2"></div>
-      <div class="absolute bottom-1/3 right-1/3 w-28 h-28 bg-teal-300/50 rounded-full filter blur-xl animate-bubble-rise-3"></div>
-      
-      <!-- Capa de vidrio líquido con brillo -->
-      <div class="absolute inset-0 bg-white/15 backdrop-blur-sm"></div>
-      
-      <!-- Reflejos de luz animados -->
-      <div class="absolute top-0 left-0 right-0 h-64 bg-gradient-to-b from-white/40 to-transparent animate-shimmer-slow"></div>
-      <div class="absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-t from-green-200/40 to-transparent animate-pulse-gentle"></div>
-    </div>
+  <div class="app-root relative fullscreen-bg">
+    <!--
+      Fondo ligero: UNA sola capa estática con degradados radiales.
+      (Antes eran 8 blobs con filter:blur animados + un backdrop-blur de
+      pantalla completa + un degradado animado: muy costoso en gama baja.)
+    -->
+    <div class="app-bg fullscreen-layer" aria-hidden="true"></div>
 
     <!-- Modal de cuenta desactivada -->
     <AccountDeactivatedModal 
@@ -600,12 +582,13 @@ const currentUserId = computed(() => {
       @close="showWelcome = false"
     />
 
-    <!-- Indicador de estado de conexión -->
-    <ConnectivityStatus :show="route.name === 'Home' && !showMobileMenu" />
-
-    <!-- Header móvil con menú hamburguesa -->
-    <header v-if="isLoggedIn" class="header-decorative bg-green-800 shadow-sm border-b border-gray-200 fixed top-0 left-0 right-0 z-40 mx-2 mt-2" :class="showMobileMenu ? 'rounded-t-3xl' : 'rounded-3xl'">
-      <div class="max-w-sm mx-auto px-3 py-2">
+    <!--
+      Bloque superior fijo (una sola pieza): barra verde + franja de
+      conexión pegada debajo + menú desplegable anclado a su borde.
+    -->
+    <div v-if="isLoggedIn" class="app-top" :class="{ 'is-open': showMobileMenu }">
+    <header class="app-header header-decorative">
+      <div class="app-header__bar px-3 py-2">
         <div class="flex items-center justify-between">
           <div class="flex items-center min-w-0 flex-1 pr-2">
             <!-- Icono de plantita con contorno neón -->
@@ -668,13 +651,17 @@ const currentUserId = computed(() => {
           </div>
         </div>
       </div>
+
+      <!-- Franja de estado de conexión: parte del mismo bloque verde.
+           Solo en Home (las demás vistas reservan solo el alto de la barra). -->
+      <ConnectivityStatus :show="route.name === 'Home'" />
     </header>
 
-    <!-- Menú desplegable móvil -->
+    <!-- Menú desplegable móvil (anclado al borde inferior del header) -->
     <Transition name="menu-slide">
-      <div 
-        v-if="isLoggedIn && showMobileMenu" 
-        class="fixed top-[60px] inset-x-0 z-30 bg-green-800 shadow-lg rounded-b-3xl mx-2"
+      <div
+        v-if="showMobileMenu"
+        class="app-menu"
       >
         <div class="px-2 py-3">
           <nav class="space-y-1">
@@ -811,16 +798,17 @@ const currentUserId = computed(() => {
         </div>
       </div>
     </transition>
+    </div>
 
-    <!-- Overlay para cerrar el menú con efecto de difuminado -->
-    <div 
+    <!-- Overlay para cerrar el menú (sin backdrop-blur: pantalla completa = costoso) -->
+    <div
       v-if="isLoggedIn && showMobileMenu"
       @click="closeMobileMenu"
-      class="fixed inset-0 bg-black/40 backdrop-blur-sm z-20 transition-all duration-300"
+      class="fixed inset-0 bg-black/45 z-20 transition-opacity duration-200"
     ></div>
 
     <!-- Contenido principal -->
-    <main class="main-content relative z-10" :style="{ paddingTop: isLoggedIn ? '120px' : '0' }">
+    <main class="main-content relative z-10" :style="{ paddingTop: isLoggedIn ? 'calc(120px + env(safe-area-inset-top, 0px))' : '0' }">
       <router-view v-slot="{ Component }">
         <transition name="fade" mode="out-in">
           <component :is="Component" />
@@ -877,6 +865,61 @@ const currentUserId = computed(() => {
 
 .text-apple-green-dark {
   color: #5DB33C;
+}
+
+/* ===== Fondo ligero de la app (una sola capa estática) ===== */
+.app-root {
+  background: #e8f8ee;
+}
+
+.app-bg {
+  z-index: 0;
+  pointer-events: none;
+  contain: strict;
+  background:
+    radial-gradient(60% 38% at 14% 6%, rgba(74, 222, 128, 0.30), transparent 70%),
+    radial-gradient(55% 38% at 92% 28%, rgba(45, 212, 191, 0.22), transparent 70%),
+    radial-gradient(70% 45% at 28% 96%, rgba(52, 211, 153, 0.30), transparent 70%),
+    linear-gradient(160deg, #f0fdf4 0%, #dcfce7 45%, #bbf7d0 100%);
+}
+
+/* ===== Bloque superior fijo: header + franja de conexión + menú ===== */
+.app-top {
+  position: fixed;
+  z-index: 40;
+  top: calc(env(safe-area-inset-top, 0px) + 8px);
+  left: 8px;
+  right: 8px;
+  max-width: 32rem;
+  margin-inline: auto;
+}
+
+@media (min-width: 768px) {
+  .app-top { max-width: 36rem; }
+}
+
+.app-header {
+  border-radius: 24px;
+  background: linear-gradient(135deg, #006400 0%, #0a7413 100%);
+  box-shadow: 0 8px 20px rgba(0, 70, 12, 0.28), 0 1px 0 rgba(255, 255, 255, 0.12) inset;
+  transition: border-radius 0.25s ease;
+}
+
+.app-top.is-open .app-header {
+  border-radius: 24px 24px 0 0;
+}
+
+.app-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: calc(100dvh - 130px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: #075a12;
+  border-radius: 0 0 24px 24px;
+  box-shadow: 0 18px 32px rgba(0, 0, 0, 0.28);
 }
 
 /* Patrón decorativo para el header con hojas */
@@ -967,21 +1010,6 @@ body {
 
 /* ====== LIQUID GLASS BACKGROUND ====== */
 
-/* Fondo principal liquid glass */
-.liquid-glass-bg {
-  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 35%, #6ee7b7 70%, #34d399 100%);
-  background-size: 400% 400%;
-  animation: liquid-gradient 20s ease infinite;
-}
-
-@keyframes liquid-gradient {
-  0%, 100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-}
 
 /* Animaciones de burbujas flotantes grandes */
 @keyframes bubble-float-1 {
@@ -1222,6 +1250,18 @@ body {
   30% {
     filter: brightness(1) drop-shadow(0 0 1px rgba(255, 255, 255, 0.3));
     transform: scale(1);
+  }
+}
+
+/* Respeta "reducir movimiento" del sistema: menos CPU/batería en campo */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }
 </style>
