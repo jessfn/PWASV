@@ -7976,10 +7976,10 @@ watch([entradaMarcada, salidaMarcada], () => {
 </style>
 
 <style scoped>
-.hm-root .hm-section-head { text-align: center; padding: 6px 4px 8px; }
+.hm-root .hm-section-head { text-align: center; padding: 0 4px 2px; margin-top: -6px; }
 .hm-root .hm-h2 {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   background: linear-gradient(135deg, #14532d 0%, #16a34a 100%);
@@ -7993,8 +7993,8 @@ watch([entradaMarcada, salidaMarcada], () => {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  margin: 3px 0 0;
-  font-size: 0.72rem;
+  margin: 1px 0 0;
+  font-size: 0.68rem;
   font-weight: 600;
   color: #5f7a6b;
 }
@@ -8006,4 +8006,8 @@ watch([entradaMarcada, salidaMarcada], () => {
   background: linear-gradient(90deg, transparent, rgba(22, 163, 74, 0.5));
 }
 .hm-root .hm-hint::after { transform: scaleX(-1); }
+</style>
+
+<style scoped>
+.hm-root .hm-actions { margin-top: 0; }
 </style>
