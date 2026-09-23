@@ -1,73 +1,85 @@
 <template>
-  <div class="fixed inset-0 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 overflow-hidden">
-    <!-- Elementos decorativos para efecto de vidrio -->
-    <div class="absolute inset-0 pointer-events-none">
-      <div class="absolute top-1/4 left-1/4 w-72 h-72 bg-green-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-pulse-slow"></div>
-      <div class="absolute top-3/4 right-1/4 w-72 h-72 bg-emerald-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-pulse-slow" style="animation-delay: 2s;"></div>
-      <div class="absolute bottom-1/4 left-1/3 w-72 h-72 bg-teal-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-pulse-slow" style="animation-delay: 4s;"></div>
-    </div>
-    
-    <div class="absolute inset-0 overflow-y-auto pt-[7rem] pb-8">
-      <div class="page-container w-full max-w-lg mx-auto relative z-10 px-2 space-y-2">
-      <!-- Botones de selección de sección -->
-      <div v-if="!modoAsistencia" class="glass-card">
-        <div class="text-center mb-3">
-          <h1 class="text-xl font-medium text-yellow-600 title-shine" style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; letter-spacing: 0.05em; margin-bottom: -2px;">
-            <span style="--char-index: 0">P</span><span style="--char-index: 1">a</span><span style="--char-index: 2">n</span><span style="--char-index: 3">e</span><span style="--char-index: 4">l</span><span class="space-char" style="--char-index: 5"> </span><span style="--char-index: 6">d</span><span style="--char-index: 7">e</span><span class="space-char" style="--char-index: 8"> </span><span style="--char-index: 9">R</span><span style="--char-index: 10">e</span><span style="--char-index: 11">g</span><span style="--char-index: 12">i</span><span style="--char-index: 13">s</span><span style="--char-index: 14">t</span><span style="--char-index: 15">r</span><span style="--char-index: 16">o</span>
-          </h1>
-          <p class="text-[9px] font-semibold tracking-widest uppercase mb-2" style="color: #EAB308;">Herramienta de apoyo</p>
-          <div class="yellow-line mx-auto mb-1.5"></div>
-          <p class="text-xs text-gray-500 mb-3">Selecciona el tipo de registro que deseas realizar</p>
-          
-          <!-- Botones de navegación entre secciones -->
-          <div class="flex gap-2 section-nav-container p-1 rounded-full items-center">
-            <button
-              @click="seccionActiva = 'asistencia'"
-              :class="[
-                'section-nav-button flex-1 px-4 py-2 text-sm font-medium rounded-full transition-all duration-300',
-                seccionActiva === 'asistencia' 
-                  ? 'active text-white shadow-lg' 
-                  : 'text-gray-600 hover:bg-white/30'
-              ]"
-              :style="seccionActiva === 'asistencia' ? 'background-color: rgb(30, 144, 255);' : ''"
-            >
-              <div class="flex items-center justify-center space-x-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>Registro</span>
-              </div>
-            </button>
-            
-            <button
-              @click="(!entradaMarcada || salidaMarcada) ? mostrarModalActividadesBloqueadas() : (seccionActiva = 'actividades')"
-              :disabled="false"
-              :class="[
-                'section-nav-button flex-1 px-4 py-2 text-sm font-medium rounded-full transition-all duration-300',
-                seccionActiva === 'actividades' && entradaMarcada && !salidaMarcada
-                  ? 'active text-white shadow-lg' 
-                  : (!entradaMarcada || salidaMarcada)
-                    ? 'bg-gray-200 text-gray-500 cursor-pointer'
-                    : 'text-gray-600 hover:bg-white/30'
-              ]"
-              :style="seccionActiva === 'actividades' && entradaMarcada && !salidaMarcada ? 'background-color: rgb(147, 51, 234);' : ''"
-            >
-              <div class="flex items-center justify-center space-x-2">
-                <!-- Icono de actividades siempre visible -->
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-                <span>Actividades</span>
-              </div>
-            </button>
+  <div class="hm-root">
+    <div class="hm-bg" aria-hidden="true"></div>
+
+    <div class="hm-scroll">
+      <div class="hm-container">
+
+      <!-- Panel de registro: título, progreso de la jornada y selector de sección -->
+      <section v-if="!modoAsistencia" class="hm-panel">
+        <header class="hm-panel__head">
+          <div class="hm-panel__titles">
+            <span class="hm-eyebrow">Herramienta de apoyo</span>
+            <h1 class="hm-title">Panel de Registro</h1>
+            <p class="hm-sub">Selecciona el tipo de registro que deseas realizar</p>
           </div>
-          
-          <!-- Etiqueta BLOQUEADO centrada debajo de los botones -->
-          <div v-if="!entradaMarcada || salidaMarcada" class="flex justify-end mt-0.5 mr-1">
-            <span class="bg-gray-600 text-white text-[7px] font-semibold tracking-wider px-2 rounded-b-lg" style="padding-top: 1px; padding-bottom: 2px;">BLOQUEADO</span>
-          </div>
+          <span class="hm-chip" :class="'hm-chip--' + estadoJornada.key">
+            <i class="hm-chip__dot"></i>{{ estadoJornada.texto }}
+          </span>
+        </header>
+
+        <!-- Progreso de la jornada: Inicio → Actividades → Término -->
+        <ol class="hm-steps" aria-label="Progreso de la jornada">
+          <li class="hm-step" :class="{ 'is-done': entradaMarcada, 'is-current': !entradaMarcada }">
+            <span class="hm-step__dot">
+              <svg v-if="entradaMarcada" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7" /></svg>
+              <template v-else>1</template>
+            </span>
+            <span class="hm-step__name">Inicio</span>
+            <span class="hm-step__meta">{{ horaEntradaTexto }}</span>
+          </li>
+
+          <li class="hm-step" :class="{ 'is-done': salidaMarcada, 'is-current': actividadesDisponibles, 'is-locked': !entradaMarcada }">
+            <span class="hm-step__dot">
+              <svg v-if="salidaMarcada" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7" /></svg>
+              <svg v-else-if="!entradaMarcada" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 018 0v4" /></svg>
+              <template v-else>2</template>
+            </span>
+            <span class="hm-step__name">Actividades</span>
+            <span class="hm-step__meta">{{ !entradaMarcada ? 'Bloqueado' : (salidaMarcada ? 'Cerradas' : 'Disponible') }}</span>
+          </li>
+
+          <li class="hm-step" :class="{ 'is-done': salidaMarcada, 'is-current': actividadesDisponibles, 'is-locked': !entradaMarcada }">
+            <span class="hm-step__dot">
+              <svg v-if="salidaMarcada" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7" /></svg>
+              <svg v-else-if="!entradaMarcada" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 018 0v4" /></svg>
+              <template v-else>3</template>
+            </span>
+            <span class="hm-step__name">Término</span>
+            <span class="hm-step__meta">{{ horaSalidaTexto }}</span>
+          </li>
+        </ol>
+
+        <!-- Selector de sección (Registro | Actividades) -->
+        <div class="hm-segment" role="tablist" :data-active="segmentoActivo || 'none'">
+          <span class="hm-segment__thumb" aria-hidden="true"></span>
+
+          <button
+            type="button"
+            role="tab"
+            class="hm-segment__btn"
+            :class="{ 'is-active': segmentoActivo === 'registro' }"
+            :aria-selected="segmentoActivo === 'registro'"
+            @click="seccionActiva = 'asistencia'"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <span>Registro</span>
+          </button>
+
+          <button
+            type="button"
+            role="tab"
+            class="hm-segment__btn"
+            :class="{ 'is-active': segmentoActivo === 'actividades', 'is-locked': !actividadesDisponibles }"
+            :aria-selected="segmentoActivo === 'actividades'"
+            @click="(!entradaMarcada || salidaMarcada) ? mostrarModalActividadesBloqueadas() : (seccionActiva = 'actividades')"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+            <span>Actividades</span>
+            <svg v-if="!actividadesDisponibles" class="hm-segment__lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 018 0v4" /></svg>
+          </button>
         </div>
-      </div>
+      </section>
 
       <!-- Sistema de Asistencia Integrado -->
       <div v-if="seccionActiva === 'asistencia' || modoAsistencia" :class="modoAsistencia ? (tipoAsistencia === 'entrada' ? 'glass-card-blue relative px-0 py-2' : 'glass-card-red relative px-0 py-2') : 'relative px-0 py-2'">
@@ -83,224 +95,135 @@
           </svg>
         </button>
         
-        <div class="text-center mb-2">
-          <h2 class="text-xl font-semibold text-green-700 mb-1" style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; letter-spacing: -0.02em;">Control de Jornada</h2>
-          <p class="text-xs text-gray-500">
+        <div class="hm-section-head" :class="{ 'is-center': modoAsistencia }">
+          <h2 class="hm-h2">Control de Jornada</h2>
+          <p class="hm-hint">
             {{ modoAsistencia ? 'Completa los datos para ' + (tipoAsistencia === 'entrada' ? 'registro de inicio' : 'registro de término') : 'Registra tu inicio y término de jornada' }}
           </p>
         </div>
 
-        <!-- Botones de Asistencia (solo visibles cuando no está en modo asistencia) -->
-        <div v-if="!modoAsistencia" class="flex gap-3 mb-2">
-        <!-- Botón Marcar Entrada -->
-        <button
-          @click="mostrarModalEntrada"
-          :disabled="entradaMarcada || verificandoAsistencia"
-          class="relative overflow-hidden rounded-2xl transition-all duration-300 transform min-h-[200px] flex-1 flex flex-col items-center justify-center p-4"
-          :class="{
-            'text-white shadow-xl hover:scale-[1.02] active:scale-[0.98]': !entradaMarcada && !verificandoAsistencia,
-            'bg-gradient-to-b from-gray-50 to-gray-100 text-gray-500 cursor-not-allowed border border-gray-200': entradaMarcada || verificandoAsistencia
-          }"
-          :style="!entradaMarcada && !verificandoAsistencia ? 'background: linear-gradient(135deg, rgb(30, 144, 255) 0%, rgb(0, 119, 230) 100%); box-shadow: 0 10px 30px rgba(30, 144, 255, 0.5);' : ''"
-        >
-          <!-- Efecto de burbujas de vidrio flotantes -->
-          <div v-if="!entradaMarcada && !verificandoAsistencia" class="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl">
-            <!-- Burbuja 1 -->
-            <div class="absolute w-20 h-20 rounded-full bg-white/10 backdrop-blur-sm animate-bubble-1" style="left: 10%; bottom: -20%;"></div>
-            <!-- Burbuja 2 -->
-            <div class="absolute w-14 h-14 rounded-full bg-white/15 backdrop-blur-sm animate-bubble-2" style="left: 60%; bottom: -15%;"></div>
-            <!-- Burbuja 3 -->
-            <div class="absolute w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm animate-bubble-3" style="left: 35%; bottom: -10%;"></div>
-            <!-- Burbuja 4 -->
-            <div class="absolute w-16 h-16 rounded-full bg-white/12 backdrop-blur-sm animate-bubble-4" style="left: 80%; bottom: -18%;"></div>
-            <!-- Brillo superior suave -->
-            <div class="absolute top-0 left-0 right-0 h-1/3 bg-gradient-to-b from-white/20 to-transparent"></div>
-          </div>
-          
-          <div v-if="verificandoAsistencia" class="absolute inset-0 bg-white bg-opacity-20 flex items-center justify-center rounded-2xl z-10">
-            <div class="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-current"></div>
-          </div>
-          
-          <!-- Estado: No marcada - Activo -->
-          <template v-if="!entradaMarcada && !verificandoAsistencia">
-            <div class="relative z-10 flex flex-col items-center">
-              <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-white/25 flex items-center justify-center mb-3 backdrop-blur-sm shadow-lg border border-white/30">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 sm:h-9 sm:w-9" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-              </div>
-              <span class="font-bold text-base sm:text-lg tracking-wide leading-tight text-center">Registro de Inicio</span>
-              <span class="text-xs sm:text-sm opacity-90 mt-0.5">Inicia tu jornada</span>
-            </div>
-          </template>
-          
-          <!-- Estado: Marcada - Completada -->
-          <template v-else-if="entradaMarcada">
-            <div class="flex flex-col items-center pb-8">
-              <div class="w-14 h-14 sm:w-16 sm:h-16 bg-blue-500 rounded-full flex items-center justify-center mb-3 shadow-lg">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 sm:h-8 sm:w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <span class="font-bold text-sm sm:text-base text-gray-700 leading-tight text-center">Inicio Registrado</span>
-              <span class="text-sm text-gray-500 mt-1">
-                <span v-if="asistenciaHoy && asistenciaHoy.entrada">
-                  {{ formatearHora(asistenciaHoy.entrada) }}
-                </span>
-                <span v-else-if="datosEntrada.hora">
-                  {{ datosEntrada.hora }}
-                </span>
+        <!-- Acciones de jornada (solo visibles cuando no está en modo asistencia) -->
+        <div v-if="!modoAsistencia" class="hm-actions">
+
+          <!-- Registro de Inicio -->
+          <button
+            type="button"
+            class="hm-action hm-action--in"
+            :class="{
+              'is-available': !entradaMarcada && !verificandoAsistencia,
+              'is-done': entradaMarcada,
+              'is-loading': verificandoAsistencia
+            }"
+            :disabled="entradaMarcada || verificandoAsistencia"
+            @click="mostrarModalEntrada"
+          >
+            <span v-if="verificandoAsistencia" class="hm-action__loader" aria-label="Verificando"><i class="hm-spinner"></i></span>
+
+            <template v-if="!entradaMarcada">
+              <span class="hm-action__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
               </span>
-            </div>
-            <!-- Barra de Completado -->
-            <div class="absolute bottom-0 left-0 right-0 py-1.5 rounded-b-2xl" style="background-color: #d4a000;">
-              <span class="text-xs text-white font-bold tracking-wider">COMPLETADO</span>
-            </div>
-          </template>
-        </button>
-
-        <!-- Separador vertical decorativo -->
-        <div class="w-px bg-gradient-to-b from-transparent via-gray-300 to-transparent self-stretch my-4"></div>
-
-        <!-- Botón Marcar Salida -->
-        <button
-          @click="mostrarModalSalida"
-          :disabled="!entradaMarcada || salidaMarcada || verificandoAsistencia"
-          class="relative overflow-hidden rounded-2xl transition-all duration-300 transform min-h-[200px] flex-1 flex flex-col items-center justify-center p-4"
-          :class="{
-            'text-white shadow-xl hover:scale-[1.02] active:scale-[0.98]': entradaMarcada && !salidaMarcada && !verificandoAsistencia,
-            'bg-gradient-to-b from-gray-50 to-gray-100 text-gray-500 cursor-not-allowed border border-gray-200': !entradaMarcada || salidaMarcada || verificandoAsistencia
-          }"
-          :style="entradaMarcada && !salidaMarcada && !verificandoAsistencia ? 'background: linear-gradient(135deg, rgb(220, 20, 60) 0%, rgb(180, 15, 50) 100%); box-shadow: 0 10px 30px rgba(220, 20, 60, 0.5);' : ''"
-        >
-          <!-- Efecto de burbujas de vidrio flotantes -->
-          <div v-if="entradaMarcada && !salidaMarcada && !verificandoAsistencia" class="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl">
-            <!-- Burbuja 1 -->
-            <div class="absolute w-20 h-20 rounded-full bg-white/10 backdrop-blur-sm animate-bubble-1" style="left: 10%; bottom: -20%;"></div>
-            <!-- Burbuja 2 -->
-            <div class="absolute w-14 h-14 rounded-full bg-white/15 backdrop-blur-sm animate-bubble-2" style="left: 60%; bottom: -15%;"></div>
-            <!-- Burbuja 3 -->
-            <div class="absolute w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm animate-bubble-3" style="left: 35%; bottom: -10%;"></div>
-            <!-- Burbuja 4 -->
-            <div class="absolute w-16 h-16 rounded-full bg-white/12 backdrop-blur-sm animate-bubble-4" style="left: 80%; bottom: -18%;"></div>
-            <!-- Brillo superior suave -->
-            <div class="absolute top-0 left-0 right-0 h-1/3 bg-gradient-to-b from-white/20 to-transparent"></div>
-          </div>
-          
-          <div v-if="verificandoAsistencia" class="absolute inset-0 bg-white bg-opacity-20 flex items-center justify-center rounded-2xl z-10">
-            <div class="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-current"></div>
-          </div>
-          
-          <!-- Estado: Activo para marcar salida -->
-          <template v-if="entradaMarcada && !salidaMarcada && !verificandoAsistencia">
-            <div class="relative z-10 flex flex-col items-center">
-              <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-white/25 flex items-center justify-center mb-3 backdrop-blur-sm shadow-lg border border-white/30">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 sm:h-9 sm:w-9" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-              </div>
-              <span class="font-bold text-base sm:text-lg tracking-wide leading-tight text-center">Registro de Término</span>
-              <span class="text-xs sm:text-sm opacity-90 mt-0.5">Finaliza tu jornada</span>
-            </div>
-          </template>
-          
-          <!-- Estado: Bloqueado (sin entrada) -->
-          <template v-else-if="!entradaMarcada">
-            <!-- Contenido centrado con padding inferior para la barra -->
-            <div class="flex flex-col items-center pb-10">
-              <div class="w-14 h-14 sm:w-16 sm:h-16 bg-gray-300 rounded-full flex items-center justify-center mb-2 shadow-inner">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 sm:h-8 sm:w-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-              </div>
-              <span class="font-bold text-sm sm:text-base text-gray-600 leading-tight text-center">Registro de Término</span>
-              <span class="text-xs sm:text-sm text-gray-500 mt-0.5">Primero registra tu inicio</span>
-            </div>
-            <!-- Barra de Bloqueado de lado a lado -->
-            <div class="absolute bottom-0 left-0 right-0 bg-gray-500 py-2 rounded-b-2xl">
-              <span class="text-sm text-white font-bold tracking-wider">BLOQUEADO</span>
-            </div>
-          </template>
-          
-          <!-- Estado: Salida completada -->
-          <template v-else-if="salidaMarcada">
-            <div class="flex flex-col items-center pb-8">
-              <div class="w-14 h-14 sm:w-16 sm:h-16 bg-red-500 rounded-full flex items-center justify-center mb-3 shadow-lg">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 sm:h-8 sm:w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <span class="font-bold text-sm sm:text-base text-gray-700 leading-tight text-center">Término Registrado</span>
-              <span class="text-xs sm:text-sm text-gray-500 mt-0.5">
-                <span v-if="asistenciaHoy && asistenciaHoy.salida">
-                  {{ formatearHora(asistenciaHoy.salida) }}
-                </span>
-                <span v-else-if="datosSalida.hora">
-                  {{ datosSalida.hora }}
-                </span>
+              <span class="hm-action__title">Registro de Inicio</span>
+              <span class="hm-action__sub">Inicia tu jornada</span>
+              <span class="hm-action__cta">
+                Registrar
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
               </span>
-            </div>
-            <!-- Barra de Completado -->
-            <div class="absolute bottom-0 left-0 right-0 py-1.5 rounded-b-2xl" style="background-color: #d4a000;">
-              <span class="text-xs text-white font-bold tracking-wider">COMPLETADO</span>
-            </div>
-          </template>
-        </button>
-      </div>
+            </template>
 
-        <!-- Aviso amigable sobre registro de asistencia -->
-        <div v-if="!modoAsistencia" class="text-center mb-2 relative">
-          <!-- Contenedor principal estilo empresarial -->
-          <div class="relative bg-white/95 backdrop-blur-lg rounded-xl shadow-lg border border-gray-200/50 overflow-hidden">
-            <!-- Barra lateral de acento -->
-            <div class="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-500 via-orange-500 to-red-500"></div>
-            
-            <!-- Contenido principal -->
-            <div class="relative p-4 pl-5">
-              <!-- Header con icono y título -->
-              <div class="flex items-center gap-3 mb-3 pb-3 border-b border-gray-200/60">
-                <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-gradient-to-br from-amber-50 to-orange-50 flex items-center justify-center border border-amber-200/50 shadow-sm">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div class="flex-1 text-left">
-                  <h3 class="text-sm font-bold text-gray-800 tracking-tight">Información Importante</h3>
-                  <p class="text-[10px] text-gray-500 font-medium mt-0.5">Requisitos de jornada</p>
-                </div>
-              </div>
-              
-              <!-- Lista de información -->
-              <div class="space-y-2.5">
-                <!-- Item 1 -->
-                <div class="flex items-start gap-3 group">
-                  <div class="flex-shrink-0 mt-0.5 w-6 h-6 rounded-md bg-blue-50 flex items-center justify-center border border-blue-200/50 group-hover:bg-blue-100 transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div class="flex-1 text-left">
-                    <p class="text-xs font-semibold text-gray-700 leading-tight">Registro de inicio requerido</p>
-                    <p class="text-[10px] text-gray-500 mt-0.5 leading-relaxed">Debe registrar su inicio para acceder al módulo de actividades</p>
-                  </div>
-                </div>
-                
-                <!-- Item 2 -->
-                <div class="flex items-start gap-3 group">
-                  <div class="flex-shrink-0 mt-0.5 w-6 h-6 rounded-md bg-red-50 flex items-center justify-center border border-red-200/50 group-hover:bg-red-100 transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div class="flex-1 text-left">
-                    <p class="text-xs font-semibold text-gray-700 leading-tight">Cierre de jornada</p>
-                    <p class="text-[10px] text-gray-500 mt-0.5 leading-relaxed">El registro de término finaliza el acceso del día actual</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+            <template v-else>
+              <span class="hm-action__icon hm-action__icon--done">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7" /></svg>
+              </span>
+              <span class="hm-action__title">Inicio Registrado</span>
+              <span class="hm-action__time">{{ horaEntradaTexto }}</span>
+              <span class="hm-badge hm-badge--ok">Completado</span>
+            </template>
+          </button>
+
+          <!-- Registro de Término -->
+          <button
+            type="button"
+            class="hm-action hm-action--out"
+            :class="{
+              'is-available': entradaMarcada && !salidaMarcada && !verificandoAsistencia,
+              'is-locked': !entradaMarcada,
+              'is-done': salidaMarcada,
+              'is-loading': verificandoAsistencia
+            }"
+            :disabled="!entradaMarcada || salidaMarcada || verificandoAsistencia"
+            @click="mostrarModalSalida"
+          >
+            <span v-if="verificandoAsistencia" class="hm-action__loader" aria-label="Verificando"><i class="hm-spinner"></i></span>
+
+            <!-- Bloqueado: primero se registra el inicio -->
+            <template v-if="!entradaMarcada">
+              <span class="hm-action__icon hm-action__icon--lock">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 018 0v4" /></svg>
+              </span>
+              <span class="hm-action__title">Registro de Término</span>
+              <span class="hm-action__sub">Primero registra tu inicio</span>
+              <span class="hm-badge hm-badge--lock">Bloqueado</span>
+            </template>
+
+            <!-- Término ya registrado -->
+            <template v-else-if="salidaMarcada">
+              <span class="hm-action__icon hm-action__icon--done">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7" /></svg>
+              </span>
+              <span class="hm-action__title">Término Registrado</span>
+              <span class="hm-action__time">{{ horaSalidaTexto }}</span>
+              <span class="hm-badge hm-badge--ok">Completado</span>
+            </template>
+
+            <!-- Disponible -->
+            <template v-else>
+              <span class="hm-action__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+              </span>
+              <span class="hm-action__title">Registro de Término</span>
+              <span class="hm-action__sub">Finaliza tu jornada</span>
+              <span class="hm-action__cta">
+                Registrar
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+              </span>
+            </template>
+          </button>
         </div>
+
+        <!-- Información importante sobre la jornada -->
+        <aside v-if="!modoAsistencia" class="hm-info">
+          <div class="hm-info__head">
+            <span class="hm-info__badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 8h.01M11 12h1v4h1" /></svg>
+            </span>
+            <div>
+              <h3 class="hm-info__title">Información Importante</h3>
+              <p class="hm-info__sub">Requisitos de jornada</p>
+            </div>
+          </div>
+
+          <ul class="hm-info__list">
+            <li>
+              <span class="hm-info__ico hm-info__ico--blue">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              </span>
+              <div>
+                <strong>Registro de inicio requerido</strong>
+                <span>Debe registrar su inicio para acceder al módulo de actividades</span>
+              </div>
+            </li>
+            <li>
+              <span class="hm-info__ico hm-info__ico--red">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              </span>
+              <div>
+                <strong>Cierre de jornada</strong>
+                <span>El registro de término finaliza el acceso del día actual</span>
+              </div>
+            </li>
+          </ul>
+        </aside>
         
         <!-- Mensaje de estado de asistencia -->
         <div v-if="mensajeAsistencia && !modoAsistencia" class="flex justify-center mb-3">
@@ -1448,6 +1371,36 @@ const actividadesBloqueadasModalMessage = ref('');
 
 // Control de secciones activas
 const seccionActiva = ref('asistencia'); // 'asistencia' o 'actividades'
+
+// ---- Estado visual de la jornada (solo presentación; no altera la lógica) ----
+// Actividades solo está disponible con entrada marcada y sin salida.
+const actividadesDisponibles = computed(() => entradaMarcada.value && !salidaMarcada.value);
+
+const estadoJornada = computed(() => {
+  if (salidaMarcada.value) return { key: 'done', texto: 'Jornada finalizada' };
+  if (entradaMarcada.value) return { key: 'active', texto: 'En jornada' };
+  return { key: 'idle', texto: 'Sin iniciar' };
+});
+
+// Hora mostrada en cada paso de la línea de tiempo
+const horaEntradaTexto = computed(() => {
+  if (!entradaMarcada.value) return 'Pendiente';
+  if (asistenciaHoy.value && asistenciaHoy.value.entrada) return formatearHora(asistenciaHoy.value.entrada);
+  return datosEntrada.value?.hora || 'Registrada';
+});
+
+const horaSalidaTexto = computed(() => {
+  if (!salidaMarcada.value) return entradaMarcada.value ? 'En curso' : 'Bloqueado';
+  if (asistenciaHoy.value && asistenciaHoy.value.salida) return formatearHora(asistenciaHoy.value.salida);
+  return datosSalida.value?.hora || 'Registrada';
+});
+
+// Posición del "pulgar" del control segmentado (null = ninguno activo)
+const segmentoActivo = computed(() => {
+  if (seccionActiva.value === 'asistencia') return 'registro';
+  if (seccionActiva.value === 'actividades' && actividadesDisponibles.value) return 'actividades';
+  return null;
+});
 
 // Función para obtener timestamp CDMX exacto (igual que en la barra verde)
 function obtenerTimestampCDMX() {
@@ -6850,4 +6803,539 @@ watch([entradaMarcada, salidaMarcada], () => {
     font-size: 0.5625rem;
   }
 }
+
+/* =====================================================================
+   NUEVO DISEÑO DEL HOME  (prefijo hm-)
+   Principios: ligero (sin blur ni blobs animados), táctil, legible al
+   sol, estados claros (disponible / completado / bloqueado) y adaptable
+   desde 320px hasta tablets.
+   ===================================================================== */
+
+.hm-root {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: linear-gradient(160deg, #f0fdf4 0%, #dcfce7 55%, #c8f5dc 100%);
+  --hm-radius: 22px;
+  --hm-ink: #0f2a1a;
+  --hm-muted: #5b6b62;
+  --hm-blue-a: #3aa4ff;
+  --hm-blue-b: #0a67ee;
+  --hm-red-a: #ff5c7c;
+  --hm-red-b: #d31b48;
+}
+
+/* Una sola capa decorativa estática (sin blur, sin animación) */
+.hm-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  contain: strict;
+  background:
+    radial-gradient(55% 32% at 12% 4%, rgba(74, 222, 128, 0.32), transparent 70%),
+    radial-gradient(50% 34% at 96% 26%, rgba(45, 212, 191, 0.24), transparent 70%),
+    radial-gradient(65% 40% at 30% 100%, rgba(16, 185, 129, 0.22), transparent 70%);
+}
+
+/* Área con scroll propio: deja espacio al header fijo (barra + franja de conexión) */
+.hm-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding:
+    calc(env(safe-area-inset-top, 0px) + 108px)
+    10px
+    calc(env(safe-area-inset-bottom, 0px) + 28px);
+}
+
+.hm-container {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 32rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ---------- Panel de registro ---------- */
+.hm-panel {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: var(--hm-radius);
+  padding: 14px 14px 12px;
+  box-shadow: 0 10px 28px -12px rgba(15, 90, 50, 0.35), 0 1px 0 rgba(255, 255, 255, 0.8) inset;
+}
+
+.hm-panel__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.hm-panel__titles { min-width: 0; }
+
+.hm-eyebrow {
+  display: block;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #b45309;
+}
+
+.hm-title {
+  margin: 2px 0 2px;
+  font-size: 1.3rem;
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #14532d;
+}
+
+.hm-sub {
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: var(--hm-muted);
+}
+
+/* Chip de estado de la jornada */
+.hm-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  background: #eef2f6;
+  color: #475569;
+}
+.hm-chip__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.hm-chip--active { background: #dcfce7; color: #166534; }
+.hm-chip--active .hm-chip__dot { animation: hm-pulse 1.8s ease-in-out infinite; }
+.hm-chip--done { background: #e0f2fe; color: #0c4a6e; }
+
+@keyframes hm-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.45; }
+}
+
+/* ---------- Línea de tiempo (Inicio → Actividades → Término) ---------- */
+.hm-steps {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.hm-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* conector con el siguiente paso */
+.hm-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 13px;
+  left: calc(50% + 17px);
+  right: calc(-50% + 17px);
+  height: 3px;
+  border-radius: 3px;
+  background: #d8e2dc;
+}
+.hm-step.is-done:not(:last-child)::after { background: #22c55e; }
+
+.hm-step__dot {
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 800;
+  background: #eef2f0;
+  color: #64748b;
+  border: 2px solid #d8e2dc;
+  z-index: 1;
+}
+.hm-step__dot svg { width: 13px; height: 13px; }
+
+.hm-step.is-current .hm-step__dot {
+  background: #fff;
+  color: #0a67ee;
+  border-color: #0a67ee;
+  box-shadow: 0 0 0 4px rgba(10, 103, 238, 0.14);
+}
+.hm-step.is-done .hm-step__dot {
+  background: #22c55e;
+  color: #fff;
+  border-color: #22c55e;
+}
+.hm-step.is-locked .hm-step__dot {
+  background: #f1f5f9;
+  color: #94a3b8;
+  border-color: #e2e8f0;
+}
+
+.hm-step__name {
+  margin-top: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--hm-ink);
+}
+.hm-step.is-locked .hm-step__name { color: #94a3b8; }
+
+.hm-step__meta {
+  font-size: 9.5px;
+  color: var(--hm-muted);
+  font-variant-numeric: tabular-nums;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Selector segmentado ---------- */
+.hm-segment {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 4px;
+  border-radius: 16px;
+  background: rgba(15, 42, 26, 0.07);
+}
+
+.hm-segment__thumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--hm-blue-a), var(--hm-blue-b));
+  box-shadow: 0 6px 14px -4px rgba(10, 103, 238, 0.55);
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), background 0.28s ease, opacity 0.2s ease;
+  will-change: transform;
+}
+.hm-segment[data-active='actividades'] .hm-segment__thumb {
+  transform: translateX(100%);
+  background: linear-gradient(135deg, #a855f7, #7e22ce);
+  box-shadow: 0 6px 14px -4px rgba(126, 34, 206, 0.55);
+}
+.hm-segment[data-active='none'] .hm-segment__thumb { opacity: 0; }
+
+.hm-segment__btn {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.hm-segment__btn svg { width: 16px; height: 16px; flex: 0 0 auto; }
+.hm-segment__btn.is-active { color: #fff; }
+.hm-segment__btn.is-locked { color: #94a3b8; }
+.hm-segment__lock { width: 12px !important; height: 12px !important; opacity: 0.9; }
+
+/* ---------- Encabezado de sección ---------- */
+.hm-section-head { padding: 2px 4px 0; }
+.hm-section-head.is-center { text-align: center; padding-bottom: 6px; }
+.hm-h2 {
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #166534;
+}
+.hm-hint { font-size: 0.74rem; color: var(--hm-muted); }
+
+/* ---------- Tarjetas de acción (Inicio / Término) ---------- */
+.hm-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.hm-action {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 176px;
+  padding: 16px 10px 14px;
+  border: 0;
+  border-radius: var(--hm-radius);
+  text-align: center;
+  cursor: pointer;
+  color: #fff;
+  transition: transform 0.15s ease, box-shadow 0.25s ease, filter 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.hm-action:active:not(:disabled) { transform: scale(0.965); }
+.hm-action:focus-visible { outline: 3px solid #0a67ee; outline-offset: 3px; }
+
+/* --- disponible --- */
+.hm-action--in.is-available {
+  background: linear-gradient(150deg, var(--hm-blue-a) 0%, var(--hm-blue-b) 100%);
+  box-shadow: 0 14px 26px -10px rgba(10, 103, 238, 0.65);
+}
+.hm-action--out.is-available {
+  background: linear-gradient(150deg, var(--hm-red-a) 0%, var(--hm-red-b) 100%);
+  box-shadow: 0 14px 26px -10px rgba(211, 27, 72, 0.6);
+}
+
+/* brillo que cruza la tarjeta (solo transform: barato para la GPU) */
+.hm-action.is-available::after {
+  content: '';
+  position: absolute;
+  inset: -30% auto -30% -60%;
+  width: 45%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+  transform: skewX(-20deg) translateX(0);
+  animation: hm-sheen 5.5s ease-in-out infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+@keyframes hm-sheen {
+  0%, 55% { transform: skewX(-20deg) translateX(0); }
+  100% { transform: skewX(-20deg) translateX(520%); }
+}
+
+.hm-action__icon {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.24);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+}
+.hm-action__icon svg { width: 28px; height: 28px; }
+
+.hm-action__title {
+  font-size: 1rem;
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+.hm-action__sub { font-size: 0.74rem; opacity: 0.9; }
+
+.hm-action__cta {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.95);
+  color: #0f172a;
+}
+.hm-action--in .hm-action__cta { color: #0a55c4; }
+.hm-action--out .hm-action__cta { color: #b3123a; }
+.hm-action__cta svg { width: 13px; height: 13px; }
+
+/* --- completado --- */
+.hm-action.is-done {
+  cursor: default;
+  color: #334155;
+  background: #ffffff;
+  box-shadow: 0 8px 20px -10px rgba(15, 42, 26, 0.35);
+}
+.hm-action--in.is-done { border: 1.5px solid rgba(10, 103, 238, 0.28); }
+.hm-action--out.is-done { border: 1.5px solid rgba(211, 27, 72, 0.28); }
+
+.hm-action__icon--done {
+  color: #fff;
+  border: 0;
+  box-shadow: 0 8px 16px -6px rgba(0, 0, 0, 0.3);
+}
+.hm-action--in .hm-action__icon--done { background: linear-gradient(150deg, var(--hm-blue-a), var(--hm-blue-b)); }
+.hm-action--out .hm-action__icon--done { background: linear-gradient(150deg, var(--hm-red-a), var(--hm-red-b)); }
+
+.hm-action__time {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f2a1a;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- bloqueado --- */
+.hm-action.is-locked {
+  cursor: not-allowed;
+  color: #64748b;
+  background: linear-gradient(180deg, #f8fafc, #eef2f6);
+  border: 1.5px dashed rgba(100, 116, 139, 0.4);
+  box-shadow: none;
+}
+.hm-action__icon--lock {
+  background: #dfe5ec;
+  border: 0;
+  color: #64748b;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+.hm-action.is-locked .hm-action__sub { color: #64748b; opacity: 1; }
+
+/* --- etiquetas --- */
+.hm-badge {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.hm-badge--ok { background: #dcfce7; color: #166534; }
+.hm-badge--lock { background: #475569; color: #fff; }
+
+/* --- verificando --- */
+.hm-action.is-loading { filter: saturate(0.6); cursor: progress; }
+.hm-action__loader {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.45);
+}
+.hm-spinner {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 3px solid rgba(15, 42, 26, 0.18);
+  border-top-color: #166534;
+  animation: hm-rotate 0.75s linear infinite;
+}
+@keyframes hm-rotate { to { transform: rotate(360deg); } }
+
+/* ---------- Información importante ---------- */
+.hm-info {
+  position: relative;
+  overflow: hidden;
+  margin-top: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 18px;
+  padding: 14px 14px 12px 18px;
+  box-shadow: 0 8px 22px -12px rgba(15, 42, 26, 0.35);
+}
+.hm-info::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, #f59e0b, #f97316, #ef4444);
+}
+
+.hm-info__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid rgba(15, 42, 26, 0.08);
+}
+.hm-info__badge {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: #d97706;
+  background: linear-gradient(135deg, #fffbeb, #ffedd5);
+  border: 1px solid rgba(217, 119, 6, 0.22);
+}
+.hm-info__badge svg { width: 18px; height: 18px; }
+.hm-info__title { font-size: 0.86rem; font-weight: 800; color: #1f2937; }
+.hm-info__sub { font-size: 0.66rem; color: #6b7280; font-weight: 600; }
+
+.hm-info__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.hm-info__list li { display: flex; align-items: flex-start; gap: 10px; }
+.hm-info__ico {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+}
+.hm-info__ico svg { width: 14px; height: 14px; }
+.hm-info__ico--blue { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+.hm-info__ico--red { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+.hm-info__list strong { display: block; font-size: 0.76rem; line-height: 1.2; color: #1f2937; }
+.hm-info__list li span:not(.hm-info__ico) { display: block; margin-top: 2px; font-size: 0.68rem; line-height: 1.35; color: #6b7280; }
+
+/* ---------- Adaptación ---------- */
+@media (max-width: 359px) {
+  .hm-scroll { padding-left: 8px; padding-right: 8px; }
+  .hm-title { font-size: 1.15rem; }
+  .hm-chip { padding: 4px 8px; font-size: 9.5px; }
+  .hm-action { min-height: 156px; padding: 12px 8px; }
+  .hm-action__icon { width: 46px; height: 46px; }
+  .hm-action__icon svg { width: 23px; height: 23px; }
+  .hm-action__title { font-size: 0.9rem; }
+  .hm-step__meta { font-size: 8.5px; }
+}
+
+@media (max-height: 640px) {
+  .hm-action { min-height: 150px; }
+}
+
+@media (min-width: 768px) {
+  .hm-container { max-width: 36rem; gap: 14px; }
+  .hm-scroll { padding-top: calc(env(safe-area-inset-top, 0px) + 116px); }
+  .hm-action { min-height: 196px; }
+  .hm-title { font-size: 1.45rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hm-action.is-available::after,
+  .hm-chip--active .hm-chip__dot { animation: none; }
+}
+
 </style>
