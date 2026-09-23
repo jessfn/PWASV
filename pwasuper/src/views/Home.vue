@@ -7012,8 +7012,8 @@ watch([entradaMarcada, salidaMarcada], () => {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  min-height: 176px;
-  padding: 16px 10px 14px;
+  min-height: 232px;
+  padding: 22px 10px 20px;
   border: 0;
   border-radius: var(--hm-radius);
   text-align: center;
