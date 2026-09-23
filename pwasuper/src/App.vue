@@ -997,6 +997,7 @@ body {
 /* Asegurar que el fondo cubra toda la pantalla */
 html {
   height: -webkit-fill-available;
+  background: #e9faf0; /* mismo tono que la app: barra de estado y overscroll */
 }
 
 body {

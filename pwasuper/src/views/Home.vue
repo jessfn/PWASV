@@ -7715,4 +7715,55 @@ watch([entradaMarcada, salidaMarcada], () => {
 /* Aire consistente en el formulario de Actividades */
 .hm-scroll > .apple-activities-container { margin-top: 14px !important; }
 
+/* =====================================================================
+   v4: espaciado compacto + título y usuario unidos en una sola tarjeta
+   ===================================================================== */
+
+/* Menos aire entre bloques de los formularios */
+.hm-scroll > .apple-activities-container,
+.hm-scroll > .apple-activities-container > form,
+.apple-attendance-container {
+  gap: 8px !important;
+}
+.hm-scroll > .apple-activities-container { margin-top: 8px !important; }
+.apple-attendance-container { margin-top: 4px !important; }
+
+/* Tarjetas de pasos más compactas */
+.hm-scroll > .apple-activities-container > form > .apple-step-card-purple:not(:first-child),
+.apple-attendance-container > .apple-step-card:not(:nth-of-type(1)) {
+  padding: 11px 12px !important;
+  border-radius: 16px !important;
+}
+.hm-scroll > .apple-activities-container > form > .apple-step-card-purple,
+.apple-attendance-container > .apple-step-card {
+  margin-bottom: 0 !important;
+}
+.hm-scroll > .apple-activities-container .apple-checklist-card,
+.apple-attendance-container .apple-checklist-card {
+  padding: 9px 11px !important;
+}
+.hm-scroll > .apple-activities-container .apple-ready-card,
+.apple-attendance-container .apple-ready-card {
+  padding: 8px !important;
+}
+
+/* Título + usuario = una sola tarjeta (encabezado arriba, datos pegados abajo) */
+.hm-scroll > .apple-activities-container > .apple-header-card,
+.apple-attendance-container > .apple-header-card {
+  border-radius: 18px 18px 0 0 !important;
+  padding: 11px 14px 15px !important;
+  position: relative;
+  z-index: 0;
+}
+.hm-scroll > .apple-activities-container > .apple-header-card + .apple-user-card,
+.apple-attendance-container > .apple-header-card + .apple-user-card {
+  margin-top: -8px !important;      /* anula el gap: quedan pegadas */
+  border-radius: 16px 16px 18px 18px !important;
+  border-top: 0 !important;
+  position: relative;
+  z-index: 1;                        /* cubre la sombra del encabezado */
+  padding: 10px 12px !important;
+  box-shadow: 0 10px 20px -14px rgba(15, 42, 26, 0.45) !important;
+}
+
 </style>
