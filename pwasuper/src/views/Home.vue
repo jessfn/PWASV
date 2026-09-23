@@ -95,7 +95,7 @@
           </svg>
         </button>
         
-        <div class="hm-section-head" :class="{ 'is-center': modoAsistencia }">
+        <div class="hm-section-head is-center">
           <h2 class="hm-h2">Control de Jornada</h2>
           <p class="hm-hint">
             {{ modoAsistencia ? 'Completa los datos para ' + (tipoAsistencia === 'entrada' ? 'registro de inicio' : 'registro de término') : 'Registra tu inicio y término de jornada' }}
@@ -7973,4 +7973,37 @@ watch([entradaMarcada, salidaMarcada], () => {
 .hm-syncbar .hm-toast__spin { width: 10px; height: 10px; border-width: 2px; flex: none; }
 .hm-sync-enter-active, .hm-sync-leave-active { transition: opacity 0.22s ease, transform 0.22s ease; }
 .hm-sync-enter-from, .hm-sync-leave-to { opacity: 0; transform: translate(-50%, -100%); }
+</style>
+
+<style scoped>
+.hm-root .hm-section-head { text-align: center; padding: 6px 4px 8px; }
+.hm-root .hm-h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #14532d 0%, #16a34a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: #166534;
+}
+.hm-root .hm-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 3px 0 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #5f7a6b;
+}
+.hm-root .hm-hint::before,
+.hm-root .hm-hint::after {
+  content: "";
+  flex: 0 1 34px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(22, 163, 74, 0.5));
+}
+.hm-root .hm-hint::after { transform: scaleX(-1); }
 </style>
