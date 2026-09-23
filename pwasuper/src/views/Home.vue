@@ -1214,65 +1214,6 @@
       </div>
     </transition>
 
-    <!-- Historial reciente (solo cuando no está en modo asistencia y sección actividades está activa) -->
-    <div v-if="historial.length > 0 && !modoAsistencia && seccionActiva === 'actividades'" class="glass-card">
-      <h3 class="text-base font-semibold text-gray-800 mb-2 modern-title">Registros recientes</h3>
-      <div class="green-line mb-3"></div>
-      <div class="space-y-2">
-        <div
-          v-for="(r, i) in historial.slice(0, 3)"
-          :key="i"
-          class="border border-gray-200 rounded-lg p-2 hover:shadow-md transition-shadow relative"
-          :class="{ 'border-orange-300 bg-orange-50': r.offline }"
-        >
-          <!-- Indicador de estado offline -->
-          <div v-if="r.offline" class="absolute top-1 right-1">
-            <div class="flex items-center text-orange-600 text-xs">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Pendiente
-            </div>
-          </div>
-          
-          <div class="flex">
-            <div class="w-16 h-16 bg-gray-100 rounded overflow-hidden mr-2">
-              <img
-                v-if="r.foto"
-                :src="r.foto"
-                class="w-full h-full object-cover"
-              />
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="text-xs text-gray-500">{{ r.fecha }}</p>
-              <p class="text-xs text-gray-800 truncate">
-                {{ r.descripcion || 'Sin descripción' }}
-              </p>
-              <!-- Nuevo: mostrar tipo de actividad -->
-              <p v-if="r.tipo_actividad" class="text-xs font-medium">
-                <span v-if="r.tipo_actividad === 'campo'" class="text-green-600">🌾 Actividad de Campo</span>
-                <span v-else class="text-orange-600">🏢 Actividad de Gabinete</span>
-              </p>
-              <p class="text-xs font-mono text-gray-600">
-                Lat: {{ r.latitud }}, Lon: {{ r.longitud }}
-              </p>
-              <p v-if="r.offline" class="text-xs text-orange-600 mt-1 font-medium">
-                ⏳ Se enviará al recuperar conexión
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="text-center mt-4">
-        <router-link
-          to="/historial"
-          class="text-sm text-primary hover:underline glass-link"
-        >
-          Ver todos los registros &rarr;
-        </router-link>
-      </div>
-      </div>
     </div>
 
     <!-- Modal de confirmación -->
@@ -7336,6 +7277,195 @@ watch([entradaMarcada, salidaMarcada], () => {
 @media (prefers-reduced-motion: reduce) {
   .hm-action.is-available::after,
   .hm-chip--active .hm-chip__dot { animation: none; }
+}
+
+
+/* =====================================================================
+   AJUSTES v2: info compacta + formulario de Actividades rediseñado
+   (el paso 1 "Ubicación" conserva su diseño original)
+   ===================================================================== */
+
+/* ---------- Información importante: aviso compacto ---------- */
+.hm-info {
+  margin-top: 10px;
+  padding: 9px 12px 9px 15px;
+  border-radius: 14px;
+  background: #fffaf0;
+  border: 1px solid rgba(217, 119, 6, 0.2);
+  box-shadow: none;
+}
+.hm-info::before { width: 3px; }
+.hm-info__head { gap: 8px; padding-bottom: 7px; margin-bottom: 7px; border-bottom-color: rgba(217, 119, 6, 0.15); }
+.hm-info__badge { width: 24px; height: 24px; border-radius: 8px; }
+.hm-info__badge svg { width: 14px; height: 14px; }
+.hm-info__title { font-size: 0.72rem; }
+.hm-info__sub { display: none; }
+.hm-info__list { gap: 6px; }
+.hm-info__list li { gap: 8px; align-items: center; }
+.hm-info__ico { width: 20px; height: 20px; border-radius: 6px; }
+.hm-info__ico svg { width: 11px; height: 11px; }
+.hm-info__list strong { font-size: 0.68rem; }
+.hm-info__list li span:not(.hm-info__ico) { margin-top: 0; font-size: 0.6rem; line-height: 1.25; }
+
+/* ---------- Actividades: contenedor sin "caja gigante" ---------- */
+.hm-scroll > .apple-activities-container {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.hm-scroll > .apple-activities-container::before { display: none !important; }
+.hm-scroll > .apple-activities-container > * { margin-top: 0 !important; margin-bottom: 0 !important; }
+
+/* Encabezado + usuario: una franja compacta */
+.hm-scroll > .apple-activities-container > .apple-header-card {
+  padding: 11px 14px !important;
+  border-radius: 16px !important;
+  background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%) !important;
+  box-shadow: 0 12px 22px -12px rgba(126, 34, 206, 0.7) !important;
+}
+.hm-scroll > .apple-activities-container .apple-header-title { font-size: 0.95rem !important; letter-spacing: 0 !important; }
+.hm-scroll > .apple-activities-container > .apple-user-card {
+  padding: 9px 12px !important;
+  border-radius: 16px !important;
+  background: #fff !important;
+  border: 1px solid #f0e6fb !important;
+  box-shadow: 0 6px 16px -10px rgba(76, 29, 149, 0.35) !important;
+}
+
+.hm-scroll > .apple-activities-container > form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.hm-scroll > .apple-activities-container > form > * { margin-top: 0 !important; margin-bottom: 0 !important; }
+
+/* Pasos 2-5: tarjetas planas y limpias (el 1 queda como estaba) */
+.hm-scroll > .apple-activities-container > form > .apple-step-card-purple:not(:first-child) {
+  background: #fff !important;
+  border: 1px solid #efe6fa !important;
+  border-radius: 18px !important;
+  padding: 14px !important;
+  box-shadow: 0 8px 20px -14px rgba(76, 29, 149, 0.4) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.hm-scroll > .apple-activities-container > form > .apple-step-card-purple:not(:first-child) .apple-step-number-purple {
+  width: 26px;
+  height: 26px;
+  border-radius: 9px !important;
+  background: #f3e8ff !important;
+  color: #7e22ce !important;
+  box-shadow: none !important;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+.hm-scroll > .apple-activities-container > form > .apple-step-card-purple:not(:first-child) .apple-step-title {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #3b0764;
+}
+
+/* Campos */
+.hm-scroll > .apple-activities-container .apple-select,
+.hm-scroll > .apple-activities-container .apple-textarea,
+.hm-scroll > .apple-activities-container .apple-input {
+  border: 1.5px solid #e9d5ff !important;
+  background: #faf7ff !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+.hm-scroll > .apple-activities-container .apple-select:focus,
+.hm-scroll > .apple-activities-container .apple-textarea:focus,
+.hm-scroll > .apple-activities-container .apple-input:focus {
+  outline: none !important;
+  border-color: #a855f7 !important;
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.16) !important;
+}
+
+/* Checklist: chips neutros con progreso (adiós al bloque amarillo) */
+.hm-scroll > .apple-activities-container .apple-checklist-card {
+  background: #fff !important;
+  border: 1.5px dashed #d8b4fe !important;
+  border-radius: 16px !important;
+  padding: 11px 12px !important;
+  box-shadow: none !important;
+}
+.hm-scroll > .apple-activities-container .apple-checklist-header { margin-bottom: 8px !important; }
+.hm-scroll > .apple-activities-container .apple-checklist-icon { background: #f3e8ff !important; color: #7e22ce !important; box-shadow: none !important; }
+.hm-scroll > .apple-activities-container .apple-checklist-title { color: #6b21a8 !important; font-size: 0.8rem !important; }
+.hm-scroll > .apple-activities-container .apple-checklist-items { display: flex !important; flex-wrap: wrap; gap: 6px !important; }
+.hm-scroll > .apple-activities-container .apple-checklist-item {
+  flex: 0 0 auto;
+  width: auto !important;
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px !important;
+  border-radius: 999px !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  background: #f4f4f5 !important;
+  color: #71717a !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+.hm-scroll > .apple-activities-container .apple-checklist-item-done { background: #dcfce7 !important; color: #166534 !important; }
+.hm-scroll > .apple-activities-container .apple-checklist-circle { width: 14px !important; height: 14px !important; }
+
+.hm-scroll > .apple-activities-container .apple-ready-card {
+  background: #f0fdf4 !important;
+  border: 1px solid #bbf7d0 !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+  padding: 10px !important;
+}
+
+/* Botón guardar */
+.hm-scroll > .apple-activities-container .glass-button-registro {
+  border: 0 !important;
+  border-radius: 16px !important;
+  padding: 14px !important;
+  font-size: 0.95rem !important;
+  font-weight: 800 !important;
+  color: #fff !important;
+  background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%) !important;
+  box-shadow: 0 14px 24px -12px rgba(126, 34, 206, 0.75) !important;
+}
+.hm-scroll > .apple-activities-container .glass-button-registro::before { display: none !important; }
+.hm-scroll > .apple-activities-container .glass-button-registro:disabled {
+  background: linear-gradient(135deg, #c4b5fd, #a78bfa) !important;
+  box-shadow: none !important;
+}
+
+/* Botones de foto: estilo suave, acorde al resto */
+.hm-scroll > .apple-activities-container .apple-photo-btn {
+  background: #faf7ff !important;
+  border: 1.5px solid #e9d5ff !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+  color: #6b21a8 !important;
+}
+.hm-scroll > .apple-activities-container .apple-photo-btn:active { background: #f3e8ff !important; }
+.hm-scroll > .apple-activities-container .apple-photo-btn-icon { background: #f3e8ff !important; color: #7e22ce !important; border: 0 !important; }
+.hm-scroll > .apple-activities-container .apple-photo-btn-text { color: #6b21a8 !important; font-weight: 700; }
+
+.hm-scroll > .apple-activities-container {
+  width: 100%;
+  max-width: 32rem;
+  margin: 12px auto 0 !important;
+  position: relative;
+  z-index: 1;
+}
+@media (min-width: 768px) {
+  .hm-scroll > .apple-activities-container { max-width: 36rem; }
 }
 
 </style>

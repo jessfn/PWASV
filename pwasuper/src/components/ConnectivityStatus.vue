@@ -186,12 +186,10 @@ const bannerTitle = computed(() => {
 
 const bannerSubtitle = computed(() => {
   const { registros, asistencias, total } = pendientes.value;
-  const check = `Verificado ${timeAgoText.value}`;
   if (!isOnline.value && total > 0) return `${registros} reg, ${asistencias} asist. se enviarán al reconectar`;
   if (isSyncing.value && syncProgress.value) return `${syncProgress.value.procesados}/${syncProgress.value.total} procesados`;
   if (total > 0) return `${registros} reg, ${asistencias} asist. · Toca para sincronizar`;
-  if (!isOnline.value) return check;
-  return check;
+  return '';
 });
 
 const modalTitle = computed(() => {
@@ -329,10 +327,17 @@ onUnmounted(() => {
   clearInterval(conectividadInterval);
   clearInterval(relojInterval);
   syncService.removeListener(handleSyncEvent);
+  window.removeEventListener('online', onNativeOnline);
+  window.removeEventListener('offline', onNativeOffline);
 });
+
+const onNativeOnline = () => { isOnline.value = true; verificarConectividad(); };
+const onNativeOffline = () => { isOnline.value = false; };
 
 onMounted(async () => {
   syncService.addListener(handleSyncEvent);
+  window.addEventListener('online', onNativeOnline);
+  window.addEventListener('offline', onNativeOffline);
 
   const status = syncService.getConnectionStatus();
   isOnline.value = status.isOnline;
