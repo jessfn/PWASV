@@ -829,7 +829,7 @@ const currentUserId = computed(() => {
 <style>
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.2s ease;
+  transition: opacity 0.12s ease;
 }
 
 .fade-enter-from,
@@ -1281,10 +1281,10 @@ body {
   inset: 0;
   z-index: 30;
   background: rgba(255, 255, 255, 0.35);
-  -webkit-backdrop-filter: blur(10px) saturate(1.1);
-  backdrop-filter: blur(10px) saturate(1.1);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
   touch-action: none;
-  animation: menu-backdrop-in 0.22s ease both;
+  animation: menu-backdrop-in 0.14s ease both;
 }
 @keyframes menu-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
 </style>
