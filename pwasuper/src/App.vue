@@ -804,7 +804,8 @@ const currentUserId = computed(() => {
     <div
       v-if="isLoggedIn && showMobileMenu"
       @click="closeMobileMenu"
-      class="fixed inset-0 bg-black/45 z-20 transition-opacity duration-200"
+      class="menu-backdrop"
+      aria-hidden="true"
     ></div>
 
     <!-- Contenido principal -->
@@ -877,7 +878,8 @@ const currentUserId = computed(() => {
   position: absolute;
   top: 0; left: 0; right: 0;
   height: calc(env(safe-area-inset-top, 0px) + 64px);
-  background: linear-gradient(180deg, #f6fffa 0%, rgba(246, 255, 250, 0.85) 45%, rgba(246, 255, 250, 0) 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #ffffff calc(env(safe-area-inset-top, 0px) * 0.6), rgba(255, 255, 255, 0.7) calc(env(safe-area-inset-top, 0px) + 12px), rgba(255, 255, 255, 0) 100%);
+  height: calc(env(safe-area-inset-top, 0px) + 90px);
 }
 .app-bg {
   z-index: 0;
@@ -1272,4 +1274,16 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+.menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(255, 255, 255, 0.35);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+  backdrop-filter: blur(10px) saturate(1.1);
+  touch-action: none;
+  animation: menu-backdrop-in 0.22s ease both;
+}
+@keyframes menu-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
 </style>

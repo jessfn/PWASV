@@ -193,15 +193,16 @@
 
         <!-- Sincronizando: pestaña pequeña unida a la barra de conexión -->
         <transition name="hm-sync">
-          <div v-if="mensajeAsistencia && mensajeTipo === 'sync'" class="hm-syncbar" :style="{ top: syncTop + 'px' }" role="status" aria-live="polite">
-            <i class="hm-toast__spin"></i>
+          <div v-if="mensajeAsistencia && (mensajeTipo === 'sync' || mensajeTipo === 'ok')" class="hm-syncbar" :class="{ 'hm-syncbar--ok': mensajeTipo === 'ok' }" :style="{ top: syncTop + 'px' }" role="status" aria-live="polite">
+            <svg v-if="mensajeTipo === 'ok'" class="hm-syncbar__ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7" /></svg>
+            <i v-else class="hm-toast__spin"></i>
             <span>{{ mensajeAsistencia }}</span>
           </div>
         </transition>
 
         <!-- Mensaje de estado (sincronización / éxito / error): tarjeta con aire propio -->
         <transition name="hm-toast">
-          <div v-if="mensajeAsistencia && !modoAsistencia && mensajeTipo !== 'sync'" class="hm-toast" :class="'hm-toast--' + mensajeTipo" role="status" aria-live="polite">
+          <div v-if="mensajeAsistencia && !modoAsistencia && mensajeTipo !== 'sync' && mensajeTipo !== 'ok'" class="hm-toast" :class="'hm-toast--' + mensajeTipo" role="status" aria-live="polite">
             <span class="hm-toast__icon">
               <svg v-if="mensajeTipo === 'ok'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7" /></svg>
               <svg v-else-if="mensajeTipo === 'error'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18L18 6M6 6l12 12" /></svg>
@@ -7949,9 +7950,11 @@ watch([entradaMarcada, salidaMarcada], () => {
 }
 
 
+.hm-syncbar--ok { background: linear-gradient(135deg, #16a34a, #15803d); box-shadow: 0 8px 16px -8px rgba(21, 128, 61, 0.7); }
+.hm-syncbar__ok { width: 12px; height: 12px; flex: none; }
 .hm-syncbar {
   position: fixed;
-  z-index: 39;
+  z-index: 29;
   left: 50%;
   transform: translateX(-50%);
   display: inline-flex;
