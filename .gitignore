@@ -65,3 +65,6 @@ backend/fotos/
 # Bitácora (por si se instala/compila localmente)
 bitacora-pwa/node_modules/
 bitacora-pwa/dist/
+
+# Extracciones con datos personales
+tecnicos_facilitadores.xlsx
