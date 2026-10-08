@@ -12,6 +12,12 @@ const api = axios.create({
   }
 })
 
+// Cabecera con el token de sesión para endpoints protegidos
+const authHeaders = () => {
+  const token = localStorage.getItem('admin_token')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 // Interceptor para agregar token de autorización
 api.interceptors.request.use(
   (config) => {
@@ -256,6 +262,19 @@ const permisosService = {
   },
 
   /**
+   * Datos para el PDF de acceso (solo admin / Jess). La contraseña llega de la bóveda cifrada.
+   */
+  async obtenerAccesoUsuario(userId) {
+    try {
+      const response = await api.get(`/admin/usuarios/${userId}/acceso`, { headers: authHeaders() })
+      return response.data
+    } catch (error) {
+      console.error('❌ Error consultando acceso:', error)
+      throw this.manejarError(error)
+    }
+  },
+
+  /**
    * Resetear contraseña de usuario administrativo
    */
   async resetearContrasena(userId, nuevaContrasena) {
@@ -264,7 +283,7 @@ const permisosService = {
       
       const response = await api.put(`/admin/usuarios/${userId}/password`, {
         password: nuevaContrasena
-      })
+      }, { headers: authHeaders() })
       
       console.log('✅ Contraseña reseteada exitosamente')
       return response.data

@@ -59,6 +59,41 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 SECRET_KEY = os.environ.get("SECRET_KEY", "cambia-esto-por-una-clave-muy-larga-y-unica")
 
+# ── Bóveda de contraseñas ────────────────────────────────────────────────────
+# Copia CIFRADA (Fernet) de la contraseña de cada administrador, para que solo
+# "admin" y "Jess" puedan entregar el PDF de acceso sin restablecerla.
+# La clave vive solo en el servidor (variable de entorno PWD_VAULT_KEY).
+from cryptography.fernet import Fernet, InvalidToken
+_VAULT_KEY = os.environ.get("PWD_VAULT_KEY", "")
+_vault = Fernet(_VAULT_KEY.encode()) if _VAULT_KEY else None
+VAULT_VISORES = {"admin", "jess"}
+
+def _cifrar_pwd(pwd):
+    return _vault.encrypt(pwd.encode("utf-8")).decode("utf-8") if (_vault and pwd) else None
+
+def _descifrar_pwd(token):
+    if not (_vault and token):
+        return None
+    try:
+        return _vault.decrypt(token.encode("utf-8")).decode("utf-8")
+    except (InvalidToken, ValueError):
+        return None
+
+def _jwt_admin(request: Request, solo_visores: bool = False) -> dict:
+    """Valida el JWT del panel admin. Con solo_visores=True exige ser admin o Jess."""
+    auth = request.headers.get("authorization", "")
+    if not auth.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Sesión requerida")
+    try:
+        payload = jwt.decode(auth[7:].strip(), SECRET_KEY, algorithms=["HS256"])
+    except Exception:
+        raise HTTPException(status_code=401, detail="Sesión inválida o expirada")
+    if payload.get("tipo") != "admin_user":
+        raise HTTPException(status_code=403, detail="No autorizado")
+    if solo_visores and str(payload.get("sub", "")).strip().lower() not in VAULT_VISORES:
+        raise HTTPException(status_code=403, detail="Solo admin y Jess pueden consultar accesos")
+    return payload
+
 # Conexión a PostgreSQL con manejo robusto
 DB_HOST = os.environ.get("DB_HOST", "localhost")
 DB_NAME = os.environ.get("DB_NAME", "app_registros")
@@ -214,6 +249,9 @@ try:
         )
     """, fetch_type='none')
     
+    # Copia cifrada de la contraseña (bóveda)
+    ejecutar_consulta_segura("ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS password_enc TEXT", fetch_type='none')
+
     # Verificar si existen usuarios admin, si no crear uno por defecto
     count_result = ejecutar_consulta_segura("SELECT COUNT(*) FROM admin_users", fetch_type='one')
     count = count_result[0] if count_result else 0
@@ -4954,7 +4992,7 @@ def admin_login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
         print(f"🔐 Intento de login para usuario: {username}")
 
         # Buscar usuario administrador en la base de datos incluyendo permisos, estado activo, es_territorial, territorio, nombre_completo, curp y cargo
-        cursor.execute("SELECT id, password, rol, permisos, activo, es_territorial, territorio, nombre_completo, curp, cargo FROM admin_users WHERE username = %s", (username,))
+        cursor.execute("SELECT id, password, rol, permisos, activo, es_territorial, territorio, nombre_completo, curp, cargo, password_enc FROM admin_users WHERE username = %s", (username,))
         row = cursor.fetchone()
 
         if not row or not pwd_context.verify(password, row[1]):
@@ -4985,6 +5023,16 @@ def admin_login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
                      ip_hint=_login_ip, ua=_login_ua, source="backend")
             raise HTTPException(status_code=403, detail="Tu cuenta ha sido desactivada. Contacta al administrador.")
         
+        # Bóveda: el login correcto confirma la contraseña real; guarda o corrige la copia cifrada
+        if _vault:
+            try:
+                if _descifrar_pwd(row[10]) != password:
+                    cursor.execute("UPDATE admin_users SET password_enc = %s WHERE id = %s", (_cifrar_pwd(password), user_id))
+                    conn.commit()
+            except Exception as e:
+                conn.rollback()
+                print(f"⚠️ No se pudo actualizar la bóveda de contraseñas: {e}")
+
         # Parsear permisos
         permisos_str = row[3]
         if permisos_str:
@@ -8609,10 +8657,10 @@ async def crear_usuario_admin(usuario: AdminUserCreate):
         
         # Insertar nuevo usuario con permisos, es_territorial y territorio
         cursor.execute("""
-            INSERT INTO admin_users (username, password, rol, permisos, activo, es_territorial, territorio, nombre_completo, curp, cargo) 
-            VALUES (%s, %s, %s, %s, TRUE, %s, %s, %s, %s, %s) 
+            INSERT INTO admin_users (username, password, rol, permisos, activo, es_territorial, territorio, nombre_completo, curp, cargo, password_enc) 
+            VALUES (%s, %s, %s, %s, TRUE, %s, %s, %s, %s, %s, %s) 
             RETURNING id
-        """, (usuario.username, hashed_password, usuario.rol, permisos_json, usuario.es_territorial, territorio_valor, nombre_completo_valor, curp_valor, cargo_valor))
+        """, (usuario.username, hashed_password, usuario.rol, permisos_json, usuario.es_territorial, territorio_valor, nombre_completo_valor, curp_valor, cargo_valor, _cifrar_pwd(usuario.password)))
         
         nuevo_id = cursor.fetchone()[0]
         conn.commit()
@@ -8722,6 +8770,8 @@ async def actualizar_usuario_admin(user_id: int, usuario: AdminUserUpdate):
             hashed_password = pwd_context.hash(usuario.password)
             campos_actualizar.append("password = %s")
             valores.append(hashed_password)
+            campos_actualizar.append("password_enc = %s")
+            valores.append(_cifrar_pwd(usuario.password))
         
         if usuario.rol:
             if usuario.rol not in ['admin', 'user']:
@@ -8933,8 +8983,9 @@ async def cambiar_estado_usuario(user_id: int, datos: dict):
 
 
 @app.put("/admin/usuarios/{user_id}/password")
-async def resetear_password_usuario_admin(user_id: int, datos: dict):
+async def resetear_password_usuario_admin(user_id: int, datos: dict, request: Request):
     """Resetear la contraseña de un usuario administrativo"""
+    _jwt_admin(request)
     try:
         print(f"🔄 Reseteando contraseña de usuario administrativo ID: {user_id}")
         
@@ -8954,7 +9005,7 @@ async def resetear_password_usuario_admin(user_id: int, datos: dict):
         hashed_password = pwd_context.hash(password)
         
         # Actualizar contraseña
-        cursor.execute("UPDATE admin_users SET password = %s WHERE id = %s", (hashed_password, user_id))
+        cursor.execute("UPDATE admin_users SET password = %s, password_enc = %s WHERE id = %s", (hashed_password, _cifrar_pwd(password), user_id))
         conn.commit()
         
         print(f"✅ Contraseña reseteada para usuario: {username}")
@@ -8969,6 +9020,23 @@ async def resetear_password_usuario_admin(user_id: int, datos: dict):
         conn.rollback()
         print(f"❌ Error reseteando contraseña: {e}")
         raise HTTPException(status_code=500, detail=f"Error al resetear contraseña: {str(e)}")
+
+@app.get("/admin/usuarios/{user_id}/acceso")
+async def obtener_acceso_usuario_admin(user_id: int, request: Request):
+    """Datos para el PDF de acceso. Solo 'admin' y 'Jess'. La contraseña viene de la bóveda cifrada."""
+    _jwt_admin(request, solo_visores=True)
+    cursor.execute("SELECT username, nombre_completo, password_enc FROM admin_users WHERE id = %s", (user_id,))
+    row = cursor.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Usuario administrativo no encontrado")
+    pwd = _descifrar_pwd(row[2])
+    return {
+        "username": row[0],
+        "nombre_completo": row[1] or "",
+        "password": pwd,
+        "disponible": pwd is not None,
+        "boveda_activa": _vault is not None,
+    }
 
 @app.get("/admin/usuarios/estadisticas")
 async def obtener_estadisticas_admin():
@@ -11641,6 +11709,7 @@ def _decode_admin(token):
 # ── Clasificador de rutas → acción legible en español ─────────────────────────
 # Cada regla: (metodos, patrón_regex, action_type, módulo, plantilla_etiqueta)
 _AUDIT_RULES = [
+    ({"GET"},    r"^/admin/usuarios/(\d+)/acceso$",      "ver_acceso_admin",  "administradores", "Consultó la contraseña de acceso del administrador ID {0}"),
     ({"POST"},   r"^/admin/usuarios/?$",                 "crear_admin",       "administradores", "Creó un nuevo usuario administrador"),
     ({"PUT"},    r"^/admin/usuarios/(\d+)/rol$",         "cambiar_rol_admin", "administradores", "Cambió el rol del administrador ID {0}"),
     ({"PUT"},    r"^/admin/usuarios/(\d+)/password$",    "cambiar_pwd_admin", "administradores", "Cambió la contraseña del administrador ID {0}"),

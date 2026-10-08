@@ -1416,37 +1416,63 @@
           </div>
         </div>
 
-        <div class="acceso-body">
-          <div class="acceso-field">
-            <label>Usuario</label>
-            <div class="acceso-readonly">{{ accesoUsuario && accesoUsuario.username }}</div>
-          </div>
+        <div v-if="accesoCargando" class="acceso-body acceso-loading">
+          <span class="btn-spinner acceso-spin"></span> Consultando acceso...
+        </div>
 
-          <div class="acceso-field">
-            <label for="acceso-pwd">Nueva contraseña</label>
-            <div class="acceso-pwd-row">
-              <input id="acceso-pwd" v-model="accesoPassword" :type="accesoVerPassword ? 'text' : 'password'" class="acceso-input" autocomplete="off" spellcheck="false" />
-              <button type="button" class="acceso-mini" @click="accesoVerPassword = !accesoVerPassword" :title="accesoVerPassword ? 'Ocultar' : 'Mostrar'">
-                {{ accesoVerPassword ? 'Ocultar' : 'Ver' }}
-              </button>
-              <button type="button" class="acceso-mini" @click="accesoPassword = generarContrasena()" title="Generar otra">Generar</button>
+        <template v-else>
+          <div class="acceso-body">
+            <div class="acceso-field">
+              <label>Usuario</label>
+              <div class="acceso-readonly">{{ accesoUsuario && accesoUsuario.username }}</div>
             </div>
-            <small>Mínimo 6 caracteres.</small>
+
+            <!-- Contraseña ya guardada (cifrada) -->
+            <div v-if="accesoModo === 'guardada'" class="acceso-field">
+              <label>Contraseña actual</label>
+              <div class="acceso-pwd-row">
+                <input :value="accesoPassword" :type="accesoVerPassword ? 'text' : 'password'" class="acceso-input" readonly />
+                <button type="button" class="acceso-mini" @click="accesoVerPassword = !accesoVerPassword">{{ accesoVerPassword ? 'Ocultar' : 'Ver' }}</button>
+                <button type="button" class="acceso-mini" @click="copiarAccesoPassword">Copiar</button>
+              </div>
+              <small>Se muestra la contraseña vigente; no se modifica al descargar.</small>
+            </div>
+
+            <!-- Sin contraseña guardada / cambiar -->
+            <template v-else>
+              <div class="acceso-field">
+                <label for="acceso-pwd">{{ accesoYaExistia ? 'Nueva contraseña' : 'Contraseña a establecer' }}</label>
+                <div class="acceso-pwd-row">
+                  <input id="acceso-pwd" v-model="accesoPassword" :type="accesoVerPassword ? 'text' : 'password'" class="acceso-input" autocomplete="off" spellcheck="false" />
+                  <button type="button" class="acceso-mini" @click="accesoVerPassword = !accesoVerPassword">{{ accesoVerPassword ? 'Ocultar' : 'Ver' }}</button>
+                  <button type="button" class="acceso-mini" @click="accesoPassword = generarContrasena()">Generar</button>
+                </div>
+                <small>Mínimo 6 caracteres.</small>
+              </div>
+              <div class="acceso-aviso">
+                <template v-if="accesoBovedaActiva">
+                  <strong>Aún no hay una copia guardada</strong> de la contraseña de este usuario (se guarda sola la próxima vez que inicie sesión).
+                  Para entregar el acceso ahora, se <strong>establecerá esta contraseña</strong> y quedará guardada de forma cifrada para futuras descargas.
+                </template>
+                <template v-else>
+                  La bóveda de contraseñas no está activa en el servidor. Contacta al administrador técnico.
+                </template>
+              </div>
+            </template>
+
+            <button v-if="accesoModo === 'guardada'" type="button" class="acceso-link" @click="cambiarAccesoPassword">
+              Establecer otra contraseña para este usuario
+            </button>
           </div>
 
-          <div class="acceso-aviso">
-            <strong>Importante:</strong> por seguridad las contraseñas se guardan cifradas y no se pueden consultar.
-            Al continuar se <strong>restablecerá la contraseña</strong> de este usuario a la que ves arriba y se descargará el PDF con ella.
+          <div class="acceso-foot">
+            <button class="acceso-cancel" @click="cerrarAccesoPdf" :disabled="accesoGenerando">Cancelar</button>
+            <button class="acceso-go" @click="confirmarAccesoPdf" :disabled="accesoGenerando || accesoPassword.length < 6 || (accesoModo !== 'guardada' && !accesoBovedaActiva)">
+              <span v-if="accesoGenerando" class="btn-spinner"></span>
+              {{ accesoGenerando ? 'Generando...' : (accesoModo === 'guardada' ? 'Descargar PDF' : 'Establecer y descargar PDF') }}
+            </button>
           </div>
-        </div>
-
-        <div class="acceso-foot">
-          <button class="acceso-cancel" @click="cerrarAccesoPdf" :disabled="accesoGenerando">Cancelar</button>
-          <button class="acceso-go" @click="confirmarAccesoPdf" :disabled="accesoGenerando || accesoPassword.length < 6">
-            <span v-if="accesoGenerando" class="btn-spinner"></span>
-            {{ accesoGenerando ? 'Generando...' : 'Restablecer y descargar PDF' }}
-          </button>
-        </div>
+        </template>
       </div>
     </div>
 
@@ -1493,6 +1519,10 @@ export default {
       accesoPassword: '',
       accesoVerPassword: false,
       accesoGenerando: false,
+      accesoCargando: false,
+      accesoModo: 'nueva',
+      accesoYaExistia: false,
+      accesoBovedaActiva: true,
 
       // Lista de usuarios admin
       usuariosAdmin: [],
@@ -2220,12 +2250,50 @@ export default {
 
     generarContrasena,
 
-    abrirAccesoPdf(usuario) {
+    async abrirAccesoPdf(usuario) {
       if (!this.puedeDescargarAcceso) return
       this.accesoUsuario = usuario
+      this.accesoPassword = ''
+      this.accesoVerPassword = false
+      this.accesoModo = 'nueva'
+      this.accesoYaExistia = false
+      this.accesoBovedaActiva = true
+      this.accesoCargando = true
+      this.mostrarModalAcceso = true
+
+      try {
+        const datos = await permisosService.obtenerAccesoUsuario(usuario.id)
+        this.accesoBovedaActiva = datos.boveda_activa !== false
+        if (datos.disponible) {
+          this.accesoModo = 'guardada'
+          this.accesoPassword = datos.password
+        } else {
+          this.accesoModo = 'nueva'
+          this.accesoPassword = generarContrasena()
+        }
+      } catch (error) {
+        this.mostrarToast(error.message || 'No se pudo consultar el acceso', 'error')
+        this.mostrarModalAcceso = false
+        this.accesoUsuario = null
+      } finally {
+        this.accesoCargando = false
+      }
+    },
+
+    cambiarAccesoPassword() {
+      this.accesoModo = 'nueva'
+      this.accesoYaExistia = true
       this.accesoPassword = generarContrasena()
       this.accesoVerPassword = true
-      this.mostrarModalAcceso = true
+    },
+
+    async copiarAccesoPassword() {
+      try {
+        await navigator.clipboard.writeText(this.accesoPassword)
+        this.mostrarToast('Contraseña copiada', 'success')
+      } catch {
+        this.mostrarToast('No se pudo copiar', 'error')
+      }
     },
 
     cerrarAccesoPdf() {
@@ -2233,6 +2301,7 @@ export default {
       this.mostrarModalAcceso = false
       this.accesoUsuario = null
       this.accesoPassword = ''
+      this.accesoVerPassword = false
     },
 
     async confirmarAccesoPdf() {
@@ -2242,20 +2311,21 @@ export default {
 
       this.accesoGenerando = true
       try {
-        // 1) Restablece la contraseña (se guarda cifrada en el servidor)
-        await permisosService.resetearContrasena(usuario.id, password)
-        // 2) Solo si el servidor confirmó, genera y descarga el PDF
+        // Solo si la contraseña es nueva: se establece (y se guarda cifrada) ANTES de entregar el PDF
+        if (this.accesoModo !== 'guardada') {
+          await permisosService.resetearContrasena(usuario.id, password)
+        }
         descargarPdfAcceso({
           username: usuario.username,
           password,
           nombre: usuario.nombre_completo || ''
         })
-        this.mostrarToast('Contraseña restablecida y PDF descargado', 'success')
+        this.mostrarToast(this.accesoModo === 'guardada' ? 'PDF de acceso descargado' : 'Contraseña establecida y PDF descargado', 'success')
         this.accesoGenerando = false
         this.cerrarAccesoPdf()
       } catch (error) {
         console.error('Error generando PDF de acceso:', error)
-        this.mostrarToast(error.message || 'No se pudo restablecer la contraseña', 'error')
+        this.mostrarToast(error.message || 'No se pudo generar el PDF', 'error')
         this.accesoGenerando = false
       }
     },
@@ -6647,6 +6717,9 @@ export default {
 .acceso-cancel { padding: 11px 16px; border-radius: 12px; border: 0; background: #eef2ef; color: #3b4a42; font-weight: 700; cursor: pointer; }
 .acceso-go { display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: 12px; border: 0; cursor: pointer; font-weight: 800; color: #fff; background: linear-gradient(135deg, #0b3d24, #0f5132); box-shadow: 0 10px 20px -10px rgba(11,61,36,.8); }
 .acceso-go:disabled, .acceso-cancel:disabled { opacity: .55; cursor: not-allowed; }
+.acceso-loading { flex-direction: row; align-items: center; justify-content: center; gap: 10px; padding: 34px 20px; color: #0f5132; font-weight: 700; }
+.acceso-spin { border-color: rgba(15,81,50,.25); border-top-color: #0f5132; }
+.acceso-link { align-self: flex-start; border: 0; background: none; padding: 0; color: #0f5132; font-weight: 700; font-size: 12.5px; text-decoration: underline; cursor: pointer; }
 @media (max-width: 480px) {
   .acceso-foot { flex-direction: column-reverse; }
   .acceso-foot button { width: 100%; justify-content: center; }
