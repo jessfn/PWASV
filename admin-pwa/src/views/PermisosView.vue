@@ -316,6 +316,18 @@
                   </td>
                   <td>
                     <div class="apple-actions">
+                      <button
+                        class="apple-action-btn acceso"
+                        @click="abrirAccesoPdf(usuario)"
+                        title="Descargar PDF de acceso"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke-width="2"/>
+                          <polyline points="14 2 14 8 20 8" stroke-width="2"/>
+                          <path d="M12 18v-6M9 15l3 3 3-3" stroke-width="2"/>
+                        </svg>
+                        <span>Acceso</span>
+                      </button>
                       <button 
                         class="apple-action-btn view" 
                         @click="verPermisosUsuario(usuario)"
@@ -1386,6 +1398,57 @@
       </div>
     </div>
 
+    <!-- Modal: PDF de acceso -->
+    <div v-if="mostrarModalAcceso" class="modal-overlay" @click.self="cerrarAccesoPdf">
+      <div class="modal-content acceso-modal" @click.stop>
+        <div class="acceso-head">
+          <div class="acceso-head-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <path d="M12 18v-6M9 15l3 3 3-3"/>
+            </svg>
+          </div>
+          <div>
+            <h3>PDF de acceso</h3>
+            <p>{{ accesoUsuario && (accesoUsuario.nombre_completo || accesoUsuario.username) }}</p>
+          </div>
+        </div>
+
+        <div class="acceso-body">
+          <div class="acceso-field">
+            <label>Usuario</label>
+            <div class="acceso-readonly">{{ accesoUsuario && accesoUsuario.username }}</div>
+          </div>
+
+          <div class="acceso-field">
+            <label for="acceso-pwd">Nueva contraseña</label>
+            <div class="acceso-pwd-row">
+              <input id="acceso-pwd" v-model="accesoPassword" :type="accesoVerPassword ? 'text' : 'password'" class="acceso-input" autocomplete="off" spellcheck="false" />
+              <button type="button" class="acceso-mini" @click="accesoVerPassword = !accesoVerPassword" :title="accesoVerPassword ? 'Ocultar' : 'Mostrar'">
+                {{ accesoVerPassword ? 'Ocultar' : 'Ver' }}
+              </button>
+              <button type="button" class="acceso-mini" @click="accesoPassword = generarContrasena()" title="Generar otra">Generar</button>
+            </div>
+            <small>Mínimo 6 caracteres.</small>
+          </div>
+
+          <div class="acceso-aviso">
+            <strong>Importante:</strong> por seguridad las contraseñas se guardan cifradas y no se pueden consultar.
+            Al continuar se <strong>restablecerá la contraseña</strong> de este usuario a la que ves arriba y se descargará el PDF con ella.
+          </div>
+        </div>
+
+        <div class="acceso-foot">
+          <button class="acceso-cancel" @click="cerrarAccesoPdf" :disabled="accesoGenerando">Cancelar</button>
+          <button class="acceso-go" @click="confirmarAccesoPdf" :disabled="accesoGenerando || accesoPassword.length < 6">
+            <span v-if="accesoGenerando" class="btn-spinner"></span>
+            {{ accesoGenerando ? 'Generando...' : 'Restablecer y descargar PDF' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Toast de notificaciones -->
     <div v-if="toast.show" class="toast" :class="toast.type">
       <div class="toast-content">
@@ -1410,6 +1473,7 @@
 import Sidebar from '../components/Sidebar.vue'
 import permisosService from '../services/permisosService.js'
 import authService from '../services/authService.js'
+import { descargarPdfAcceso, generarContrasena } from '../services/accesoPdfService.js'
 
 export default {
   name: 'PermisosView',
@@ -1422,6 +1486,13 @@ export default {
       cargando: false,
       error: null,
       
+      // PDF de acceso
+      mostrarModalAcceso: false,
+      accesoUsuario: null,
+      accesoPassword: '',
+      accesoVerPassword: false,
+      accesoGenerando: false,
+
       // Lista de usuarios admin
       usuariosAdmin: [],
       filtroRol: '',
@@ -2137,7 +2208,51 @@ export default {
       }
     },
 
+    // ==================== PDF DE ACCESO ====================
+
+    generarContrasena,
+
+    abrirAccesoPdf(usuario) {
+      this.accesoUsuario = usuario
+      this.accesoPassword = generarContrasena()
+      this.accesoVerPassword = true
+      this.mostrarModalAcceso = true
+    },
+
+    cerrarAccesoPdf() {
+      if (this.accesoGenerando) return
+      this.mostrarModalAcceso = false
+      this.accesoUsuario = null
+      this.accesoPassword = ''
+    },
+
+    async confirmarAccesoPdf() {
+      const usuario = this.accesoUsuario
+      const password = this.accesoPassword
+      if (!usuario || password.length < 6) return
+
+      this.accesoGenerando = true
+      try {
+        // 1) Restablece la contraseña (se guarda cifrada en el servidor)
+        await permisosService.resetearContrasena(usuario.id, password)
+        // 2) Solo si el servidor confirmó, genera y descarga el PDF
+        descargarPdfAcceso({
+          username: usuario.username,
+          password,
+          nombre: usuario.nombre_completo || ''
+        })
+        this.mostrarToast('Contraseña restablecida y PDF descargado', 'success')
+        this.accesoGenerando = false
+        this.cerrarAccesoPdf()
+      } catch (error) {
+        console.error('Error generando PDF de acceso:', error)
+        this.mostrarToast(error.message || 'No se pudo restablecer la contraseña', 'error')
+        this.accesoGenerando = false
+      }
+    },
+
     // ==================== UTILIDADES ====================
+
     
     mostrarToast(message, type = 'success') {
       this.toast = {
@@ -6476,5 +6591,57 @@ export default {
     background: #ffffff;
     color: #333;
   }
+}
+
+/* ====================== PDF DE ACCESO ====================== */
+.apple-action-btn.acceso {
+  width: auto;
+  height: 32px;
+  padding: 0 12px 0 10px;
+  border-radius: 10px;
+  gap: 6px;
+  background: linear-gradient(135deg, #0b3d24 0%, #0f5132 100%);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.apple-action-btn.acceso svg { stroke: #fff; width: 15px; height: 15px; }
+.apple-action-btn.acceso:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(11, 61, 36, 0.45);
+  background: linear-gradient(135deg, #0a3320 0%, #0b4429 100%);
+}
+.apple-action-btn.acceso:active { transform: scale(0.97); }
+
+.acceso-modal { max-width: 440px; width: calc(100% - 32px); padding: 0; overflow: hidden; border-radius: 20px; }
+.acceso-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 18px 20px;
+  background: linear-gradient(135deg, #0b3d24 0%, #0f5132 60%, #16a34a 100%);
+  color: #fff;
+}
+.acceso-head-icon { width: 42px; height: 42px; border-radius: 12px; background: rgba(255,255,255,.16); display: grid; place-items: center; flex: none; }
+.acceso-head h3 { margin: 0; font-size: 17px; font-weight: 800; }
+.acceso-head p { margin: 2px 0 0; font-size: 12.5px; opacity: .85; }
+.acceso-body { padding: 18px 20px 6px; display: flex; flex-direction: column; gap: 14px; }
+.acceso-field label { display: block; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #15803d; margin-bottom: 6px; }
+.acceso-field small { display: block; margin-top: 5px; font-size: 11.5px; color: #6b7f74; }
+.acceso-readonly { padding: 10px 12px; border-radius: 10px; background: #f1f7f3; font-family: Consolas, monospace; font-weight: 700; color: #0b3d24; }
+.acceso-pwd-row { display: flex; gap: 6px; }
+.acceso-input { flex: 1; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1.5px solid #cfe3d7; font-family: Consolas, monospace; font-size: 15px; font-weight: 700; color: #0b3d24; outline: none; }
+.acceso-input:focus { border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,.18); }
+.acceso-mini { padding: 0 12px; border-radius: 10px; border: 1.5px solid #cfe3d7; background: #fff; color: #0f5132; font-weight: 700; font-size: 12px; cursor: pointer; }
+.acceso-mini:hover { background: #effcf4; }
+.acceso-aviso { padding: 11px 13px; border-radius: 12px; background: #fffbeb; border: 1px solid #fde68a; color: #92400e; font-size: 12.5px; line-height: 1.5; text-align: justify; }
+.acceso-foot { display: flex; gap: 10px; justify-content: flex-end; padding: 14px 20px 18px; }
+.acceso-cancel { padding: 11px 16px; border-radius: 12px; border: 0; background: #eef2ef; color: #3b4a42; font-weight: 700; cursor: pointer; }
+.acceso-go { display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: 12px; border: 0; cursor: pointer; font-weight: 800; color: #fff; background: linear-gradient(135deg, #0b3d24, #0f5132); box-shadow: 0 10px 20px -10px rgba(11,61,36,.8); }
+.acceso-go:disabled, .acceso-cancel:disabled { opacity: .55; cursor: not-allowed; }
+@media (max-width: 480px) {
+  .acceso-foot { flex-direction: column-reverse; }
+  .acceso-foot button { width: 100%; justify-content: center; }
+  .apple-action-btn.acceso span { display: none; }
+  .apple-action-btn.acceso { padding: 0; width: 32px; justify-content: center; }
 }
 </style>
