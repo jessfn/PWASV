@@ -317,6 +317,7 @@
                   <td>
                     <div class="apple-actions">
                       <button
+                        v-if="puedeDescargarAcceso"
                         class="apple-action-btn acceso"
                         @click="abrirAccesoPdf(usuario)"
                         title="Descargar PDF de acceso"
@@ -1635,6 +1636,13 @@ export default {
   },
   
   computed: {
+    // Solo el usuario "admin" y "Jess" pueden generar PDFs de acceso
+    puedeDescargarAcceso() {
+      const actual = authService.getUserFromStorage()
+      const nombre = String((actual && actual.username) || '').trim().toLowerCase()
+      return nombre === 'admin' || nombre === 'jess'
+    },
+
     usuariosFiltrados() {
       let usuarios = this.usuariosAdmin
       
@@ -2213,6 +2221,7 @@ export default {
     generarContrasena,
 
     abrirAccesoPdf(usuario) {
+      if (!this.puedeDescargarAcceso) return
       this.accesoUsuario = usuario
       this.accesoPassword = generarContrasena()
       this.accesoVerPassword = true
