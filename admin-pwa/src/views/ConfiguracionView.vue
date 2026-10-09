@@ -343,6 +343,22 @@
                     <svg class="data-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                   </div>
 
+                  <div class="data-item" @click="showExportarBase = true">
+                    <div class="data-icon green">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="8" y1="13" x2="16" y2="21"/>
+                        <line x1="16" y1="13" x2="8" y2="21"/>
+                      </svg>
+                    </div>
+                    <div class="data-text">
+                      <h4>Excel completo</h4>
+                      <p>Actividades o asistencias</p>
+                    </div>
+                    <svg class="data-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                  </div>
+
                   <div class="data-item" @click="confirmarDescargarCSV" :class="{ disabled: descargandoRegistrosCSV }">
                     <div class="data-icon orange">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -515,6 +531,9 @@
       ref="descargaProgressRef"
       :show="showDescargaProgress"
     />
+
+    <!-- Modal para exportar la base completa a Excel (actividades o asistencias) -->
+    <ExportarBaseModal :show="showExportarBase" @close="showExportarBase = false" />
 
     <!-- Modal de progreso NARANJA para descarga de CSV -->
     <DescargaCSVProgressModal
@@ -1332,6 +1351,7 @@ import ProgressModal from '../components/ProgressModal.vue'
 import ProgressModalFecha from '../components/ProgressModalFecha.vue'
 import DescargaProgressModal from '../components/DescargaProgressModal.vue'
 import DescargaCSVProgressModal from '../components/DescargaCSVProgressModal.vue'
+import ExportarBaseModal from '../components/ExportarBaseModal.vue'
 import asistenciasService from '../services/asistenciasService.js'
 import imagenesService from '../services/imagenesService.js'
 import baseDatosService from '../services/baseDatosService.js'
@@ -1355,6 +1375,7 @@ const showDescargaCSVProgress = ref(false)
 
 // Variables para el modal de confirmación
 const showConfirmModal = ref(false)
+const showExportarBase = ref(false)
 const confirmAction = ref(null)
 const confirmTitle = ref('')
 const confirmMessage = ref('')
@@ -4784,6 +4805,11 @@ const logout = () => {
 
 .data-icon.cyan {
   background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+  color: white;
+}
+
+.data-icon.green {
+  background: linear-gradient(135deg, #1f6f43 0%, #2e8b57 100%);
   color: white;
 }
 

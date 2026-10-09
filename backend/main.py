@@ -11759,6 +11759,7 @@ _AUDIT_RULES = [
     ({"DELETE"}, r"^/admin/asistencias/(\d+)",           "eliminar_asistencia","asistencias",    "Eliminó la asistencia ID {0}"),
 
     ({"GET"},    r"^/descargar-bd-completa",             "descargar_bd",      "sistema",         "Descargó la base de datos completa"),
+    ({"POST"},   r"^/admin/exportar-base/(actividades|asistencias)$", "exportar_excel", "sistema", "Generó el Excel completo de {0}"),
     ({"POST"},   r"^/admin/reset-territorios",           "reset_territorios", "sistema",         "Reinició los territorios"),
 ]
 _AUDIT_RULES = [(m, _re.compile(p), a, mod, lbl) for (m, p, a, mod, lbl) in _AUDIT_RULES]
@@ -12025,6 +12026,371 @@ async def sys_obs_actions(request: Request = None):
         return {"actions": actions, "modules": modules}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== EXPORTAR BASE COMPLETA A EXCEL (modal del admin-pwa) ====================
+# Flujo: POST inicia un trabajo en segundo plano -> GET estado (progreso) -> GET descargar (URL firmada).
+# Usa una conexión aislada (no el cursor global compartido) y una transacción REPEATABLE READ de solo
+# lectura, así el archivo es una foto consistente "hasta ese momento" aunque entren registros nuevos.
+import threading as _th
+import tempfile as _tmp
+import uuid as _uuid
+import shutil as _shutil
+import time as _time
+import datetime as _dt
+from fastapi.responses import FileResponse as _FileResponse
+
+_EXPORT_DIR = os.path.join(_tmp.gettempdir(), "psv_exports")
+_EXPORT_MAX_FILAS_HOJA = 1_000_000          # Excel admite 1,048,576 filas por hoja (incluye encabezados)
+_EXPORT_TIPOS = ("actividades", "asistencias")
+_EXPORT_FOTO_BASE = os.environ.get("PUBLIC_API_URL", "https://apipwa.sembrandodatos.com").rstrip("/") + "/"
+_EXPORT_RETENCION_SEG = 3 * 3600
+_export_activos = {}                          # tipo -> job_id en ejecución (dentro de este proceso)
+_export_lock = _th.Lock()
+
+_EXPORT_COLS = {
+    "actividades": [
+        ("ID", 10), ("Fecha y hora", 19), ("ID usuario", 11), ("Nombre del usuario", 38), ("Cargo", 24),
+        ("Territorio", 26), ("Tipo de actividad", 16), ("Categoría", 32), ("Categoría (otro)", 24),
+        ("Descripción", 70), ("Latitud", 12), ("Longitud", 12), ("URL de la foto", 60),
+    ],
+    "asistencias": [
+        ("ID", 10), ("Fecha", 12), ("ID usuario", 11), ("Nombre del usuario", 38), ("Cargo", 24),
+        ("Territorio", 26), ("Hora de entrada", 19), ("Hora de salida", 19), ("Horas de la jornada", 12),
+        ("Descripción entrada", 60), ("Descripción salida", 60), ("Lat. entrada", 12), ("Long. entrada", 12),
+        ("Lat. salida", 12), ("Long. salida", 12), ("URL foto entrada", 60), ("URL foto salida", 60),
+    ],
+}
+
+
+def _export_ruta(job_id, nombre):
+    return os.path.join(_EXPORT_DIR, job_id, nombre)
+
+
+def _export_job_valido(job_id):
+    return bool(job_id) and bool(_re.fullmatch(r"[0-9a-f]{32}", job_id))
+
+
+def _export_leer_estado(job_id):
+    try:
+        with open(_export_ruta(job_id, "estado.json"), encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def _export_guardar_estado(job_id, **cambios):
+    est = _export_leer_estado(job_id) or {}
+    est.update(cambios)
+    est["actualizado"] = _time.time()
+    tmp = _export_ruta(job_id, "estado.json.tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(est, f)
+    os.replace(tmp, _export_ruta(job_id, "estado.json"))
+
+
+def _export_limpiar_viejos():
+    try:
+        ahora = _time.time()
+        for nombre in os.listdir(_EXPORT_DIR):
+            ruta = os.path.join(_EXPORT_DIR, nombre)
+            if os.path.isdir(ruta) and ahora - os.path.getmtime(ruta) > _EXPORT_RETENCION_SEG:
+                _shutil.rmtree(ruta, ignore_errors=True)
+    except Exception:
+        pass
+
+
+def _export_url_foto(v):
+    if not v:
+        return None
+    v = str(v).strip()
+    return v if v.lower().startswith("http") else _EXPORT_FOTO_BASE + v.lstrip("/")
+
+
+def _export_num(v):
+    try:
+        return None if v is None else float(v)
+    except Exception:
+        return None
+
+
+def _export_fila(tipo, r):
+    """Devuelve la fila como lista de valores (datetime/float/str/None) en el orden de _EXPORT_COLS."""
+    if tipo == "actividades":
+        return [r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9],
+                _export_num(r[10]), _export_num(r[11]), _export_url_foto(r[12])]
+    ent, sal = r[6], r[7]
+    horas = None
+    if isinstance(ent, _dt.datetime) and isinstance(sal, _dt.datetime):
+        try:
+            h = (sal - ent).total_seconds() / 3600
+            horas = round(h, 2) if 0 <= h <= 24 else None
+        except Exception:
+            horas = None
+    return [r[0], r[1], r[2], r[3], r[4], r[5], ent, sal, horas, r[8], r[9],
+            _export_num(r[10]), _export_num(r[11]), _export_num(r[12]), _export_num(r[13]),
+            _export_url_foto(r[14]), _export_url_foto(r[15])]
+
+
+def _export_escribir_xlsx(ruta, tipo, filas, total, filtros_txt, max_filas_hoja=_EXPORT_MAX_FILAS_HOJA, progreso=None):
+    """Escribe el Excel por streaming (memoria constante). `filas` es un iterable de filas ya convertidas.
+    Divide en varias hojas cuando se supera `max_filas_hoja`. Devuelve (filas_escritas, hojas)."""
+    import xlsxwriter
+    cols = _EXPORT_COLS[tipo]
+    ncols = len(cols)
+    titulo = "Actividades" if tipo == "actividades" else "Asistencias"
+    wb = xlsxwriter.Workbook(ruta, {"constant_memory": True, "remove_timezone": True, "strings_to_urls": False,
+                                    "strings_to_numbers": False, "strings_to_formulas": False})
+    f_t1 = wb.add_format({"bold": True, "font_size": 18, "font_color": "#FFFFFF", "bg_color": "#1F6F43", "valign": "vcenter", "indent": 1})
+    f_t2 = wb.add_format({"italic": True, "font_size": 10, "font_color": "#D7EBDD", "bg_color": "#14492D", "valign": "vcenter", "indent": 1})
+    f_hd = wb.add_format({"bold": True, "font_color": "#FFFFFF", "bg_color": "#1F6F43", "align": "center", "valign": "vcenter", "text_wrap": True, "border": 1, "border_color": "#C9D6CE"})
+    f_dt = wb.add_format({"num_format": "dd/mm/yyyy hh:mm:ss"})
+    f_d = wb.add_format({"num_format": "dd/mm/yyyy"})
+    f_h = wb.add_format({"num_format": "0.00"})
+    f_c = wb.add_format({"num_format": "0.000000"})
+    f_k = wb.add_format({"bold": True, "font_size": 22, "font_color": "#1F6F43", "bg_color": "#E6F2EA", "align": "center", "valign": "vcenter", "num_format": "#,##0", "border": 1, "border_color": "#C9D6CE"})
+    f_kl = wb.add_format({"bold": True, "font_size": 9, "font_color": "#14492D", "bg_color": "#E6F2EA", "align": "center", "valign": "vcenter", "border": 1, "border_color": "#C9D6CE"})
+    f_n = wb.add_format({"font_size": 9, "italic": True, "font_color": "#6B7C72"})
+
+    # Hoja Resumen (primera): se escribe completa antes de las hojas de datos (constant_memory exige orden).
+    n_hojas_prev = max(1, -(-int(total) // (max_filas_hoja - 5))) if total else 1
+    ws0 = wb.add_worksheet("Resumen")
+    ws0.hide_gridlines(2)
+    ws0.set_column(0, 4, 26)
+    ws0.set_row(0, 34); ws0.set_row(1, 20)
+    ws0.merge_range(0, 0, 0, 4, "PLATAFORMA DE SEGUIMIENTO DE PSV", f_t1)
+    ws0.merge_range(1, 0, 1, 4, f"Base completa de {tipo} · extraída el {_dt.datetime.now().strftime('%d/%m/%Y %H:%M')}", f_t2)
+    ws0.set_row(4, 22); ws0.set_row(5, 40)
+    ws0.write(4, 0, "REGISTROS", f_kl); ws0.write_number(5, 0, int(total), f_k)
+    ws0.write(4, 1, "HOJAS DE DATOS", f_kl); ws0.write_number(5, 1, n_hojas_prev, f_k)
+    ws0.write(7, 0, "Filtros: " + filtros_txt, f_n)
+    ws0.write(8, 0, f"Cada hoja admite hasta {max_filas_hoja - 5:,} registros; si hay más, continúan en la siguiente hoja.", f_n)
+    ws0.write(9, 0, "Contiene datos personales. No compartir.", f_n)
+
+    estado = {"ws": None, "n": 0, "en_hoja": 0, "hojas": 0}
+
+    def nueva_hoja():
+        cerrar_hoja()
+        estado["hojas"] += 1
+        nombre = titulo if n_hojas_prev == 1 else f"{titulo} {estado['hojas']}"
+        ws = wb.add_worksheet(nombre)
+        ws.hide_gridlines(2)
+        ws.set_row(0, 34); ws.set_row(1, 20); ws.set_row(3, 30)
+        ws.merge_range(0, 0, 0, ncols - 1, "PLATAFORMA DE SEGUIMIENTO DE PSV", f_t1)
+        ws.merge_range(1, 0, 1, ncols - 1, f"{titulo} · todos los registros hasta {_dt.datetime.now().strftime('%d/%m/%Y %H:%M')}", f_t2)
+        for i, (nombre_col, ancho) in enumerate(cols):
+            ws.set_column(i, i, ancho)
+            ws.write(3, i, nombre_col, f_hd)
+        ws.freeze_panes(4, 2)
+        estado["ws"] = ws
+        estado["en_hoja"] = 0
+
+    def cerrar_hoja():
+        ws = estado["ws"]
+        if ws is not None and estado["en_hoja"] > 0:
+            ws.autofilter(3, 0, 3 + estado["en_hoja"], ncols - 1)
+
+    idx_dt = {"actividades": {1}, "asistencias": {6, 7}}[tipo]
+    idx_d = {"actividades": set(), "asistencias": {1}}[tipo]
+    idx_h = {"actividades": set(), "asistencias": {8}}[tipo]
+    idx_c = {"actividades": {10, 11}, "asistencias": {11, 12, 13, 14}}[tipo]
+
+    for fila in filas:
+        if estado["ws"] is None or estado["en_hoja"] >= max_filas_hoja - 5:   # margen para título y encabezado
+            nueva_hoja()
+        ws = estado["ws"]
+        r = 4 + estado["en_hoja"]
+        for i, v in enumerate(fila):
+            if v is None or v == "":
+                continue
+            if i in idx_dt or i in idx_d:
+                if isinstance(v, _dt.datetime):
+                    ws.write_datetime(r, i, v, f_dt if i in idx_dt else f_d)
+                elif isinstance(v, _dt.date):
+                    ws.write_datetime(r, i, _dt.datetime(v.year, v.month, v.day), f_d)
+                else:
+                    ws.write_string(r, i, str(v))
+            elif i in idx_c:
+                ws.write_number(r, i, v, f_c)
+            elif i in idx_h:
+                ws.write_number(r, i, v, f_h)
+            elif isinstance(v, (int, float)) and not isinstance(v, bool):
+                ws.write_number(r, i, v)
+            else:
+                ws.write_string(r, i, str(v))
+        estado["en_hoja"] += 1
+        estado["n"] += 1
+        if progreso and estado["n"] % 5000 == 0:
+            progreso(estado["n"])
+    if estado["ws"] is None:
+        nueva_hoja()
+    cerrar_hoja()
+    wb.close()
+    return estado["n"], estado["hojas"]
+
+
+def _export_trabajo(job_id, tipo, territorio, fecha_inicio, fecha_fin, solicitante):
+    """Hilo en segundo plano: consulta con conexión aislada y genera el .xlsx."""
+    conexion = None
+    try:
+        conexion, _c = abrir_conexion_aislada()
+        conexion.set_session(isolation_level="REPEATABLE READ", readonly=True)
+        cur = conexion.cursor()
+        cond, prm = [], []
+        if tipo == "actividades":
+            if territorio:
+                cond.append("u.territorio = %s"); prm.append(territorio)
+            if fecha_inicio:
+                cond.append("r.fecha_hora >= %s"); prm.append(fecha_inicio)
+            if fecha_fin:
+                cond.append("r.fecha_hora < (%s::date + 1)"); prm.append(fecha_fin)
+            frm = "FROM registros r LEFT JOIN usuarios u ON u.id = r.usuario_id"
+            sel = ("SELECT r.id, r.fecha_hora, r.usuario_id, u.nombre_completo, u.cargo, u.territorio, r.tipo_actividad, "
+                   "r.categoria_actividad, r.categoria_actividad_otro, r.descripcion, r.latitud, r.longitud, r.foto_url ")
+            orden = " ORDER BY r.id DESC"
+        else:
+            if territorio:
+                cond.append("u.territorio = %s"); prm.append(territorio)
+            if fecha_inicio:
+                cond.append("a.fecha >= %s"); prm.append(fecha_inicio)
+            if fecha_fin:
+                cond.append("a.fecha <= %s"); prm.append(fecha_fin)
+            frm = "FROM asistencias a LEFT JOIN usuarios u ON u.id = a.usuario_id"
+            sel = ("SELECT a.id, a.fecha, a.usuario_id, u.nombre_completo, u.cargo, u.territorio, a.hora_entrada, a.hora_salida, "
+                   "a.descripcion_entrada, a.descripcion_salida, a.latitud_entrada, a.longitud_entrada, a.latitud_salida, "
+                   "a.longitud_salida, a.foto_entrada_url, a.foto_salida_url ")
+            orden = " ORDER BY a.fecha DESC, a.id DESC"
+        where = (" WHERE " + " AND ".join(cond)) if cond else ""
+        cur.execute("SELECT COUNT(*) " + frm + where, tuple(prm))
+        total = cur.fetchone()[0]
+        _export_guardar_estado(job_id, estado="procesando", total=int(total), procesadas=0)
+
+        filtros = []
+        filtros.append(f"territorio = {territorio}" if territorio else "todos los territorios")
+        filtros.append(f"desde {fecha_inicio}" if fecha_inicio else "desde el inicio")
+        filtros.append(f"hasta {fecha_fin}" if fecha_fin else "hasta el momento de la extracción")
+        filtros_txt = " · ".join(filtros)
+
+        cur_stream = conexion.cursor(name="exp_" + job_id[:12])
+        cur_stream.itersize = 20000
+        cur_stream.execute(sel + frm + where + orden, tuple(prm))
+
+        def filas():
+            for r in cur_stream:
+                yield _export_fila(tipo, r)
+
+        ruta_tmp = _export_ruta(job_id, "base.xlsx.part")
+        n, hojas = _export_escribir_xlsx(
+            ruta_tmp, tipo, filas(), total, filtros_txt,
+            progreso=lambda k: _export_guardar_estado(job_id, procesadas=k))
+        os.replace(ruta_tmp, _export_ruta(job_id, "base.xlsx"))
+        _export_guardar_estado(job_id, estado="listo", procesadas=n, total=max(int(total), n), hojas=hojas,
+                               bytes=os.path.getsize(_export_ruta(job_id, "base.xlsx")))
+        print(f"✅ [EXPORT] {tipo}: {n} filas en {hojas} hoja(s) por {solicitante}")
+    except Exception as e:
+        print(f"❌ [EXPORT] Error exportando {tipo}: {e}")
+        _export_guardar_estado(job_id, estado="error", error=str(e)[:300])
+    finally:
+        try:
+            if conexion:
+                conexion.close()
+        except Exception:
+            pass
+        with _export_lock:
+            if _export_activos.get(tipo) == job_id:
+                _export_activos.pop(tipo, None)
+
+
+def _export_fecha(v):
+    if not v:
+        return None
+    try:
+        return _dt.datetime.strptime(str(v)[:10], "%Y-%m-%d").strftime("%Y-%m-%d")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Fecha inválida. Usa el formato AAAA-MM-DD")
+
+
+@app.post("/admin/exportar-base/{tipo}")
+async def iniciar_exportacion_base(tipo: str, request: Request):
+    """Inicia (en segundo plano) la generación del Excel completo de 'actividades' o 'asistencias'."""
+    payload = _jwt_admin(request)
+    if tipo not in _EXPORT_TIPOS:
+        raise HTTPException(status_code=404, detail="Tipo de base no válido")
+    try:
+        datos = await request.json()
+    except Exception:
+        datos = {}
+    if not isinstance(datos, dict):
+        datos = {}
+    fecha_inicio = _export_fecha(datos.get("fecha_inicio"))
+    fecha_fin = _export_fecha(datos.get("fecha_fin"))
+    if fecha_inicio and fecha_fin and fecha_inicio > fecha_fin:
+        raise HTTPException(status_code=400, detail="La fecha de inicio no puede ser posterior a la fecha final")
+    # Un administrador territorial solo puede exportar su propio territorio
+    territorio = None
+    if payload.get("es_territorial") and payload.get("territorio"):
+        territorio = payload.get("territorio")
+    elif datos.get("territorio"):
+        territorio = str(datos.get("territorio")).strip() or None
+
+    os.makedirs(_EXPORT_DIR, exist_ok=True)
+    _export_limpiar_viejos()
+    solicitante = str(payload.get("sub", ""))
+    with _export_lock:
+        activo = _export_activos.get(tipo)
+        if activo:
+            est = _export_leer_estado(activo)
+            if est and est.get("estado") in ("iniciando", "procesando"):
+                return {"job_id": activo, "estado": est.get("estado"), "reutilizado": True}
+        job_id = _uuid.uuid4().hex
+        os.makedirs(os.path.join(_EXPORT_DIR, job_id), exist_ok=True)
+        _export_guardar_estado(job_id, estado="iniciando", tipo=tipo, solicitante=solicitante,
+                               territorio=territorio, procesadas=0, total=0, creado=_time.time())
+        _export_activos[tipo] = job_id
+    _th.Thread(target=_export_trabajo, args=(job_id, tipo, territorio, fecha_inicio, fecha_fin, solicitante), daemon=True).start()
+    return {"job_id": job_id, "estado": "iniciando", "reutilizado": False}
+
+
+@app.get("/admin/exportar-base/estado/{job_id}")
+async def estado_exportacion_base(job_id: str, request: Request):
+    payload = _jwt_admin(request)
+    if not _export_job_valido(job_id):
+        raise HTTPException(status_code=404, detail="Exportación no encontrada")
+    est = _export_leer_estado(job_id)
+    if not est or est.get("solicitante") != str(payload.get("sub", "")):
+        raise HTTPException(status_code=404, detail="Exportación no encontrada")
+    # Si el hilo murió (reinicio del servidor), no dejar la barra colgada
+    if est.get("estado") in ("iniciando", "procesando") and _time.time() - est.get("actualizado", 0) > 600:
+        _export_guardar_estado(job_id, estado="error", error="La exportación se interrumpió. Inténtalo de nuevo.")
+        est = _export_leer_estado(job_id)
+    resp = {k: est.get(k) for k in ("estado", "tipo", "procesadas", "total", "hojas", "bytes", "error")}
+    if est.get("estado") == "listo":
+        tk = jwt.encode({"tipo": "export_dl", "job": job_id, "sub": est.get("solicitante"),
+                         "exp": int(_time.time()) + 900}, SECRET_KEY, algorithm="HS256")
+        resp["descarga_url"] = f"/admin/exportar-base/descargar/{job_id}?t={tk}"
+    return resp
+
+
+@app.get("/admin/exportar-base/descargar/{job_id}")
+async def descargar_exportacion_base(job_id: str, t: str = ""):
+    """Descarga directa del Excel con enlace firmado de corta duración (para que el navegador lo baje en streaming)."""
+    try:
+        data = jwt.decode(t, SECRET_KEY, algorithms=["HS256"])
+    except Exception:
+        raise HTTPException(status_code=401, detail="Enlace de descarga inválido o vencido. Genera la exportación de nuevo.")
+    if data.get("tipo") != "export_dl" or data.get("job") != job_id or not _export_job_valido(job_id):
+        raise HTTPException(status_code=403, detail="No autorizado")
+    est = _export_leer_estado(job_id)
+    ruta = _export_ruta(job_id, "base.xlsx")
+    if not est or est.get("estado") != "listo" or not os.path.exists(ruta):
+        raise HTTPException(status_code=404, detail="El archivo ya no está disponible. Genera la exportación de nuevo.")
+    nombre = f"PSV_{est.get('tipo', 'base')}_completo_{_dt.datetime.now().strftime('%Y-%m-%d_%H%M')}.xlsx"
+    # Content-Encoding explícito evita que GZipMiddleware recomprima un .xlsx que ya viene comprimido
+    return _FileResponse(ruta, filename=nombre,
+                         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                         headers={"Content-Encoding": "identity"})
+
+# ==================== FIN EXPORTAR BASE COMPLETA A EXCEL ====================
 
 
 if __name__ == "__main__":
