@@ -21,6 +21,8 @@ const isLoggingOut = ref(false);
 const showWelcome = ref(false);
 const userData = ref(null);
 const showMobileMenu = ref(false);
+// Pantallas que se pueden abrir sin sesión (incluye la liga del correo de recuperación)
+const RUTAS_PUBLICAS = ['Login', 'Register', 'ForgotPassword', 'ResetPassword'];
 const showAccountDeactivatedModal = ref(false);
 const showTerritorioModal = ref(false);
 const showCargoModal = ref(false);
@@ -82,12 +84,12 @@ watch(() => route.path, () => {
   }
   
   // Verificar cargo en cada cambio de ruta (solo si está logueado) - PRIORIDAD SOBRE TERRITORIO
-  if (userData.value && (!userData.value.cargo || userData.value.cargo.trim() === '') && route.name !== 'Login' && route.name !== 'Register') {
+  if (userData.value && (!userData.value.cargo || userData.value.cargo.trim() === '') && !RUTAS_PUBLICAS.includes(route.name)) {
     console.log('⚠️ [Route Change] Usuario sin cargo, mostrando modal obligatorio');
     showCargoModal.value = true;
   }
   // Verificar territorio en cada cambio de ruta (solo si ya tiene cargo)
-  else if (userData.value && !userData.value.territorio && route.name !== 'Login' && route.name !== 'Register') {
+  else if (userData.value && !userData.value.territorio && !RUTAS_PUBLICAS.includes(route.name)) {
     console.log('⚠️ [Route Change] Usuario sin territorio, mostrando modal obligatorio');
     showTerritorioModal.value = true;
   }
@@ -346,10 +348,13 @@ onMounted(() => {
       router.push('/login');
     }
   } else {
-    // Si no hay usuario logueado, asegurar que esté en login
-    if (route.name !== 'Login' && route.name !== 'Register') {
-      router.push('/login');
-    }
+    // Sin sesión: solo se permiten las pantallas públicas. Se espera a que el router
+    // resuelva la ruta para no confundir una liga profunda (p. ej. /reset-password) con "sin ruta".
+    router.isReady().then(() => {
+      if (!RUTAS_PUBLICAS.includes(route.name)) {
+        router.push('/login');
+      }
+    });
   }
   
   // Escuchar cambios en localStorage

@@ -200,8 +200,16 @@ async def olvide_password(datos: OlvidePasswordRequest, request: Request):
 @app.get("/auth/reset-password/validar")
 async def validar_token_reset(token: str):
     huella = _hl.sha256(token.encode()).hexdigest()
-    cursor.execute("SELECT 1 FROM password_resets WHERE token_hash = %s AND used_at IS NULL AND expires_at > NOW()", (huella,))
-    return {"valido": cursor.fetchone() is not None}
+    cursor.execute(
+        "SELECT u.correo FROM password_resets r JOIN usuarios u ON u.id = r.usuario_id "
+        "WHERE r.token_hash = %s AND r.used_at IS NULL AND r.expires_at > NOW()", (huella,))
+    row = cursor.fetchone()
+    if not row:
+        return {"valido": False}
+    correo = row[0] or ""
+    usuario, _, dominio = correo.partition("@")
+    oculto = (usuario[:1] + "***@" + dominio) if dominio else ""
+    return {"valido": True, "correo_oculto": oculto}
 
 @app.post("/auth/restablecer-password")
 async def restablecer_password(datos: RestablecerPasswordRequest):

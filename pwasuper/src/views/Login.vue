@@ -98,6 +98,16 @@
           <p class="form-sub">Ingresa tus credenciales para continuar</p>
         </div>
 
+        <!-- Aviso: contraseña actualizada desde la liga del correo -->
+        <transition name="slide-down">
+          <div v-if="resetOk" class="alert-ok" role="status">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="alert-ico">
+              <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Tu contraseña se actualizó. Inicia sesión con la nueva.
+          </div>
+        </transition>
+
         <!-- Alerta error -->
         <transition name="slide-down">
           <div v-if="errorMessage" class="alert-error" role="alert">
@@ -196,13 +206,15 @@
 
 <script setup>
 import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 import { API_URL } from '../utils/network.js';
 import SupportBubbleLogin from '../components/SupportBubbleLogin.vue';
 import { enviarInfoDispositivo } from '../services/dispositivoTrackingService.js';
 
 const router = useRouter();
+const route = useRoute();
+const resetOk = ref(route.query.reset === 'ok');
 const email = ref('');
 const password = ref('');
 const showPassword = ref(false);
@@ -581,6 +593,23 @@ async function login() {
 .form-sub {
   font-size: clamp(10px, 1.4vh, 13.5px);
   color: #4b7a5a;
+}
+
+/* Éxito */
+.alert-ok {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-left: 3px solid #16a34a;
+  border-radius: 10px;
+  color: #166534;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  line-height: 1.4;
 }
 
 /* Error */

@@ -164,6 +164,7 @@
 
         <!-- Nueva contraseña (con liga válida) -->
         <form v-else @submit.prevent="resetPassword">
+          <p v-if="cuenta" class="sent-text">Cuenta: <strong>{{ cuenta }}</strong></p>
           <!-- New Password Section -->
           <div class="form-group">
             <div class="group-header">
@@ -310,6 +311,7 @@ const passwordsMatch = ref(true);
 const verifyingEmail = ref(false);
 const enviado = ref(false);
 const tokenValido = ref(null); // null = verificando
+const cuenta = ref(''); // correo parcialmente oculto de la cuenta
 
 const isFormComplete = computed(() => {
   if (modo.value === 'solicitar') {
@@ -335,7 +337,7 @@ function checkPasswordsMatch() {
 }
 
 function goToLogin() {
-  router.push('/login');
+  router.push(showSuccessModal.value ? '/login?reset=ok' : '/login');
 }
 
 function mensajeDeError(error, porDefecto) {
@@ -357,6 +359,7 @@ onMounted(async () => {
     const api = await getBestApiUrl();
     const r = await axios.get(`${api}/auth/reset-password/validar`, { params: { token: token.value }, timeout: 10000 });
     tokenValido.value = !!r.data.valido;
+    cuenta.value = r.data.correo_oculto || '';
   } catch {
     tokenValido.value = false;
   }
@@ -424,7 +427,7 @@ async function resetPassword() {
     showSuccessModal.value = true;
     newPassword.value = '';
     confirmPassword.value = '';
-    setTimeout(() => router.push('/login'), 3000);
+    setTimeout(() => router.push('/login?reset=ok'), 2500);
   } catch (error) {
     console.error('Error al cambiar contraseña:', error);
     if (error.response && error.response.status === 400) tokenValido.value = false;
