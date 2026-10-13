@@ -29,7 +29,10 @@ def _layout(titulo, subtitulo, cuerpo, preheader, anio):
     <tr><td style="background:#0f5132;background-image:linear-gradient(135deg,{VERDE_OSCURO} 0%,#0f5132 55%,{VERDE} 100%);border-radius:22px 22px 0 0;padding:30px 30px 26px;font-family:'Segoe UI',Arial,sans-serif;">
       <table role="presentation" cellpadding="0" cellspacing="0"><tr>
         <td style="vertical-align:middle;"><img src="{LOGO_URL}" width="46" height="46" alt="" style="display:block;border-radius:13px;border:2px solid rgba(255,255,255,.55);"></td>
-        <td style="vertical-align:middle;padding-left:12px;color:#ffffff;font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;">Sembrando Vida</td>
+        <td style="vertical-align:middle;padding-left:12px;font-family:'Segoe UI',Arial,sans-serif;">
+          <div style="color:#ffffff;font-size:15px;letter-spacing:.14em;text-transform:uppercase;font-weight:800;line-height:1.2;">Sembrando Vida</div>
+          <div style="color:#bfeacd;font-size:12.5px;font-weight:600;letter-spacing:.02em;line-height:1.4;margin-top:2px;">Aplicación de Seguimiento</div>
+        </td>
       </tr></table>
       <div style="color:#ffffff;font-size:26px;line-height:1.2;font-weight:800;margin-top:20px;">{escape(titulo)}</div>
       <div style="color:#d4f3df;font-size:14px;line-height:1.5;margin-top:6px;">{escape(subtitulo)}</div>
@@ -38,7 +41,7 @@ def _layout(titulo, subtitulo, cuerpo, preheader, anio):
       {cuerpo}
     </td></tr>
     <tr><td align="center" style="padding:18px 10px 4px;font-family:'Segoe UI',Arial,sans-serif;color:#7b8f84;font-size:12px;line-height:1.6;">
-      Mensaje automático de <b style="color:#0f5132;">Sembrando Vida</b> · Por favor no respondas a este correo.<br>
+      Mensaje automático de <b style="color:#0f5132;">Sembrando Vida · Aplicación de Seguimiento</b><br>Por favor no respondas a este correo.<br>
       &copy; {anio} Sembrando Vida · app.sembrandodatos.com
     </td></tr>
   </table>
