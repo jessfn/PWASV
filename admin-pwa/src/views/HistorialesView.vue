@@ -1738,6 +1738,7 @@ export default {
 .historiales-container {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
   background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   width: 100%;
@@ -1810,6 +1811,7 @@ export default {
   margin-left: min(220px, 18vw);
   width: calc(100vw - min(220px, 18vw));
   min-height: 100vh;
+  min-height: 100dvh;
   position: relative;
   box-sizing: border-box;
   overflow-x: hidden;
@@ -3311,6 +3313,7 @@ export default {
   width: calc(100vw - min(220px, 18vw));
   background: linear-gradient(135deg, #f8f9fa 0%, #f0fff0 100%);
   min-height: 100vh;
+  min-height: 100dvh;
   position: relative;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-sizing: border-box;
@@ -5418,6 +5421,7 @@ export default {
   left: 0;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   background-color: rgba(0, 0, 0, 0.95);
   display: flex;
   justify-content: center;

@@ -3845,6 +3845,7 @@ const logout = () => {
 .registros-container {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
   overflow: hidden;
   background: linear-gradient(180deg, #f0fdf4 0%, #ecfdf5 50%, #f0fdf4 100%);
@@ -3909,6 +3910,7 @@ const logout = () => {
   margin-left: min(220px, 18vw);
   width: calc(100vw - min(220px, 18vw));
   min-height: 100vh;
+  min-height: 100dvh;
   position: relative;
   box-sizing: border-box;
   overflow-x: hidden;

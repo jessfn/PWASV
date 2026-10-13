@@ -332,6 +332,7 @@ async function login() {
   align-items: stretch;   /* paneles estiran al alto real del contenido */
   min-height: 100vh;
   min-height: 100dvh;
+  min-height: 100dvh;
   width: 100%;
   font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
   color-scheme: light only;
@@ -502,6 +503,7 @@ async function login() {
   align-items: center;
   justify-content: center;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   padding: clamp(10px, 2.5vw, 36px);
   position: relative;

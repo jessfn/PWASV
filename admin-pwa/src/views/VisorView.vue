@@ -1983,6 +1983,7 @@ watch([filtroTipo, filtroPeriodo], () => {
 .visor-container {
   display: flex;
   height: 100vh;
+  height: 100dvh;
   background: linear-gradient(135deg, #f0f2f5 0%, #e8f5e8 100%);
   font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   overflow: hidden;
@@ -1997,6 +1998,7 @@ watch([filtroTipo, filtroPeriodo], () => {
   flex-direction: column;
   overflow: hidden;
   min-height: 100vh;
+  min-height: 100dvh;
   padding: 0;
   box-sizing: border-box;
   position: relative;

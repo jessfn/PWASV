@@ -2949,6 +2949,7 @@ onUnmounted(() => {
 .reportes-container {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
   overflow: hidden;
 }
@@ -2958,6 +2959,7 @@ onUnmounted(() => {
   margin-left: min(220px, 18vw);
   width: calc(100vw - min(220px, 18vw));
   min-height: 100vh;
+  min-height: 100dvh;
   position: relative;
   box-sizing: border-box;
   overflow-x: hidden;

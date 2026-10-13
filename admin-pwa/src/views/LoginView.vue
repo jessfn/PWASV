@@ -208,6 +208,7 @@ const login = async () => {
  */
 .login-page {
   height: 100vh;
+  height: 100dvh;
   width: 100%;
   display: flex;
   overflow: hidden; /* sin scroll a ningún zoom: todo escala con vh/clamp */
@@ -420,6 +421,7 @@ const login = async () => {
   align-items: center;
   justify-content: center;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   padding: clamp(12px, 3vw, 40px);
   /* Degradado verde oscuro — continúa la paleta del panel izquierdo,
@@ -673,6 +675,7 @@ const login = async () => {
     width: 52%;
     flex-shrink: 0;
     height: 100vh;
+    height: 100dvh;
     overflow: hidden;
   }
   .form-panel { width: 48%; }
@@ -717,5 +720,14 @@ const login = async () => {
   .form-header { margin-bottom: 12px; }
   .login-form { gap: 10px; }
   .footer-copy { margin-top: 12px; }
+}
+
+/* Capa fija de pantalla completa: cubre zona segura y barra del navegador, sin dejar ver el fondo de la página */
+.login-page {
+  position: fixed;
+  inset: 0;
+  width: auto;
+  height: auto;
+  background: #0b3d24;
 }
 </style>

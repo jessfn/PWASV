@@ -2837,6 +2837,7 @@ watch(filtroTipo, () => {
 .visor-map-container {
   display: flex;
   height: 100vh;
+  height: 100dvh;
   background: linear-gradient(135deg, #f0f2f5 0%, #e8f5e8 100%);
   font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   overflow: hidden;
@@ -2851,6 +2852,7 @@ watch(filtroTipo, () => {
   flex-direction: column;
   overflow: hidden;
   min-height: 100vh;
+  min-height: 100dvh;
   padding: 4px 16px 0 16px;
   box-sizing: border-box;
   position: relative;
@@ -5322,6 +5324,7 @@ watch(filtroTipo, () => {
   left: 0;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   background: rgba(0, 0, 0, 0.85);
   display: flex;
   align-items: center;

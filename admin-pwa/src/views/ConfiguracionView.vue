@@ -3972,6 +3972,7 @@ const logout = () => {
 .configuracion-container {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
   background: linear-gradient(180deg, #f5f7fa 0%, #e8f5e8 50%, #f0f4f0 100%);
   position: relative;
   overflow: hidden;
@@ -4040,6 +4041,7 @@ const logout = () => {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh;
   position: relative;
   z-index: 1;
   box-sizing: border-box;

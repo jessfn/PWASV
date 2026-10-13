@@ -947,6 +947,7 @@ const currentUserId = computed(() => {
 /* Optimización del scroll - solo cuando sea necesario */
 #app {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }
@@ -994,6 +995,7 @@ body {
 /* Fondo que abarca toda la pantalla incluyendo áreas del sistema */
 .fullscreen-bg {
   min-height: 100vh;
+  min-height: 100dvh;
   min-height: -webkit-fill-available;
   min-height: 100dvh; /* Dynamic viewport height */
   width: 100vw;
@@ -1017,6 +1019,7 @@ html {
 
 body {
   min-height: 100vh;
+  min-height: 100dvh;
   min-height: -webkit-fill-available;
   margin: 0;
   padding: 0;

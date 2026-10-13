@@ -19,6 +19,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  min-height: 100dvh;
   background: linear-gradient(to bottom right, #f0fdfa, #ecfdf5, #f0fdfa);
 }
 
@@ -52,6 +53,7 @@ body {
   margin: 0;
   padding: 0;
   min-height: 100vh;
+  min-height: 100dvh;
   background: linear-gradient(to bottom right, #f0fdfa, #ecfdf5, #f0fdfa);
 }
 
@@ -153,3 +155,8 @@ html.perf-lite .form-card {
 /* Pantalla de acceso: el fondo de toda la página es verde (evita la franja clara inferior en iOS/Android) */
 html.login-bg,
 html.login-bg body { background: #0b3d24 !important; }
+
+/* Las pantallas sin sesión cubren siempre el alto real de la pantalla (sin huecos al final) */
+#app { min-height: 100vh; min-height: 100dvh; }
+.apple-register,
+.apple-forgot { min-height: 100vh; min-height: 100dvh; }

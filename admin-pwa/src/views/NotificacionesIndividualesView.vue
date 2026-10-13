@@ -669,6 +669,7 @@ export default {
 .notificaciones-individuales-container {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
   background: linear-gradient(135deg, #f8fffe 0%, #e8f5e8 100%);
 }
 
@@ -680,6 +681,7 @@ export default {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh;
   position: relative;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-sizing: border-box;
@@ -1748,6 +1750,7 @@ export default {
     width: 100%;
     max-width: 100%;
     height: 100vh;
+    height: 100dvh;
     max-height: 100vh;
     border-radius: 0;
   }

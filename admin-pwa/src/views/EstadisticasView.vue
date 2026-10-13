@@ -591,6 +591,7 @@ onUnmounted(() => {
 .estadisticas-container {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
   background: linear-gradient(135deg, #f8fffe 0%, #e8f5e8 100%);
   position: relative;
   overflow: hidden;
@@ -649,6 +650,7 @@ onUnmounted(() => {
   margin-left: min(220px, 18vw);
   width: calc(100vw - min(220px, 18vw));
   min-height: 100vh;
+  min-height: 100dvh;
   position: relative;
   box-sizing: border-box;
   overflow-x: hidden;

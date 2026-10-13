@@ -1853,6 +1853,7 @@ export default {
 .notificaciones-container {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
   background: linear-gradient(135deg, #f8fffe 0%, #e8f5e8 100%);
   position: relative;
   overflow: hidden;
@@ -1918,6 +1919,7 @@ export default {
   margin-left: min(220px, 18vw);
   width: calc(100vw - min(220px, 18vw));
   height: 100vh;
+  height: 100dvh;
   position: relative;
   box-sizing: border-box;
   overflow: hidden;
@@ -3491,6 +3493,7 @@ export default {
   left: 0;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   background: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
@@ -4563,6 +4566,7 @@ export default {
     margin-left: 200px;
     width: calc(100vw - 200px);
     height: 100vh;
+    height: 100dvh;
     overflow: hidden;
   }
   
@@ -4585,6 +4589,7 @@ export default {
     margin-left: 0;
     width: 100vw;
     height: 100vh;
+    height: 100dvh;
     overflow: hidden;
   }
   
@@ -4634,6 +4639,7 @@ export default {
     margin-left: 0;
     width: 100vw;
     height: 100vh;
+    height: 100dvh;
     overflow: hidden;
   }
   
@@ -4825,6 +4831,7 @@ export default {
     width: 100%;
     max-width: 100%;
     height: 100vh;
+    height: 100dvh;
     max-height: 100vh;
     border-radius: 0;
     margin: 0;
@@ -5042,6 +5049,7 @@ export default {
     width: 100%;
     max-width: 100%;
     height: 100vh;
+    height: 100dvh;
     max-height: 100vh;
     border-radius: 0;
   }
@@ -5403,6 +5411,7 @@ export default {
     width: 100%;
     padding: 8px 12px 0 12px;
     height: 100vh;
+    height: 100dvh;
     overflow: hidden;
   }
   

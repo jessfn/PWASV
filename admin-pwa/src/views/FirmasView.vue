@@ -434,6 +434,7 @@ onMounted(cargarReportes)
 .firmas-layout {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
   background: #f5f5f7;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -444,6 +445,7 @@ onMounted(cargarReportes)
   margin-left: 264px;
   padding: 32px;
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   gap: 20px;

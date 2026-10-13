@@ -1268,6 +1268,7 @@ const logout = () => {
 .dashboard-container {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
   position: relative;
 }
 
@@ -1276,6 +1277,7 @@ const logout = () => {
   margin-left: min(220px, 18vw);
   background: linear-gradient(135deg, #f8f9fa 0%, #f0fff0 100%);
   min-height: 100vh;
+  min-height: 100dvh;
   position: relative;
   width: calc(100vw - min(220px, 18vw));
   max-width: calc(100vw - min(220px, 18vw));

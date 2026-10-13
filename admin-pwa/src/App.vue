@@ -115,6 +115,7 @@ onUnmounted(() => {
 
 html, body {
   min-height: 100vh;
+  min-height: 100dvh;
   background-color: #f5f5f5 !important;
   color: #333 !important;
 }
@@ -125,6 +126,7 @@ body {
 
 #app {
   min-height: 100vh;
+  min-height: 100dvh;
   background-color: #f5f5f5 !important;
 }
 
@@ -135,6 +137,7 @@ body {
   justify-content: center;
   align-items: center;
   height: 100vh;
+  height: 100dvh;
   font-size: 18px;
   color: #666;
   background-color: #f5f5f5;
