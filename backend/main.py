@@ -149,17 +149,7 @@ async def _enviar_correo(destino, asunto, texto, html):
         print(f"❌ Error enviando correo a {destino}: {e}")
         return False
 
-def _correo_reset_html(nombre, link):
-    return f"""<div style="font-family:Segoe UI,Arial,sans-serif;background:#f0fdf4;padding:24px">
-<div style="max-width:480px;margin:auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #d6e8dc">
-<div style="background:linear-gradient(135deg,#0b3d24,#16a34a);color:#fff;padding:22px 24px"><div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;opacity:.85">Sembrando Vida</div><div style="font-size:21px;font-weight:700;margin-top:6px">Recuperar contraseña</div></div>
-<div style="padding:24px;color:#1b2a22;font-size:14px;line-height:1.6">
-<p>Hola {nombre or ''},</p>
-<p>Recibimos una solicitud para crear una nueva contraseña de tu cuenta. Presiona el botón para continuar:</p>
-<p style="text-align:center;margin:26px 0"><a href="{link}" style="background:#0f5132;color:#fff;text-decoration:none;padding:13px 26px;border-radius:12px;font-weight:700;display:inline-block">Crear nueva contraseña</a></p>
-<p style="font-size:12.5px;color:#5d6f65">La liga es de un solo uso y vence en {RESET_MINUTOS} minutos. Si no fuiste tú, ignora este mensaje: tu contraseña no cambiará.</p>
-<p style="font-size:11.5px;color:#8a9b92;word-break:break-all">Si el botón no funciona, copia esta dirección en tu navegador:<br>{link}</p>
-</div></div></div>"""
+import emails as _emails
 
 class OlvidePasswordRequest(BaseModel):
     correo: str
@@ -197,8 +187,8 @@ async def olvide_password(datos: OlvidePasswordRequest, request: Request):
                     (row[0], huella, ip))
                 conn.commit()
                 link = f"{APP_URL}/reset-password?token={token}"
-                texto = f"Hola {row[1] or ''},\n\nPara crear una nueva contraseña abre esta liga (vence en {RESET_MINUTOS} minutos y es de un solo uso):\n{link}\n\nSi no fuiste tú, ignora este mensaje."
-                _aio.create_task(_enviar_correo(correo, "Recupera tu contraseña · Sembrando Vida", texto, _correo_reset_html(row[1], link)))
+                asunto, texto, html = _emails.correo_reset(row[1], link, RESET_MINUTOS, datetime.now().year)
+                _aio.create_task(_enviar_correo(correo, asunto, texto, html))
     except Exception as e:
         try:
             conn.rollback()
@@ -237,9 +227,9 @@ async def restablecer_password(datos: RestablecerPasswordRequest):
         print(f"❌ Error restableciendo contraseña: {e}")
         raise HTTPException(status_code=500, detail="No se pudo cambiar la contraseña. Inténtalo de nuevo.")
     if u and u[0]:
-        aviso = "Tu contraseña de Sembrando Vida fue cambiada. Si no fuiste tú, avisa de inmediato a tu facilitador o coordinación."
-        _aio.create_task(_enviar_correo(u[0], "Tu contraseña fue cambiada · Sembrando Vida", aviso,
-                                        f"<div style='font-family:Segoe UI,Arial,sans-serif;font-size:14px'>{aviso}</div>"))
+        ahora_mx = datetime.now(pytz.timezone("America/Mexico_City"))
+        asunto, texto, html = _emails.correo_cambio(u[1], ahora_mx.strftime("%d/%m/%Y a las %H:%M"), ahora_mx.year)
+        _aio.create_task(_enviar_correo(u[0], asunto, texto, html))
     return {"ok": True, "mensaje": "Contraseña actualizada correctamente"}
 
 # Conexión a PostgreSQL con manejo robusto
