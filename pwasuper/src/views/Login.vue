@@ -800,4 +800,23 @@ async function login() {
 @media (max-width: 767px) and (prefers-reduced-transparency: reduce) {
   .form-card { background: rgba(255,255,255,0.92); -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
+
+/* ════════════════════════════════════════
+   CAPA FIJA DE PANTALLA COMPLETA
+   El acceso ocupa toda la pantalla real (incluida la zona segura y el área bajo la barra del
+   navegador), así nunca se asoma el fondo verde claro de la app por abajo o por los lados.
+   ════════════════════════════════════════ */
+.root {
+  position: fixed !important;
+  inset: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: none;
+  background: #0b3d24;
+}
+.left-panel { height: auto !important; align-self: stretch; }
+.right-panel { height: auto !important; min-height: 100% !important; }
 </style>
