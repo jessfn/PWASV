@@ -94,6 +94,154 @@ def _jwt_admin(request: Request, solo_visores: bool = False) -> dict:
         raise HTTPException(status_code=403, detail="Solo admin y Jess pueden consultar accesos")
     return payload
 
+
+def _admin_jwt_valido(request: Request) -> bool:
+    """True si la petición trae un token válido de administrador del panel."""
+    auth = request.headers.get("authorization", "")
+    if not auth.lower().startswith("bearer "):
+        return False
+    try:
+        payload = jwt.decode(auth[7:].strip(), SECRET_KEY, algorithms=["HS256"])
+        return payload.get("tipo") == "admin_user"
+    except Exception:
+        return False
+
+# ── Recuperación de contraseña por correo ────────────────────────────────────
+import smtplib
+import hashlib as _hl
+import secrets as _sc
+import asyncio as _aio
+import time as _tm
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.utils import formataddr
+
+APP_URL = os.environ.get("APP_URL", "https://app.sembrandodatos.com").rstrip("/")
+SMTP_HOST = os.environ.get("SMTP_HOST", "")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+SMTP_USER = os.environ.get("SMTP_USER", "")
+SMTP_PASS = os.environ.get("SMTP_PASS", "")
+SMTP_FROM = os.environ.get("SMTP_FROM", SMTP_USER)
+SMTP_FROM_NAME = os.environ.get("SMTP_FROM_NAME", "Sembrando Vida")
+RESET_MINUTOS = 30
+_reset_ip_hits = {}
+
+def _enviar_correo_sync(destino, asunto, texto, html):
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = asunto
+    msg["From"] = formataddr((SMTP_FROM_NAME, SMTP_FROM))
+    msg["To"] = destino
+    msg.attach(MIMEText(texto, "plain", "utf-8"))
+    msg.attach(MIMEText(html, "html", "utf-8"))
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as smtp:
+        smtp.starttls()
+        smtp.login(SMTP_USER, SMTP_PASS)
+        smtp.sendmail(SMTP_FROM, [destino], msg.as_string())
+
+async def _enviar_correo(destino, asunto, texto, html):
+    if not (SMTP_HOST and SMTP_USER and SMTP_PASS):
+        print("⚠️ SMTP no configurado: no se envió el correo de recuperación")
+        return False
+    try:
+        await _aio.get_event_loop().run_in_executor(None, _enviar_correo_sync, destino, asunto, texto, html)
+        return True
+    except Exception as e:
+        print(f"❌ Error enviando correo a {destino}: {e}")
+        return False
+
+def _correo_reset_html(nombre, link):
+    return f"""<div style="font-family:Segoe UI,Arial,sans-serif;background:#f0fdf4;padding:24px">
+<div style="max-width:480px;margin:auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #d6e8dc">
+<div style="background:linear-gradient(135deg,#0b3d24,#16a34a);color:#fff;padding:22px 24px"><div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;opacity:.85">Sembrando Vida</div><div style="font-size:21px;font-weight:700;margin-top:6px">Recuperar contraseña</div></div>
+<div style="padding:24px;color:#1b2a22;font-size:14px;line-height:1.6">
+<p>Hola {nombre or ''},</p>
+<p>Recibimos una solicitud para crear una nueva contraseña de tu cuenta. Presiona el botón para continuar:</p>
+<p style="text-align:center;margin:26px 0"><a href="{link}" style="background:#0f5132;color:#fff;text-decoration:none;padding:13px 26px;border-radius:12px;font-weight:700;display:inline-block">Crear nueva contraseña</a></p>
+<p style="font-size:12.5px;color:#5d6f65">La liga es de un solo uso y vence en {RESET_MINUTOS} minutos. Si no fuiste tú, ignora este mensaje: tu contraseña no cambiará.</p>
+<p style="font-size:11.5px;color:#8a9b92;word-break:break-all">Si el botón no funciona, copia esta dirección en tu navegador:<br>{link}</p>
+</div></div></div>"""
+
+class OlvidePasswordRequest(BaseModel):
+    correo: str
+
+class RestablecerPasswordRequest(BaseModel):
+    token: str
+    nueva_contrasena: str
+
+@app.post("/auth/olvide-password")
+async def olvide_password(datos: OlvidePasswordRequest, request: Request):
+    """Envía al correo una liga de un solo uso. Siempre responde igual (no revela si el correo existe)."""
+    generico = {"ok": True, "mensaje": "Si el correo está registrado, te enviamos una liga para crear una nueva contraseña. Revisa también tu carpeta de spam."}
+    ip = request.client.host if request.client else "?"
+    ahora = _tm.time()
+    hits = [t for t in _reset_ip_hits.get(ip, []) if ahora - t < 900]
+    if len(hits) >= 8:
+        raise HTTPException(status_code=429, detail="Demasiados intentos. Espera unos minutos e inténtalo de nuevo.")
+    hits.append(ahora)
+    _reset_ip_hits[ip] = hits
+
+    correo = (datos.correo or "").strip().lower()
+    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", correo):
+        raise HTTPException(status_code=400, detail="Escribe un correo electrónico válido")
+    try:
+        cursor.execute("SELECT id, nombre_completo, activo FROM usuarios WHERE LOWER(correo) = %s LIMIT 1", (correo,))
+        row = cursor.fetchone()
+        if row and row[2] is not False:
+            cursor.execute("SELECT COUNT(*) FROM password_resets WHERE usuario_id = %s AND created_at > NOW() - INTERVAL '1 hour'", (row[0],))
+            if cursor.fetchone()[0] < 3:
+                token = _sc.token_urlsafe(32)
+                huella = _hl.sha256(token.encode()).hexdigest()
+                cursor.execute("UPDATE password_resets SET used_at = NOW() WHERE usuario_id = %s AND used_at IS NULL", (row[0],))
+                cursor.execute(
+                    "INSERT INTO password_resets (usuario_id, token_hash, expires_at, ip) VALUES (%s, %s, NOW() + INTERVAL '30 minutes', %s)",
+                    (row[0], huella, ip))
+                conn.commit()
+                link = f"{APP_URL}/reset-password?token={token}"
+                texto = f"Hola {row[1] or ''},\n\nPara crear una nueva contraseña abre esta liga (vence en {RESET_MINUTOS} minutos y es de un solo uso):\n{link}\n\nSi no fuiste tú, ignora este mensaje."
+                _aio.create_task(_enviar_correo(correo, "Recupera tu contraseña · Sembrando Vida", texto, _correo_reset_html(row[1], link)))
+    except Exception as e:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        print(f"❌ Error en olvide-password: {e}")
+    return generico
+
+@app.get("/auth/reset-password/validar")
+async def validar_token_reset(token: str):
+    huella = _hl.sha256(token.encode()).hexdigest()
+    cursor.execute("SELECT 1 FROM password_resets WHERE token_hash = %s AND used_at IS NULL AND expires_at > NOW()", (huella,))
+    return {"valido": cursor.fetchone() is not None}
+
+@app.post("/auth/restablecer-password")
+async def restablecer_password(datos: RestablecerPasswordRequest):
+    """Cambia la contraseña usando la liga enviada al correo."""
+    nueva = datos.nueva_contrasena or ""
+    if len(nueva) < 6 or len(nueva) > 100:
+        raise HTTPException(status_code=400, detail="La contraseña debe tener entre 6 y 100 caracteres")
+    huella = _hl.sha256(datos.token.encode()).hexdigest()
+    try:
+        cursor.execute("SELECT id, usuario_id FROM password_resets WHERE token_hash = %s AND used_at IS NULL AND expires_at > NOW()", (huella,))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=400, detail="La liga no es válida o ya venció. Solicita una nueva.")
+        cursor.execute("UPDATE usuarios SET contrasena = %s WHERE id = %s", (nueva, row[1]))
+        cursor.execute("UPDATE password_resets SET used_at = NOW() WHERE usuario_id = %s AND used_at IS NULL", (row[1],))
+        cursor.execute("SELECT correo, nombre_completo FROM usuarios WHERE id = %s", (row[1],))
+        u = cursor.fetchone()
+        conn.commit()
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        print(f"❌ Error restableciendo contraseña: {e}")
+        raise HTTPException(status_code=500, detail="No se pudo cambiar la contraseña. Inténtalo de nuevo.")
+    if u and u[0]:
+        aviso = "Tu contraseña de Sembrando Vida fue cambiada. Si no fuiste tú, avisa de inmediato a tu facilitador o coordinación."
+        _aio.create_task(_enviar_correo(u[0], "Tu contraseña fue cambiada · Sembrando Vida", aviso,
+                                        f"<div style='font-family:Segoe UI,Arial,sans-serif;font-size:14px'>{aviso}</div>"))
+    return {"ok": True, "mensaje": "Contraseña actualizada correctamente"}
+
 # Conexión a PostgreSQL con manejo robusto
 DB_HOST = os.environ.get("DB_HOST", "localhost")
 DB_NAME = os.environ.get("DB_NAME", "app_registros")
@@ -249,6 +397,28 @@ try:
         )
     """, fetch_type='none')
     
+    # Recuperación de contraseña por correo (token guardado como huella SHA-256)
+    ejecutar_consulta_segura("""
+        CREATE TABLE IF NOT EXISTS password_resets (
+            id SERIAL PRIMARY KEY,
+            usuario_id INTEGER NOT NULL,
+            token_hash VARCHAR(64) UNIQUE NOT NULL,
+            expires_at TIMESTAMPTZ NOT NULL,
+            used_at TIMESTAMPTZ,
+            ip VARCHAR(64),
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    """, fetch_type='none')
+    ejecutar_consulta_segura("CREATE INDEX IF NOT EXISTS idx_password_resets_usuario ON password_resets(usuario_id, created_at)", fetch_type='none')
+
+    # Un técnico solo puede tener UN facilitador activo (si ya hay duplicados, se avisa y no se crea)
+    try:
+        ejecutar_consulta_segura(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_fta_tecnico_activo ON facilitador_tecnico_asignaciones(tecnico_usuario_id) WHERE activo = TRUE",
+            fetch_type='none')
+    except Exception as e:
+        print(f"⚠️ No se pudo crear uq_fta_tecnico_activo (¿aún existen duplicados o la tabla?): {e}")
+
     # Copia cifrada de la contraseña (bóveda)
     ejecutar_consulta_segura("ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS password_enc TEXT", fetch_type='none')
 
@@ -876,6 +1046,14 @@ async def crear_usuario(usuario: UserCreate):
                         fac_usuario_id = fac_row[1]  # puede ser None
                         fac_nombre = fac_row[2]
                         
+                        # Un técnico = un solo facilitador activo: desactiva cualquier otro
+                        cursor.execute("""
+                            UPDATE facilitador_tecnico_asignaciones
+                            SET activo = FALSE, updated_at = NOW()
+                            WHERE tecnico_usuario_id = %s AND activo = TRUE
+                              AND facilitador_admin_id IS DISTINCT FROM %s
+                        """, (user_id, usuario.facilitador_admin_id))
+
                         # Crear asignación formal usando admin_id (y usuario_id si está vinculado)
                         cursor.execute("""
                             INSERT INTO facilitador_tecnico_asignaciones
@@ -3163,7 +3341,7 @@ async def cambiar_facilitador(user_id: int, payload: CambiarFacilitadorRequest):
         cursor.execute("""
             UPDATE facilitador_tecnico_asignaciones
             SET activo = FALSE, updated_at = NOW()
-            WHERE tecnico_usuario_id = %s AND activo = TRUE AND origen = 'manual'
+            WHERE tecnico_usuario_id = %s AND activo = TRUE
         """, (user_id,))
 
         # Crear/reactivar nueva asignación usando admin_id (y usuario_id si existe)
@@ -4205,7 +4383,8 @@ async def obtener_estadisticas_reportes_pdf(
 
 # Nuevo endpoint para obtener usuarios (para el panel de administración)
 @app.get("/usuarios")
-async def obtener_usuarios(territorio: str = None):
+async def obtener_usuarios(request: Request, territorio: str = None):
+    _pwd_ok = _admin_jwt_valido(request)
     try:
         print(f"🔍 Obteniendo usuarios... (filtro territorio: {territorio})")
         
@@ -4277,7 +4456,7 @@ async def obtener_usuarios(territorio: str = None):
                     "supervisor": facilitador_nombre if (es_tecnico and facilitador_nombre) else row[4],
                     "supervisor_es_facilitador": bool(es_tecnico and facilitador_nombre),
                     "curp": row[5],
-                    "contrasena": row[6],
+                    "contrasena": (row[6] if _pwd_ok else None),
                     "telefono": row[7] if len(row) > 7 else None,
                     "rol": row[8] if len(row) > 8 else 'user',
                     "territorio": row[9] if len(row) > 9 else None,
@@ -4295,7 +4474,7 @@ async def obtener_usuarios(territorio: str = None):
                     "supervisor": facilitador_nombre if (es_tecnico and facilitador_nombre) else row[4],
                     "supervisor_es_facilitador": bool(es_tecnico and facilitador_nombre),
                     "curp": row[5],
-                    "contrasena": row[6],
+                    "contrasena": (row[6] if _pwd_ok else None),
                     "telefono": row[7] if len(row) > 7 else None,
                     "rol": 'user',
                     "territorio": row[8] if len(row) > 8 else None,
@@ -4314,7 +4493,8 @@ async def obtener_usuarios(territorio: str = None):
 
 # NUEVO ENDPOINT PARA EXPORTACIÓN COMPLETA CON CONTRASEÑAS
 @app.get("/usuarios/exportacion-completa")
-async def obtener_usuarios_exportacion_completa():
+async def obtener_usuarios_exportacion_completa(request: Request):
+    _pwd_ok = _admin_jwt_valido(request)
     """
     Endpoint especial para exportar usuarios con contraseñas incluidas.
     Solo para uso en exportación de base de datos completa.
@@ -4340,7 +4520,7 @@ async def obtener_usuarios_exportacion_completa():
                 "nombre_completo": row[2],
                 "cargo": row[3],
                 "supervisor": row[4],
-                "contrasena": row[5],  # INCLUIR LA CONTRASEÑA REAL
+                "contrasena": (row[5] if _pwd_ok else None),  # INCLUIR LA CONTRASEÑA REAL
                 "curp": row[6],
                 "telefono": row[7] if len(row) > 7 else None  # Incluir teléfono si existe
             }
@@ -4358,7 +4538,8 @@ async def obtener_usuarios_exportacion_completa():
 
 # Endpoint para obtener un usuario específico por ID
 @app.get("/usuarios/{user_id}")
-async def obtener_usuario(user_id: int):
+async def obtener_usuario(user_id: int, request: Request):
+    _pwd_ok = _admin_jwt_valido(request)
     try:
         if not conn:
             raise HTTPException(status_code=500, detail="No hay conexión a la base de datos")
@@ -4380,7 +4561,7 @@ async def obtener_usuario(user_id: int):
             "cargo": resultado[3],
             "supervisor": resultado[4],
             "curp": resultado[5],
-            "contrasena": resultado[6],  # Incluir contraseña
+            "contrasena": (resultado[6] if _pwd_ok else None),  # Incluir contraseña
             "telefono": resultado[7] if len(resultado) > 7 else None,  # Incluir teléfono si existe
             "territorio": resultado[8] if len(resultado) > 8 else None,  # Incluir territorio si existe
             "activo": resultado[9] if len(resultado) > 9 else True  # Incluir estado activo
@@ -4411,7 +4592,8 @@ class UserUpdate(BaseModel):
     nueva_contrasena: Optional[str] = None  # Contraseña opcional para actualización
 
 @app.put("/usuarios/{user_id}")
-async def actualizar_usuario(user_id: int, usuario: UserUpdate):
+async def actualizar_usuario(user_id: int, usuario: UserUpdate, request: Request):
+    _pwd_ok = _admin_jwt_valido(request)
     """Actualiza los datos de un usuario específico incluyendo rol y contraseña opcional"""
     try:
         if not conn:
@@ -4492,7 +4674,7 @@ async def actualizar_usuario(user_id: int, usuario: UserUpdate):
             "nombre_completo": resultado[2],
             "cargo": resultado[3],
             "supervisor": resultado[4],
-            "contrasena": resultado[5],
+            "contrasena": (resultado[5] if _pwd_ok else None),
             "curp": resultado[6],
             "telefono": resultado[7],
             "rol": resultado[8] if len(resultado) > 8 else 'user',
@@ -8409,8 +8591,9 @@ async def obtener_estadisticas_usuarios():
         raise HTTPException(status_code=500, detail=f"Error al obtener estadísticas: {str(e)}")
 
 @app.get("/usuarios/buscar")
-async def buscar_usuarios(correo: Optional[str] = None, nombre: Optional[str] = None, 
+async def buscar_usuarios(request: Request, correo: Optional[str] = None, nombre: Optional[str] = None, 
                          curp: Optional[str] = None, cargo: Optional[str] = None):
+    _pwd_ok = _admin_jwt_valido(request)
     """Buscar usuarios por diferentes criterios con OR"""
     try:
         if not conn:
@@ -8475,7 +8658,7 @@ async def buscar_usuarios(correo: Optional[str] = None, nombre: Optional[str] = 
                 "supervisor": row[4],
                 "curp": row[5],
                 "telefono": row[6],
-                "contrasena": row[7],
+                "contrasena": (row[7] if _pwd_ok else None),
                 "rol": row[8] if tiene_rol and len(row) > 8 else 'user'
             }
             usuarios.append(usuario)

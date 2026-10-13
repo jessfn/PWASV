@@ -48,7 +48,7 @@
 
       <!-- Header Section -->
       <header class="forgot-hero">
-        <p class="hero-instruction">Ingresa tu correo electrónico y tu nueva contraseña para recuperar el acceso a tu cuenta.</p>
+        <p class="hero-instruction">{{ modo === 'reset' ? 'Crea una nueva contraseña para tu cuenta.' : 'Escribe tu correo y te enviaremos una liga para crear una nueva contraseña.' }}</p>
       </header>
 
       <!-- Error Alert -->
@@ -67,7 +67,7 @@
       <!-- Reset Password Form -->
       <div class="forgot-form">
         <!-- Paso 1: Verificar Correo -->
-        <div v-if="!emailVerified">
+        <div v-if="modo === 'solicitar' && !enviado">
           <div class="form-group">
             <div class="group-header">
               <div class="group-icon">
@@ -76,7 +76,7 @@
                   <polyline points="22,6 12,13 2,6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
               </div>
-              <span class="group-title">Paso 1: Verificar Correo</span>
+              <span class="group-title">Recuperar acceso</span>
             </div>
 
             <div class="form-field">
@@ -92,19 +92,19 @@
                   required 
                   placeholder="nombre@ejemplo.com"
                   autocomplete="email"
-                  @keyup.enter="verifyEmail"
+                  @keyup.enter="sendResetLink"
                 />
               </div>
-              <span class="field-hint">Primero verificaremos que este correo esté registrado</span>
+              <span class="field-hint">Te enviaremos una liga de un solo uso que vence en 30 minutos</span>
             </div>
           </div>
 
           <!-- Verificar Correo Button -->
-          <button type="button" @click="verifyEmail" :disabled="verifyingEmail || !isFormComplete" class="submit-btn" :class="{ 'is-loading': verifyingEmail, 'is-disabled': !isFormComplete }">
+          <button type="button" @click="sendResetLink" :disabled="verifyingEmail || !isFormComplete" class="submit-btn" :class="{ 'is-loading': verifyingEmail, 'is-disabled': !isFormComplete }">
             <Transition name="btn-fade" mode="out-in">
               <span v-if="verifyingEmail" key="verifying" class="btn-inner">
                 <div class="btn-loader"></div>
-                <span>Verificando correo...</span>
+                <span>Enviando liga...</span>
               </span>
               <span v-else-if="!email || !email.includes('@')" key="email" class="btn-inner">
                 <svg viewBox="0 0 24 24" fill="none">
@@ -114,7 +114,7 @@
                 <span>Ingresa tu correo</span>
               </span>
               <span v-else key="ready" class="btn-inner">
-                <span>Verificar correo</span>
+                <span>Enviar liga de recuperación</span>
                 <svg viewBox="0 0 24 24" fill="none">
                   <path d="M5 12h14m-6-6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
@@ -123,35 +123,47 @@
           </button>
         </div>
 
-        <!-- Paso 2: Cambiar Contraseña -->
-        <form v-else @submit.prevent="resetPassword">
-          <!-- Email Verificado -->
-          <div class="form-group verified-group">
-            <div class="group-header">
-              <div class="group-icon verified-icon">
-                <svg viewBox="0 0 24 24" fill="none">
-                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </div>
-              <span class="group-title">Correo Verificado</span>
+        <!-- Liga enviada -->
+        <div v-else-if="modo === 'solicitar' && enviado" class="form-group verified-group">
+          <div class="group-header">
+            <div class="group-icon verified-icon">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
             </div>
-
-            <div class="form-field">
-              <div class="verified-email-display">
-                <svg class="verified-icon-small" viewBox="0 0 24 24" fill="none">
-                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <div class="verified-info">
-                  <span class="verified-email-text">{{ email }}</span>
-                  <span class="verified-name-text">{{ foundUser?.nombre_completo }}</span>
-                </div>
-                <button type="button" @click="emailVerified = false; foundUser = null; errorMessage = ''" class="change-email-btn">
-                  Cambiar
-                </button>
-              </div>
-            </div>
+            <span class="group-title">Revisa tu correo</span>
           </div>
+          <div class="form-field">
+            <p class="sent-text">Si <strong>{{ email }}</strong> está registrado, te enviamos una liga para crear una nueva contraseña. Vence en 30 minutos y solo funciona una vez.</p>
+            <span class="field-hint">¿No llega? Revisa spam o correo no deseado, o intenta de nuevo en unos minutos.</span>
+          </div>
+          <button type="button" class="change-email-btn sent-retry" @click="enviado = false; errorMessage = ''">Usar otro correo</button>
+        </div>
 
+        <!-- Liga inválida o vencida -->
+        <div v-else-if="modo === 'reset' && tokenValido === false" class="form-group">
+          <div class="group-header">
+            <div class="group-icon">
+              <svg viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                <path d="M12 8v4m0 4h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <span class="group-title">Liga no válida</span>
+          </div>
+          <div class="form-field">
+            <p class="sent-text">Esta liga ya se usó o venció. Solicita una nueva para continuar.</p>
+          </div>
+          <router-link to="/forgot-password" class="submit-btn sent-link"><span class="btn-inner"><span>Solicitar nueva liga</span></span></router-link>
+        </div>
+
+        <!-- Verificando liga -->
+        <div v-else-if="modo === 'reset' && tokenValido === null" class="form-group">
+          <p class="sent-text">Verificando liga...</p>
+        </div>
+
+        <!-- Nueva contraseña (con liga válida) -->
+        <form v-else @submit.prevent="resetPassword">
           <!-- New Password Section -->
           <div class="form-group">
             <div class="group-header">
@@ -161,7 +173,7 @@
                   <path d="M7 11V7a5 5 0 0110 0v4" stroke="currentColor" stroke-width="2"/>
                 </svg>
               </div>
-              <span class="group-title">Paso 2: Nueva Contraseña</span>
+              <span class="group-title">Nueva contraseña</span>
             </div>
 
             <div class="form-field">
@@ -275,12 +287,16 @@
 </template>
 
 <script setup>
-import { ref, computed, Teleport, Transition } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, computed, onMounted, Teleport, Transition } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
-import { API_URL, getBestApiUrl, checkInternetConnection, getOfflineMessage } from '../utils/network.js';
+import { getBestApiUrl, checkInternetConnection, getOfflineMessage } from '../utils/network.js';
 
 const router = useRouter();
+const route = useRoute();
+const token = ref(typeof route.query.token === 'string' ? route.query.token : '');
+const modo = computed(() => (token.value ? 'reset' : 'solicitar'));
+
 const email = ref('');
 const newPassword = ref('');
 const confirmPassword = ref('');
@@ -291,17 +307,15 @@ const errorMessage = ref('');
 const formError = ref(false);
 const showSuccessModal = ref(false);
 const passwordsMatch = ref(true);
-const emailVerified = ref(false);
 const verifyingEmail = ref(false);
-const foundUser = ref(null);
+const enviado = ref(false);
+const tokenValido = ref(null); // null = verificando
 
 const isFormComplete = computed(() => {
-  if (!emailVerified.value) {
+  if (modo.value === 'solicitar') {
     return email.value.trim() !== '' && email.value.includes('@');
   }
-  return email.value.trim() !== '' && 
-         newPassword.value.length >= 6 && 
-         confirmPassword.value.trim() !== '';
+  return newPassword.value.length >= 6 && confirmPassword.value.trim() !== '';
 });
 
 function togglePasswordVisibility() {
@@ -324,173 +338,97 @@ function goToLogin() {
   router.push('/login');
 }
 
-async function verifyEmail() {
-  verifyingEmail.value = true;
+function mensajeDeError(error, porDefecto) {
+  if (error.response) {
+    const status = error.response.status;
+    if (status === 429) return 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.';
+    if (status >= 500) return 'Error del servidor. Inténtalo de nuevo en unos minutos.';
+    return error.response.data?.detail || porDefecto;
+  }
+  if (error.code === 'ECONNABORTED') return 'La conexión tardó demasiado. Verifica tu conexión a internet.';
+  if (error.request) return 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+  return porDefecto;
+}
+
+// Valida la liga al abrir la pantalla de nueva contraseña
+onMounted(async () => {
+  if (modo.value !== 'reset') return;
+  try {
+    const api = await getBestApiUrl();
+    const r = await axios.get(`${api}/auth/reset-password/validar`, { params: { token: token.value }, timeout: 10000 });
+    tokenValido.value = !!r.data.valido;
+  } catch {
+    tokenValido.value = false;
+  }
+});
+
+// Paso 1: pide la liga al correo
+async function sendResetLink() {
   errorMessage.value = '';
   formError.value = false;
-  
+
   if (!email.value || !email.value.includes('@')) {
     errorMessage.value = 'Por favor, ingresa un correo electrónico válido';
     formError.value = true;
-    verifyingEmail.value = false;
     return;
   }
-  
-  // Verificar conexión a internet
-  const online = await checkInternetConnection();
-  if (!online) {
-    errorMessage.value = getOfflineMessage();
-    formError.value = true;
-    verifyingEmail.value = false;
-    return;
-  }
-  
+
+  verifyingEmail.value = true;
   try {
-    const currentApiUrl = await getBestApiUrl();
-    
-    const usuariosResponse = await axios.get(`${currentApiUrl}/usuarios`, {
-      timeout: 10000,
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    const usuarios = usuariosResponse.data.usuarios;
-    const usuario = usuarios.find(u => u.correo.toLowerCase() === email.value.toLowerCase());
-    
-    if (!usuario) {
-      errorMessage.value = 'No se encontró una cuenta registrada con ese correo electrónico';
+    if (!(await checkInternetConnection())) {
+      errorMessage.value = getOfflineMessage();
       formError.value = true;
-      verifyingEmail.value = false;
-      emailVerified.value = false;
-      foundUser.value = null;
       return;
     }
-    
-    // Usuario encontrado
-    foundUser.value = usuario;
-    emailVerified.value = true;
-    errorMessage.value = '';
-    formError.value = false;
-    
+    const api = await getBestApiUrl();
+    await axios.post(`${api}/auth/olvide-password`, { correo: email.value.trim() }, { timeout: 15000 });
+    enviado.value = true;
   } catch (error) {
-    console.error('Error al verificar correo:', error);
-    
-    if (error.request) {
-      errorMessage.value = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
-    } else if (error.code === 'ECONNABORTED') {
-      errorMessage.value = 'La conexión tardó demasiado. Verifica tu conexión a internet.';
-    } else {
-      errorMessage.value = 'Error al verificar el correo: ' + error.message;
-    }
-    
+    console.error('Error al solicitar la liga:', error);
+    errorMessage.value = mensajeDeError(error, 'No se pudo enviar la solicitud. Inténtalo de nuevo.');
     formError.value = true;
-    emailVerified.value = false;
-    foundUser.value = null;
   } finally {
     verifyingEmail.value = false;
   }
 }
 
+// Paso 2: guarda la nueva contraseña con la liga
 async function resetPassword() {
-  if (!emailVerified.value || !foundUser.value) {
-    errorMessage.value = 'Primero debes verificar tu correo electrónico';
-    formError.value = true;
-    return;
-  }
-  
-  loading.value = true;
   errorMessage.value = '';
   formError.value = false;
-  
-  // Validaciones
-  if (!newPassword.value || !confirmPassword.value) {
-    errorMessage.value = 'Por favor, completa todos los campos de contraseña';
-    formError.value = true;
-    loading.value = false;
-    return;
-  }
-  
+
   if (newPassword.value.length < 6) {
     errorMessage.value = 'La nueva contraseña debe tener al menos 6 caracteres';
     formError.value = true;
-    loading.value = false;
     return;
   }
-  
   if (newPassword.value !== confirmPassword.value) {
     errorMessage.value = 'Las contraseñas no coinciden';
     formError.value = true;
-    loading.value = false;
     return;
   }
-  
-  // Verificar conexión a internet
-  const online = await checkInternetConnection();
-  if (!online) {
-    errorMessage.value = getOfflineMessage();
-    formError.value = true;
-    loading.value = false;
-    return;
-  }
-  
+
+  loading.value = true;
   try {
-    const currentApiUrl = await getBestApiUrl();
-    const usuario = foundUser.value;
-    
-    // Actualizar la contraseña
-    const updateData = {
-      correo: usuario.correo,
-      nombre_completo: usuario.nombre_completo,
-      cargo: usuario.cargo,
-      supervisor: usuario.supervisor,
-      contrasena: newPassword.value,
-      curp: usuario.curp,
-      telefono: usuario.telefono
-    };
-    
-    await axios.put(`${currentApiUrl}/usuarios/${usuario.id}`, updateData, {
-      timeout: 10000,
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    // Mostrar modal de éxito
+    if (!(await checkInternetConnection())) {
+      errorMessage.value = getOfflineMessage();
+      formError.value = true;
+      return;
+    }
+    const api = await getBestApiUrl();
+    await axios.post(`${api}/auth/restablecer-password`, {
+      token: token.value,
+      nueva_contrasena: newPassword.value
+    }, { timeout: 15000 });
+
     showSuccessModal.value = true;
-    
-    // Limpiar formulario
-    email.value = '';
     newPassword.value = '';
     confirmPassword.value = '';
-    emailVerified.value = false;
-    foundUser.value = null;
-    
-    // Redirigir al login después de 3 segundos
-    setTimeout(() => {
-      router.push('/login');
-    }, 3000);
-    
+    setTimeout(() => router.push('/login'), 3000);
   } catch (error) {
     console.error('Error al cambiar contraseña:', error);
-    
-    if (error.response) {
-      const status = error.response.status;
-      if (status === 404) {
-        errorMessage.value = 'No se encontró una cuenta con ese correo electrónico';
-      } else if (status === 500) {
-        errorMessage.value = 'Error del servidor. Inténtalo de nuevo en unos minutos.';
-      } else {
-        errorMessage.value = error.response.data.detail || 'Error al cambiar la contraseña';
-      }
-    } else if (error.request) {
-      errorMessage.value = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
-    } else if (error.code === 'ECONNABORTED') {
-      errorMessage.value = 'La conexión tardó demasiado. Verifica tu conexión a internet.';
-    } else {
-      errorMessage.value = 'Error al cambiar contraseña: ' + error.message;
-    }
-    
+    if (error.response && error.response.status === 400) tokenValido.value = false;
+    errorMessage.value = mensajeDeError(error, 'No se pudo cambiar la contraseña');
     formError.value = true;
   } finally {
     loading.value = false;
@@ -1200,4 +1138,8 @@ async function resetPassword() {
     background: rgba(0, 0, 0, 0.7);
   }
 }
+
+.sent-text { margin: 0 0 8px; font-size: 0.92rem; line-height: 1.5; color: #1f3d2b; text-align: justify; }
+.sent-retry { margin-top: 10px; }
+.sent-link { display: flex; align-items: center; justify-content: center; text-decoration: none; margin-top: 12px; }
 </style>

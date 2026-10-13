@@ -2,6 +2,12 @@
 import { API_URL } from '../config/api.js'
 import authService from './authService.js'
 
+// Cabecera con la sesión del administrador (el servidor solo entrega contraseñas a administradores)
+const authH = () => {
+  const t = localStorage.getItem('admin_token')
+  return t ? { Authorization: `Bearer ${t}` } : {}
+}
+
 console.log(`🌐 Usando API: ${API_URL}`);
 
 class UsuariosService {
@@ -29,7 +35,7 @@ class UsuariosService {
         
         const response = await fetch(url, {
           method: 'GET',
-          headers: {
+          headers: { ...authH(),
             'Content-Type': 'application/json',
           },
           // Timeout de 10 segundos por intento
@@ -98,7 +104,7 @@ class UsuariosService {
       console.log(`🔍 Obteniendo usuario ${id} desde la API real...`);
       const response = await fetch(`${API_URL}/usuarios/${id}`, {
         method: 'GET',
-        headers: {
+        headers: { ...authH(),
           'Content-Type': 'application/json',
         }
       });
@@ -224,7 +230,7 @@ class UsuariosService {
       console.log(`✏️ Actualizando usuario ${id} en la API...`, datosUsuario);
       const response = await fetch(`${API_URL}/usuarios/${id}`, {
         method: 'PUT',
-        headers: {
+        headers: { ...authH(),
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(datosUsuario)
@@ -370,7 +376,7 @@ class UsuariosService {
       console.log(`🗑️ Eliminando usuario ${id} desde la API...`);
       const response = await fetch(`${API_URL}/usuarios/${id}`, {
         method: 'DELETE',
-        headers: {
+        headers: { ...authH(),
           'Content-Type': 'application/json',
         }
       });
