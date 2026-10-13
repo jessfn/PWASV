@@ -77,125 +77,110 @@
     <main class="right-panel">
       <div class="form-card">
 
-        <!-- Logo único -->
-        <div class="brand">
+        <!-- Marca -->
+        <div class="brand rise" style="--d: 0s">
           <img src="/images/logosv.png" alt="Sembrando Vida" class="brand-logo" />
         </div>
 
-        <!-- Línea divisoria desvanecida -->
-        <div class="brand-divider" aria-hidden="true"></div>
-
         <!-- Encabezado -->
-        <div class="form-header">
-          <h2 class="form-title" aria-label="App de Seguimiento">
-            <span
-              v-for="(char, i) in titleChars"
-              :key="i"
-              class="title-char"
-              :style="{ animationDelay: `${i * 0.06}s` }"
-            >{{ char === ' ' ? ' ' : char }}</span>
-          </h2>
-          <p class="form-sub">Ingresa tus credenciales para continuar</p>
-        </div>
+        <header class="form-header rise" style="--d: .06s">
+          <h2 class="form-title">Bienvenido</h2>
+          <p class="form-sub">Inicia sesión en la <strong>Aplicación de Seguimiento</strong></p>
+        </header>
 
         <!-- Aviso: contraseña actualizada desde la liga del correo -->
-        <transition name="slide-down">
-          <div v-if="resetOk" class="alert-ok" role="status">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="alert-ico">
-              <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            Tu contraseña se actualizó. Inicia sesión con la nueva.
+        <transition name="pop">
+          <div v-if="resetOk" class="note note-ok" role="status">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>
+            <span>Tu contraseña se actualizó. Inicia sesión con la nueva.</span>
           </div>
         </transition>
 
-        <!-- Alerta error -->
-        <transition name="slide-down">
-          <div v-if="errorMessage" class="alert-error" role="alert">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="alert-ico">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="12" y1="8" x2="12" y2="12"/>
-              <line x1="12" y1="16" x2="12.01" y2="16"/>
-            </svg>
-            {{ errorMessage }}
+        <!-- Error -->
+        <transition name="pop">
+          <div v-if="errorMessage" class="note note-error" role="alert" aria-live="assertive">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span>{{ errorMessage }}</span>
           </div>
         </transition>
 
-        <!-- Form -->
-        <form @submit.prevent="login" novalidate class="form">
+        <form @submit.prevent="login" novalidate class="form" :class="{ shake: sacudir }">
 
-          <div class="field">
-            <label for="email" class="label">Correo electrónico</label>
-            <div class="inp-wrap">
-              <span class="inp-ico">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                  <polyline points="22,6 12,13 2,6"/>
-                </svg>
-              </span>
-              <input
-                v-model="email"
-                id="email"
-                type="email"
-                autocomplete="email"
-                placeholder="nombre@ejemplo.com"
-                required
-                :disabled="loading"
-                :class="{ 'inp-shake': formError }"
-                class="inp"
-              />
-            </div>
+          <!-- Correo -->
+          <div class="field rise" style="--d: .12s" :class="{ invalid: correoInvalido, filled: email }">
+            <span class="field-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="m2 7 10 6 10-6"/></svg>
+            </span>
+            <input
+              ref="emailInput"
+              v-model.trim="email"
+              id="email"
+              type="email"
+              inputmode="email"
+              autocomplete="username"
+              autocapitalize="none"
+              spellcheck="false"
+              placeholder=" "
+              required
+              :disabled="loading"
+              @blur="correoTocado = true"
+              @keydown.enter.prevent="irAContrasena"
+              class="inp"
+            />
+            <label for="email" class="float-label">Correo electrónico</label>
+          </div>
+          <p v-if="correoInvalido" class="hint hint-error">Escribe un correo válido, por ejemplo nombre@correo.com</p>
+
+          <!-- Contraseña -->
+          <div class="field rise" style="--d: .18s" :class="{ invalid: formError && !password, filled: password }">
+            <span class="field-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="3"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+            </span>
+            <input
+              ref="passwordInput"
+              v-model="password"
+              id="password"
+              :type="showPassword ? 'text' : 'password'"
+              autocomplete="current-password"
+              placeholder=" "
+              required
+              :disabled="loading"
+              @keyup="detectarMayusculas"
+              @keydown="detectarMayusculas"
+              class="inp inp-pass"
+            />
+            <label for="password" class="float-label">Contraseña</label>
+            <button type="button" class="eye" @click="togglePasswordVisibility" :disabled="loading" :aria-label="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'" :aria-pressed="showPassword">
+              <svg v-if="showPassword" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>
+              </svg>
+              <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
           </div>
 
-          <div class="field">
-            <label for="password" class="label">Contraseña</label>
-            <div class="inp-wrap">
-              <span class="inp-ico">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                  <rect x="3" y="11" width="18" height="11" rx="2"/>
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                </svg>
-              </span>
-              <input
-                v-model="password"
-                id="password"
-                :type="showPassword ? 'text' : 'password'"
-                autocomplete="current-password"
-                placeholder="••••••••"
-                required
-                :disabled="loading"
-                :class="{ 'inp-shake': formError }"
-                class="inp"
-              />
-              <button type="button" class="eye" @click="togglePasswordVisibility" :disabled="loading" tabindex="-1">
-                <svg v-if="showPassword" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                  <line x1="1" y1="1" x2="23" y2="23"/>
-                </svg>
-                <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                  <circle cx="12" cy="12" r="3"/>
-                </svg>
-              </button>
-            </div>
+          <div class="row-aux rise" style="--d: .22s">
+            <span v-if="mayusculas" class="caps" role="status">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 4 13h4v5h8v-5h4z"/></svg>
+              Bloq Mayús activado
+            </span>
+            <span v-else></span>
+            <router-link to="/forgot-password" class="link-soft">¿Olvidaste tu contraseña?</router-link>
           </div>
 
-          <button type="submit" class="btn-submit" :disabled="loading">
-            <svg v-if="loading" class="spin" fill="none" viewBox="0 0 24 24">
-              <circle style="opacity:.25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-              <path style="opacity:.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-            </svg>
-            <span>{{ loading ? 'Verificando...' : 'Iniciar sesión' }}</span>
+          <button type="submit" class="btn-submit rise" style="--d: .26s" :disabled="loading">
+            <span v-if="loading" class="spinner" aria-hidden="true"></span>
+            <span class="btn-text">{{ loading ? 'Verificando…' : 'Iniciar sesión' }}</span>
+            <svg v-if="!loading" class="btn-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
           </button>
-
         </form>
 
-        <!-- Links -->
-        <div class="form-links">
-          <p>¿No tienes cuenta? <router-link to="/register" class="flink">Crear cuenta</router-link></p>
-          <router-link to="/forgot-password" class="flink flink-sm">¿Olvidaste tu contraseña?</router-link>
-        </div>
+        <div class="sep rise" style="--d: .30s" aria-hidden="true"></div>
 
-        <p class="copy">© 2026 Sembrando Vida · Todos los derechos reservados</p>
+        <p class="signup rise" style="--d: .32s">¿No tienes cuenta? <router-link to="/register" class="link-strong">Crear cuenta</router-link></p>
+
+        <p class="copy rise" style="--d: .36s">© 2026 Sembrando Vida · Todos los derechos reservados</p>
 
       </div><!-- /form-card -->
     </main>
@@ -205,7 +190,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 import { API_URL } from '../utils/network.js';
@@ -223,7 +208,42 @@ const errorMessage = ref('');
 const formError = ref(false);
 const MAX_RETRIES = 2;
 
-const titleChars = 'App de Seguimiento'.split('');
+const sacudir = ref(false);
+const correoTocado = ref(false);
+const mayusculas = ref(false);
+const emailInput = ref(null);
+const passwordInput = ref(null);
+
+const correoMalFormado = computed(() => !!email.value && !/^\S+@\S+\.\S+$/.test(email.value));
+const correoInvalido = computed(() => (correoTocado.value && correoMalFormado.value) || (formError.value && (!email.value || correoMalFormado.value)));
+
+function sacudirFormulario() {
+  sacudir.value = false;
+  requestAnimationFrame(() => {
+    sacudir.value = true;
+    setTimeout(() => { sacudir.value = false; }, 480);
+  });
+}
+
+function detectarMayusculas(e) {
+  mayusculas.value = !!(e.getModifierState && e.getModifierState('CapsLock'));
+}
+
+function irAContrasena() {
+  if (!password.value && passwordInput.value) passwordInput.value.focus();
+  else login();
+}
+
+onMounted(() => {
+  // Recuerda el último correo usado y coloca el cursor donde toca (sin abrir el teclado en celulares)
+  try {
+    const ultimo = localStorage.getItem('login_email');
+    if (ultimo && !email.value) email.value = ultimo;
+  } catch { /* almacenamiento no disponible */ }
+  if (window.matchMedia && window.matchMedia('(pointer: fine)').matches) {
+    (email.value ? passwordInput.value : emailInput.value)?.focus();
+  }
+});
 
 function togglePasswordVisibility() { showPassword.value = !showPassword.value; }
 
@@ -238,6 +258,13 @@ async function login() {
   if (!email.value || !password.value) {
     errorMessage.value = 'Por favor completa todos los campos';
     formError.value = true;
+    sacudirFormulario();
+    return;
+  }
+  if (correoMalFormado.value) {
+    errorMessage.value = 'Escribe un correo electrónico válido';
+    formError.value = true;
+    sacudirFormulario();
     return;
   }
   loading.value = true;
@@ -252,6 +279,7 @@ async function login() {
     try {
       const data = await intentarLogin(email.value, password.value);
       localStorage.setItem('user', JSON.stringify(data));
+      try { localStorage.setItem('login_email', email.value); } catch { /* opcional */ }
       enviarInfoDispositivo(data.id).catch(() => {});
       sessionStorage.setItem('justLoggedIn', 'true');
       window.location.href = '/';
@@ -265,11 +293,13 @@ async function login() {
           : (err.response.data?.detail || 'Error al iniciar sesión.');
         formError.value = true;
         loading.value = false;
+        sacudirFormulario();
         return;
       }
     }
   }
   formError.value = true;
+  sacudirFormulario();
   loading.value = false;
   errorMessage.value = !navigator.onLine
     ? 'Sin conexión a internet.'
@@ -477,298 +507,184 @@ async function login() {
   z-index: 0;
 }
 
-/* ── TARJETA LIQUID GLASS — blanco translúcido con blur ── */
+/* ════════════════════════════════════════
+   TARJETA DE ACCESO — estilo Apple premium
+   ════════════════════════════════════════ */
+.right-panel {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .form-card {
   position: relative;
   z-index: 1;
   width: 100%;
-  max-width: 440px;
-  /* La tarjeta nunca supera el espacio disponible */
-  max-height: calc(100vh - clamp(20px, 5vh, 72px));
-
-  /* Blanco semitransparente + desenfoque de fondo = efecto vidrio líquido */
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(24px) saturate(1.4);
-  -webkit-backdrop-filter: blur(24px) saturate(1.4);
-
-  border-radius: clamp(14px, 2vw, 28px);
-  /* Padding vertical escala con vh: achica al aumentar zoom */
-  padding: clamp(14px, 2.8vh, 48px) clamp(18px, 3vw, 44px);
-
-  /* Borde luminoso sutil — remata el efecto glass */
-  border: 1px solid rgba(255,255,255,0.55);
-  outline: 1px solid rgba(255,255,255,0.15);
-  outline-offset: -1px;
-
-  /* Flex para distribuir hijos uniformemente */
+  max-width: 424px;
+  margin: auto;
   display: flex;
   flex-direction: column;
+  padding: clamp(22px, 4vh, 40px) clamp(22px, 3.2vw, 38px) clamp(18px, 3vh, 28px);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', 'Segoe UI', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
 
+  background: rgba(255, 255, 255, 0.88);
+  -webkit-backdrop-filter: blur(34px) saturate(1.7);
+  backdrop-filter: blur(34px) saturate(1.7);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 32px;
   box-shadow:
-    0 1px 0 0 rgba(255,255,255,0.6) inset,
-    0 24px 56px rgba(0,0,0,0.32),
-    0 6px 20px rgba(0,0,0,0.18),
-    0 0 0 1px rgba(0,0,0,0.05);
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 30px 70px -18px rgba(0, 0, 0, 0.45),
+    0 10px 24px -8px rgba(0, 0, 0, 0.2);
 
-  animation: cardIn 0.5s cubic-bezier(0.22,1,0.36,1);
+  animation: cardIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 @keyframes cardIn {
-  from { opacity:0; transform: translateY(20px) scale(0.97); }
-  to   { opacity:1; transform: translateY(0) scale(1); }
+  from { opacity: 0; transform: translateY(24px) scale(0.965); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* Logo — grande, se reduce con vh, menos margen inferior */
-/*
- * El PNG del logo trae espacio en blanco/transparente incorporado
- * debajo del arte. line-height:0 no puede quitar ESO porque es parte
- * de la imagen, no un margen CSS. Solución: recortar visualmente con
- * un contenedor de altura menor + overflow hidden + object-position:top,
- * mostrando solo la parte superior (donde está el logo real).
- */
-.brand {
-  text-align: center;
-  line-height: 0;
-  overflow: hidden;
-  height: clamp(96px, 17vh, 182px); /* ~65% de la altura real de la imagen */
-  margin-bottom: 0;
-  flex-shrink: 0;
-}
-.brand-logo {
-  height: clamp(150px, 26vh, 280px);
-  width: auto;
-  max-width: 100%;
-  object-fit: cover;
-  object-position: top;
-  display: block;
-  margin: 0 auto;
-  filter: drop-shadow(0 3px 10px rgba(21,128,61,0.20));
+/* entrada escalonada de cada bloque */
+.rise { animation: rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: var(--d, 0s); }
+@keyframes rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Línea divisoria desvanecida verde entre logo y título */
-.brand-divider {
-  width: min(70%, 220px);
-  height: 2px;
-  margin: clamp(4px, 1vh, 12px) auto;
-  flex-shrink: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(22,163,74,0.55) 25%,
-    rgba(74,222,128,0.85) 50%,
-    rgba(22,163,74,0.55) 75%,
-    transparent 100%
-  );
-}
+/* Marca */
+.brand { text-align: center; line-height: 0; overflow: hidden; height: clamp(84px, 13vh, 120px); flex-shrink: 0; }
+.brand-logo { height: clamp(128px, 20vh, 184px); width: auto; max-width: 100%; object-fit: cover; object-position: top; display: block; margin: 0 auto; filter: drop-shadow(0 4px 12px rgba(21,128,61,0.2)); }
 
 /* Encabezado */
-.form-header {
-  text-align: center;
-  margin-bottom: clamp(6px, 1.4vh, 20px);
-  flex-shrink: 0;
+.form-header { text-align: center; margin: clamp(10px, 2vh, 18px) 0 clamp(14px, 2.4vh, 22px); }
+.form-title { font-size: clamp(26px, 3.4vh, 32px); font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; color: #0f1f16; }
+.form-sub { margin-top: 8px; font-size: 14.5px; line-height: 1.45; color: #5b6b62; }
+.form-sub strong { color: #166534; font-weight: 600; }
+
+/* Avisos */
+.note { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; margin-bottom: 14px; border-radius: 16px; font-size: 13.5px; line-height: 1.4; font-weight: 500; }
+.note svg { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; }
+.note-ok { background: #ecfdf3; color: #166534; border: 1px solid #bbf7d0; }
+.note-error { background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; }
+.pop-enter-active, .pop-leave-active { transition: all 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
+.pop-enter-from, .pop-leave-to { opacity: 0; transform: translateY(-8px) scale(0.98); }
+
+/* Formulario */
+.form { display: flex; flex-direction: column; }
+.form.shake { animation: shake 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97); }
+@keyframes shake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(3px); }
+  30%, 50%, 70% { transform: translateX(-6px); }
+  40%, 60% { transform: translateX(6px); }
 }
 
-/* Título con fuente circular delgada */
-.form-title {
-  font-family: 'Nunito', 'Segoe UI', system-ui, sans-serif;
-  font-size: clamp(13px, 2vh, 18px);
-  font-weight: 500;
-  letter-spacing: 0.4px;
-  margin-bottom: clamp(2px, 0.5vh, 6px);
-  line-height: 1.3;
-  white-space: nowrap;
-}
-
-/* Cada letra: animación de pulso de luz de izquierda a derecha */
-.title-char {
-  display: inline-block;
-  color: #14532d;
-  animation: letterShine 2.4s ease-in-out infinite;
-  animation-fill-mode: both;
-}
-@keyframes letterShine {
-  0%, 55%, 100% { color: #14532d; }
-  27%            { color: #4ade80; }
-}
-
-.form-sub {
-  font-size: clamp(10px, 1.4vh, 13.5px);
-  color: #4b7a5a;
-}
-
-/* Éxito */
-.alert-ok {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 12px 14px;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  border-left: 3px solid #16a34a;
-  border-radius: 10px;
-  color: #166534;
-  font-size: 13px;
-  font-weight: 600;
-  margin-bottom: 20px;
-  line-height: 1.4;
-}
-
-/* Error */
-.alert-error {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 12px 14px;
-  background: #fff1f2;
-  border: 1px solid #fecdd3;
-  border-left: 3px solid #f43f5e;
-  border-radius: 10px;
-  color: #be123c;
-  font-size: 13px;
-  font-weight: 500;
-  margin-bottom: 20px;
-  line-height: 1.4;
-}
-.alert-ico { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
-
-.slide-down-enter-active, .slide-down-leave-active { transition: all 0.25s ease; }
-.slide-down-enter-from, .slide-down-leave-to { opacity: 0; transform: translateY(-8px); }
-
-/* Form */
-.form { display: flex; flex-direction: column; gap: clamp(8px, 1.6vh, 18px); flex-shrink: 0; }
-
-.field { display: flex; flex-direction: column; gap: clamp(3px, 0.7vh, 6px); }
-
-.label {
-  font-size: 13px;
-  font-weight: 600;
-  color: #334155;
-  letter-spacing: 0.1px;
-}
-
-.inp-wrap { position: relative; display: flex; align-items: center; }
-
-.inp-ico {
-  position: absolute;
-  left: 14px;
-  color: #94a3b8;
-  pointer-events: none;
-  display: flex;
-  align-items: center;
-}
-.inp-ico svg { width: 17px; height: 17px; }
-
+/* Campo con etiqueta flotante */
+.field { position: relative; margin-bottom: 12px; }
 .inp {
   width: 100%;
-  padding: clamp(8px, 1.5vh, 13px) 42px;
-  font-size: clamp(12px, 1.7vh, 14.5px);
-  color: #0f172a;
-  background: #f8fafc;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 12px;
+  height: 58px;
+  padding: 22px 48px 6px 48px;
+  font: inherit;
+  font-size: 16px;
+  color: #0f1f16;
+  background: #f2f5f3;
+  border: 1.5px solid transparent;
+  border-radius: 18px;
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
-  font-family: inherit;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
-.inp::placeholder { color: #cbd5e1; }
+.inp::placeholder { color: transparent; }
+.inp:hover:not(:disabled) { background: #edf1ee; }
 .inp:focus {
-  background: #fff;
+  background: #ffffff;
   border-color: #16a34a;
-  box-shadow: 0 0 0 3.5px rgba(22,163,74,0.12);
+  box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.16);
 }
-.inp:disabled { opacity: 0.5; cursor: not-allowed; }
+.inp:disabled { opacity: 0.6; }
 
-/* Shake */
-@keyframes shake {
-  0%,100%{transform:translateX(0)}
-  20%,60%{transform:translateX(-5px)}
-  40%,80%{transform:translateX(5px)}
-}
-.inp-shake { animation: shake 0.5s ease; }
-
-/* Ojo */
-.eye {
+.float-label {
   position: absolute;
-  right: 12px;
-  width: 32px; height: 32px;
-  display: flex; align-items: center; justify-content: center;
-  background: none; border: none; cursor: pointer;
-  color: #94a3b8; border-radius: 8px;
-  transition: color 0.15s, background 0.15s;
+  left: 48px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
+  color: #7b8a81;
+  pointer-events: none;
+  transition: all 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: left center;
 }
-.eye:hover:not(:disabled) { color: #16a34a; background: rgba(22,163,74,0.06); }
-.eye:disabled { opacity: 0.4; cursor: not-allowed; }
-.eye svg { width: 18px; height: 18px; }
-
-/* Botón submit */
-.btn-submit {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  padding: clamp(9px, 1.6vh, 14px) 24px;
-  margin-top: clamp(2px, 0.5vh, 4px);
-  font-size: clamp(13px, 1.8vh, 15px);
-  font-weight: 700;
-  color: #fff;
-  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
-  border: none;
-  border-radius: 12px;
-  cursor: pointer;
-  box-shadow: 0 4px 14px rgba(21,128,61,0.35), inset 0 1px 0 rgba(255,255,255,0.15);
-  transition: all 0.2s ease;
-  font-family: inherit;
-  letter-spacing: 0.1px;
-}
-.btn-submit:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(21,128,61,0.42), inset 0 1px 0 rgba(255,255,255,0.2);
-}
-.btn-submit:active:not(:disabled) { transform: translateY(0); }
-.btn-submit:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
-
-.spin { width: 18px; height: 18px; animation: rot 0.75s linear infinite; }
-@keyframes rot { to { transform: rotate(360deg); } }
-
-/* Links */
-.form-links {
-  text-align: center;
-  margin-top: clamp(8px, 1.5vh, 22px);
-  display: flex;
-  flex-direction: column;
-  gap: clamp(3px, 0.7vh, 8px);
-  flex-shrink: 0;
-}
-.form-links p { font-size: clamp(10px, 1.4vh, 13px); color: #3f5f4c; }
-
-.flink {
-  color: #16a34a;
+.inp:focus + .float-label,
+.inp:not(:placeholder-shown) + .float-label {
+  top: 17px;
+  transform: translateY(-50%) scale(0.76);
+  color: #15803d;
   font-weight: 600;
-  text-decoration: none;
-  font-size: clamp(10px, 1.4vh, 13px);
-  position: relative;
-  transition: color 0.15s;
 }
-.flink::after {
-  content: '';
-  position: absolute; bottom: -1px; left: 0;
-  width: 0; height: 1.5px;
-  background: #16a34a;
-  transition: width 0.2s;
-  border-radius: 2px;
-}
-.flink:hover { color: #15803d; }
-.flink:hover::after { width: 100%; }
-.flink-sm { font-size: 12.5px; color: #2f5540; font-weight: 600; }
-.flink-sm:hover { color: #16a34a; }
 
-.copy {
-  text-align: center;
-  font-size: clamp(9px, 1.1vh, 11px);
-  color: #5a7a68;
-  margin-top: clamp(6px, 1.2vh, 28px);
-  letter-spacing: 0.2px;
-  flex-shrink: 0;
+.field-ico { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; color: #8a9990; transition: color 0.2s; pointer-events: none; }
+.field-ico svg { width: 100%; height: 100%; }
+.field:focus-within .field-ico { color: #16a34a; }
+
+.field.invalid .inp { border-color: #f43f5e; background: #fff7f8; }
+.field.invalid .inp:focus { box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.14); }
+.field.invalid .float-label { color: #be123c; }
+
+.eye {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  width: 44px; height: 44px; display: grid; place-items: center;
+  border: 0; border-radius: 14px; background: transparent; color: #7b8a81; cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.eye svg { width: 20px; height: 20px; }
+.eye:hover:not(:disabled) { background: rgba(22,163,74,0.1); color: #15803d; }
+.eye:active { transform: translateY(-50%) scale(0.94); }
+
+.hint { margin: -4px 4px 10px; font-size: 12.5px; }
+.hint-error { color: #be123c; }
+
+/* Fila auxiliar */
+.row-aux { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 22px; margin: 2px 4px 16px; }
+.caps { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 600; color: #b45309; }
+.caps svg { width: 14px; height: 14px; }
+.link-soft { font-size: 13.5px; font-weight: 600; color: #15803d; text-decoration: none; margin-left: auto; padding: 4px 2px; border-radius: 8px; transition: color 0.2s, opacity 0.2s; }
+.link-soft:hover { color: #0f5132; text-decoration: underline; text-underline-offset: 3px; }
+
+/* Botón principal */
+.btn-submit {
+  position: relative;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%; height: 56px;
+  border: 0; border-radius: 18px;
+  font: inherit; font-size: 16.5px; font-weight: 650; letter-spacing: -0.01em;
+  color: #ffffff; cursor: pointer;
+  background: linear-gradient(180deg, #22b455 0%, #15803d 100%);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.35) inset,
+    0 14px 26px -10px rgba(21, 128, 61, 0.65),
+    0 4px 10px -4px rgba(21, 128, 61, 0.4);
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s, filter 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-submit:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.04); box-shadow: 0 1px 0 rgba(255,255,255,0.35) inset, 0 20px 34px -12px rgba(21,128,61,0.7), 0 6px 14px -4px rgba(21,128,61,0.45); }
+.btn-submit:hover:not(:disabled) .btn-arrow { transform: translateX(3px); }
+.btn-submit:active:not(:disabled) { transform: scale(0.98); }
+.btn-submit:focus-visible { outline: 3px solid rgba(22,163,74,0.4); outline-offset: 3px; }
+.btn-submit:disabled { cursor: progress; filter: saturate(0.85) brightness(0.98); }
+.btn-arrow { width: 20px; height: 20px; transition: transform 0.2s; }
+.spinner { width: 20px; height: 20px; border-radius: 50%; border: 2.5px solid rgba(255,255,255,0.4); border-top-color: #fff; animation: giro 0.75s linear infinite; }
+@keyframes giro { to { transform: rotate(360deg); } }
+
+/* Pie de la tarjeta */
+.sep { height: 1px; margin: clamp(14px, 2.4vh, 22px) 8% 0; background: linear-gradient(90deg, transparent, rgba(22,101,52,0.28), transparent); }
+.signup { text-align: center; margin-top: clamp(12px, 2vh, 18px); font-size: 14px; color: #5b6b62; }
+.link-strong { color: #15803d; font-weight: 650; text-decoration: none; margin-left: 4px; }
+.link-strong:hover { text-decoration: underline; text-underline-offset: 3px; }
+.copy { text-align: center; margin-top: clamp(10px, 1.8vh, 16px); font-size: 11.5px; color: #8d9b93; }
+
+@media (prefers-reduced-motion: reduce) {
+  .form-card, .rise, .form.shake, .spinner { animation: none !important; }
+  .pop-enter-active, .pop-leave-active, .btn-submit, .inp, .float-label { transition: none !important; }
 }
 
 /* ════════════════════════════════════════
@@ -776,18 +692,9 @@ async function login() {
    ════════════════════════════════════════ */
 @media (min-width: 1024px) {
   .root { height: 100vh; overflow: hidden; }
-
-  .left-panel {
-    display: flex;
-    width: 54%;
-    flex-shrink: 0;
-    height: 100vh;
-    overflow: hidden;
-  }
-
+  .left-panel { display: flex; width: 54%; flex-shrink: 0; height: 100vh; overflow: hidden; }
   .right-panel { width: 46%; }
 }
-
 @media (min-width: 1280px) {
   .left-panel { width: 56%; }
   .right-panel { width: 44%; }
@@ -797,52 +704,28 @@ async function login() {
    TABLET 768–1023px
    ════════════════════════════════════════ */
 @media (min-width: 768px) and (max-width: 1023px) {
-  .root { height: 100vh; overflow: hidden; }
+  .root { height: 100dvh; overflow: hidden; }
+  .right-panel { height: 100dvh; }
 }
 
 /* ════════════════════════════════════════
-   MÓVIL < 768px — diseño dedicado
+   MÓVIL < 768px — centrado y con scroll si el teclado lo requiere
    ════════════════════════════════════════ */
 @media (max-width: 767px) {
-  .root { height: 100vh; overflow: hidden; }
-
-  /* Fondo con imagen de campo + overlay verde oscuro */
+  .root { height: auto; min-height: 100dvh; overflow: visible; }
   .right-panel {
+    height: auto;
+    min-height: 100dvh;
+    padding: max(18px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom));
     background:
       linear-gradient(160deg, rgba(2,44,18,0.92) 0%, rgba(10,68,30,0.85) 45%, rgba(21,128,61,0.80) 100%),
       url('https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?auto=format&fit=crop&w=800&q=80') center/cover no-repeat;
-    padding: clamp(16px, 5vw, 28px);
-    justify-content: center;
+    background-attachment: scroll;
   }
-
-  /* Tarjeta: blanca, con sombra generosa y borde sutil */
-  .form-card {
-    border-radius: 24px;
-    padding: clamp(20px, 5vw, 32px) clamp(18px, 5vw, 28px);
-    box-shadow:
-      0 0 0 1px rgba(255,255,255,0.12),
-      0 8px 32px rgba(0,0,0,0.45),
-      0 32px 64px rgba(0,0,0,0.30);
-    max-width: 380px;
-  }
-
-  /* Logo grande en móvil */
-  .brand-logo { height: clamp(120px, 32vw, 180px); }
-  .brand { height: clamp(78px, 21vw, 118px); margin-bottom: 0; }
-
-  .form-title { font-size: clamp(13px, 4vw, 17px); font-weight: 500; }
-  .form-sub   { font-size: clamp(11px, 3.2vw, 13px); }
-  .brand-divider { margin: 3px auto 8px; }
-
-  /* Inputs: font-size mínimo 16px evita zoom automático en iOS */
-  .inp { font-size: 16px; }
-
-  /* Labels y links */
-  .label       { font-size: clamp(12px, 3.5vw, 13px); }
-  .form-links p, .flink, .flink-sm { font-size: clamp(11px, 3.2vw, 13px); }
-  .copy        { font-size: clamp(9px, 2.5vw, 11px); }
-
-  /* Botón con más presencia táctil */
-  .btn-submit { padding: 14px 24px; font-size: 15px; border-radius: 14px; }
+  .form-card { border-radius: 28px; max-width: 400px; padding: 24px 22px 20px; }
+  .brand { height: clamp(78px, 21vw, 104px); }
+  .brand-logo { height: clamp(118px, 32vw, 156px); }
+  .form-title { font-size: 27px; }
+  .inp { font-size: 16px; } /* 16px evita el zoom automático en iOS */
 }
 </style>
