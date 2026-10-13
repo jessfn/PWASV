@@ -531,9 +531,9 @@ async function login() {
 
   /* Vidrio líquido: poco blanco, mucho desenfoque y brillo de borde */
   background:
-    linear-gradient(135deg, rgba(255,255,255,0.58) 0%, rgba(255,255,255,0.30) 55%, rgba(255,255,255,0.40) 100%);
-  -webkit-backdrop-filter: blur(22px) saturate(1.9) brightness(1.04);
-  backdrop-filter: blur(22px) saturate(1.9) brightness(1.04);
+    linear-gradient(135deg, rgba(255,255,255,0.82) 0%, rgba(255,255,255,0.68) 55%, rgba(255,255,255,0.74) 100%);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  backdrop-filter: blur(16px) saturate(1.5);
   border: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: 30px;
   box-shadow:
@@ -551,8 +551,8 @@ async function login() {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(120% 70% at 12% -10%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 55%),
-    radial-gradient(90% 60% at 100% 110%, rgba(134,239,172,0.22) 0%, rgba(134,239,172,0) 60%);
+    radial-gradient(120% 70% at 12% -10%, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0) 55%),
+    radial-gradient(90% 60% at 100% 110%, rgba(134,239,172,0.14) 0%, rgba(134,239,172,0) 60%);
 }
 
 /* La tarjeta NO se anima (el desenfoque costoso no se recalcula): solo sus bloques internos */
@@ -563,8 +563,8 @@ async function login() {
 }
 
 /* Marca */
-.brand { text-align: center; line-height: 0; overflow: hidden; height: clamp(62px, 9.5vh, 86px); flex-shrink: 0; }
-.brand-logo { height: clamp(96px, 14.5vh, 132px); width: auto; max-width: 100%; object-fit: cover; object-position: top; display: block; margin: 0 auto; filter: drop-shadow(0 3px 8px rgba(21,128,61,0.22)); }
+.brand { text-align: center; line-height: 0; overflow: hidden; height: clamp(76px, 11.5vh, 104px); flex-shrink: 0; }
+.brand-logo { height: clamp(117px, 17.7vh, 160px); width: auto; max-width: 100%; object-fit: cover; object-position: top; display: block; margin: 0 auto; filter: drop-shadow(0 3px 8px rgba(21,128,61,0.22)); }
 
 /* Encabezado: píldora verde + título */
 .form-header { display: flex; flex-direction: column; align-items: center; margin: clamp(6px, 1.2vh, 10px) 0 clamp(12px, 2vh, 16px); }
@@ -577,7 +577,38 @@ async function login() {
   background: linear-gradient(135deg, #22b455 0%, #15803d 100%);
   box-shadow: 0 1px 0 rgba(255,255,255,0.4) inset, 0 8px 16px -8px rgba(21,128,61,0.7);
 }
-.form-title { margin-top: 12px; font-size: 21px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; color: #0b1f14; }
+.form-title {
+  position: relative;
+  margin-top: 12px;
+  padding-bottom: 7px;
+  font-size: 16.5px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  line-height: 1.15;
+  color: #15803d; /* respaldo si el navegador no soporta el degradado en texto */
+  background: linear-gradient(90deg, #166534 0%, #22c55e 45%, #166534 100%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: brillo 3.6s linear infinite;
+}
+/* subrayado que se dibuja al entrar */
+.form-title::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 34px;
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #22c55e, #15803d);
+  transform: translateX(-50%) scaleX(0);
+  transform-origin: center;
+  animation: subrayado 0.7s 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes brillo { to { background-position: -220% 0; } }
+@keyframes subrayado { to { transform: translateX(-50%) scaleX(1); } }
 
 /* Avisos */
 .note { display: flex; align-items: flex-start; gap: 9px; padding: 10px 12px; margin-bottom: 12px; border-radius: 14px; font-size: 13px; line-height: 1.4; font-weight: 500; }
@@ -605,8 +636,8 @@ async function login() {
   padding: 20px 44px 5px 44px;
   font: inherit;
   font-size: 15.5px;
-  color: #0b1f14;
-  background: rgba(255, 255, 255, 0.72);
+  color: #08170f;
+  background: rgba(255, 255, 255, 0.9);
   border: 1.5px solid rgba(255, 255, 255, 0.8);
   border-radius: 16px;
   outline: none;
@@ -614,7 +645,7 @@ async function login() {
   transition: background 0.18s, border-color 0.18s, box-shadow 0.18s;
 }
 .inp::placeholder { color: transparent; }
-.inp:hover:not(:disabled) { background: rgba(255, 255, 255, 0.86); }
+.inp:hover:not(:disabled) { background: #ffffff; }
 .inp:focus {
   background: #ffffff;
   border-color: #16a34a;
@@ -628,7 +659,7 @@ async function login() {
   top: 50%;
   transform: translate3d(0, -50%, 0);
   font-size: 15.5px;
-  color: #5f7168;
+  color: #3f5247;
   pointer-events: none;
   transition: top 0.16s ease, transform 0.16s ease, color 0.16s ease, font-size 0.16s ease;
 }
@@ -640,7 +671,7 @@ async function login() {
   font-weight: 650;
 }
 
-.field-ico { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 19px; height: 19px; color: #6b7d73; transition: color 0.18s; pointer-events: none; }
+.field-ico { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 19px; height: 19px; color: #44564b; transition: color 0.18s; pointer-events: none; }
 .field-ico svg { width: 100%; height: 100%; }
 .field:focus-within .field-ico { color: #16a34a; }
 
@@ -651,7 +682,7 @@ async function login() {
 .eye {
   position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
   width: 44px; height: 44px; display: grid; place-items: center;
-  border: 0; border-radius: 13px; background: transparent; color: #5f7168; cursor: pointer;
+  border: 0; border-radius: 13px; background: transparent; color: #3f5247; cursor: pointer;
   transition: background 0.18s, color 0.18s;
   -webkit-tap-highlight-color: transparent;
 }
@@ -694,16 +725,17 @@ async function login() {
 
 /* Pie de la tarjeta: separador, crear cuenta y olvidé contraseña */
 .sep { height: 1px; margin: clamp(12px, 2vh, 16px) 8% 0; background: linear-gradient(90deg, transparent, rgba(22,101,52,0.32), transparent); }
-.signup { text-align: center; margin-top: clamp(10px, 1.6vh, 14px); font-size: 13.5px; color: #3f5247; }
+.signup { text-align: center; margin-top: clamp(10px, 1.6vh, 14px); font-size: 13.5px; font-weight: 500; color: #1f3328; }
 .link-strong { color: #15803d; font-weight: 700; text-decoration: none; margin-left: 4px; }
 .link-strong:hover { text-decoration: underline; text-underline-offset: 3px; }
 .forgot { align-self: center; margin-top: 6px; padding: 8px 10px; }
 .link-soft { font-size: 13.5px; font-weight: 650; color: #15803d; text-decoration: none; border-radius: 10px; -webkit-tap-highlight-color: transparent; }
 .link-soft:hover { color: #0f5132; text-decoration: underline; text-underline-offset: 3px; }
-.copy { text-align: center; margin-top: 4px; font-size: 11px; color: #3a5446; }
+.copy { text-align: center; margin-top: 4px; font-size: 11px; color: #2f4a3a; }
 
 @media (prefers-reduced-motion: reduce) {
-  .rise, .form.shake, .spinner { animation: none !important; }
+  .rise, .form.shake, .spinner, .form-title { animation: none !important; }
+  .form-title::after { animation: none !important; transform: translateX(-50%) scaleX(1); }
   .pop-enter-active, .pop-leave-active, .btn-submit, .inp, .float-label { transition: none !important; }
 }
 
@@ -746,11 +778,11 @@ async function login() {
     border-radius: 28px;
     padding: 20px 20px 14px;
     /* menos blur = mucho más fluido en gamas bajas */
-    -webkit-backdrop-filter: blur(14px) saturate(1.6);
-    backdrop-filter: blur(14px) saturate(1.6);
+    -webkit-backdrop-filter: blur(10px) saturate(1.4);
+    backdrop-filter: blur(10px) saturate(1.4);
   }
-  .brand { height: clamp(58px, 16vw, 74px); }
-  .brand-logo { height: clamp(90px, 25vw, 114px); }
+  .brand { height: clamp(72px, 20vw, 92px); }
+  .brand-logo { height: clamp(110px, 30.7vw, 141px); }
   .inp { font-size: 16px; } /* 16px evita el zoom automático de iOS */
 }
 @media (max-width: 767px) and (prefers-reduced-transparency: reduce) {
