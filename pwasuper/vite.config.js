@@ -4,6 +4,9 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Quita console.log/debug/info del build (se conservan error y warn): menos trabajo en celulares
+  esbuild: { pure: ['console.log', 'console.debug', 'console.info'], legalComments: 'none' },
+  build: { target: 'es2019', chunkSizeWarningLimit: 900 },
   plugins: [
     vue(),
     VitePWA({
@@ -15,6 +18,7 @@ export default defineConfig({
       injectRegister: false,
       manifest: false,
       workbox: {
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         clientsClaim: true,
         skipWaiting: true,
         cleanupOutdatedCaches: true,

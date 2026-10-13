@@ -3,6 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/pwa-192x192.png" />
+    <script>
+      // Modo ligero: gama baja, ahorro de datos o "reducir movimiento" -> sin desenfoques ni adornos animados
+      (function () {
+        try {
+          var n = navigator, c = n.connection || {};
+          var lite = (n.deviceMemory && n.deviceMemory <= 4) ||
+                     (n.hardwareConcurrency && n.hardwareConcurrency <= 4) ||
+                     c.saveData === true ||
+                     (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+          if (lite) document.documentElement.classList.add('perf-lite');
+        } catch (e) { /* sin soporte: modo normal */ }
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     
     <!-- PWA Meta Tags -->
@@ -76,6 +89,7 @@
          SPLASH SCREEN - FLORES FLUIDAS APPLE
          ======================================== */
       
+      html.perf-lite .splash-petals-container { display: none; }
       #splash-screen {
         position: fixed;
         inset: 0;

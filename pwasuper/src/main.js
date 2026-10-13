@@ -13,18 +13,6 @@ import { faHeadset, faUserGear, faCommentDots, faHeadphones } from '@fortawesome
 // Agregar iconos a la librería
 library.add(faHeadset, faUserGear, faCommentDots, faHeadphones)
 
-// Importar Leaflet CSS globalmente
-import 'leaflet/dist/leaflet.css'
-
-// Corregir el problema del ícono de Leaflet
-import { Icon } from 'leaflet'
-delete Icon.Default.prototype._getIconUrl
-Icon.Default.mergeOptions({
-  iconRetinaUrl: '/leaflet/marker-icon-2x.png',
-  iconUrl: '/leaflet/marker-icon.png',
-  shadowUrl: '/leaflet/marker-shadow.png',
-})
-
 // Importar utilidad de registro del Service Worker
 import { registerServiceWorker, waitForServiceWorkerReady } from './utils/serviceWorkerRegistration.js'
 

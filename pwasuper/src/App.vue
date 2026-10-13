@@ -280,7 +280,7 @@ const startUserDataCheck = () => {
   checkUserDataFromServer();
   
   // Luego cada 8 segundos para ser muy reactivo (detectar desactivación rápido)
-  userCheckIntervalId = setInterval(checkUserDataFromServer, 8000);
+  userCheckIntervalId = setInterval(checkUserDataFromServer, 30000);
 };
 
 // Detener verificación periódica

@@ -1,16 +1,18 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import Login from '../views/Login.vue'
-import Register from '../views/Register.vue'
-import ForgotPassword from '../views/ForgotPassword.vue'
-import Home from '../views/Home.vue'
-import Historial from '../views/Historial.vue'
-import Profile from '../views/Profile.vue'
-import Notificaciones from '../views/Notificaciones.vue'
-import Manuales from '../views/Manuales.vue'
-import Support from '../views/Support.vue'
-import Settings from '../views/Settings.vue'
-import Reportes from '../views/Reportes.vue'
+
+// El resto de las pantallas se descargan solo al visitarlas: el arranque pesa mucho menos
+const Register = () => import('../views/Register.vue')
+const ForgotPassword = () => import('../views/ForgotPassword.vue')
+const Home = () => import('../views/Home.vue')
+const Historial = () => import('../views/Historial.vue')
+const Profile = () => import('../views/Profile.vue')
+const Notificaciones = () => import('../views/Notificaciones.vue')
+const Manuales = () => import('../views/Manuales.vue')
+const Support = () => import('../views/Support.vue')
+const Settings = () => import('../views/Settings.vue')
+const Reportes = () => import('../views/Reportes.vue')
 
 const routes = [
   { path: '/', name: 'Home', component: Home },
@@ -50,5 +52,18 @@ router.beforeEach((to, from, next) => {
     next()
   }
 })
+
+// Si tras una actualización falta un archivo de una pantalla (versión vieja en memoria),
+// se recarga una sola vez para tomar la versión nueva en lugar de quedarse en blanco.
+router.onError((error, to) => {
+  const msg = String((error && error.message) || error)
+  if (/dynamically imported module|Importing a module script failed|Loading chunk|Failed to fetch/i.test(msg)) {
+    if (!sessionStorage.getItem('chunk-reload')) {
+      sessionStorage.setItem('chunk-reload', '1')
+      window.location.assign(to && to.fullPath ? to.fullPath : '/')
+    }
+  }
+})
+router.afterEach(() => sessionStorage.removeItem('chunk-reload'))
 
 export default router

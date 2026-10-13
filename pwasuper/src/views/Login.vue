@@ -79,7 +79,7 @@
 
         <!-- Marca -->
         <div class="brand rise" style="--d: 0s">
-          <img src="/images/logosv.png" alt="Sembrando Vida" class="brand-logo" />
+          <img src="/images/logosv.webp" width="768" height="512" decoding="async" alt="Sembrando Vida" class="brand-logo" />
         </div>
 
         <!-- Encabezado -->
@@ -190,7 +190,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 import { API_URL } from '../utils/network.js';
@@ -234,7 +234,14 @@ function irAContrasena() {
   else login();
 }
 
+const META_TEMA = ['meta[name="theme-color"]'];
+const coloresTema = [];
+
 onMounted(() => {
+  // Fondo y barra de estado verdes mientras se ve el acceso (sin franjas claras al final de la página)
+  document.documentElement.classList.add('login-bg');
+  document.querySelectorAll(META_TEMA[0]).forEach((m) => { coloresTema.push([m, m.getAttribute('content')]); m.setAttribute('content', '#0b3d24'); });
+
   // Recuerda el último correo usado y coloca el cursor donde toca (sin abrir el teclado en celulares)
   try {
     const ultimo = localStorage.getItem('login_email');
@@ -246,6 +253,11 @@ onMounted(() => {
 });
 
 function togglePasswordVisibility() { showPassword.value = !showPassword.value; }
+
+onBeforeUnmount(() => {
+  document.documentElement.classList.remove('login-bg');
+  coloresTema.forEach(([m, c]) => m.setAttribute('content', c));
+});
 
 async function intentarLogin(correo, contrasena) {
   const r = await axios.post(`${API_URL}/login`, { correo, contrasena }, {
@@ -308,7 +320,6 @@ async function login() {
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600&display=swap');
 
 /* ── reset ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -320,6 +331,7 @@ async function login() {
   display: flex;
   align-items: stretch;   /* paneles estiran al alto real del contenido */
   min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
   font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
   color-scheme: light only;
