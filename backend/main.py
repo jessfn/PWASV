@@ -144,6 +144,7 @@ async def _enviar_correo(destino, asunto, texto, html):
         return False
     try:
         await _aio.get_event_loop().run_in_executor(None, _enviar_correo_sync, destino, asunto, texto, html)
+        print(f"✉️ Correo enviado a {destino}: {asunto}")
         return True
     except Exception as e:
         print(f"❌ Error enviando correo a {destino}: {e}")
@@ -178,7 +179,9 @@ async def olvide_password(datos: OlvidePasswordRequest, request: Request):
         row = cursor.fetchone()
         if row and row[2] is not False:
             cursor.execute("SELECT COUNT(*) FROM password_resets WHERE usuario_id = %s AND created_at > NOW() - INTERVAL '1 hour'", (row[0],))
-            if cursor.fetchone()[0] < 3:
+            if cursor.fetchone()[0] >= 5:
+                print(f"⚠️ Recuperación omitida: límite por hora alcanzado para usuario {row[0]}")
+            else:
                 token = _sc.token_urlsafe(32)
                 huella = _hl.sha256(token.encode()).hexdigest()
                 cursor.execute("UPDATE password_resets SET used_at = NOW() WHERE usuario_id = %s AND used_at IS NULL", (row[0],))
