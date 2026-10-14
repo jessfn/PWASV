@@ -4,6 +4,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
+  define: { __BUILD__: JSON.stringify(new Date().toISOString().slice(0, 16)) },
   // Quita console.log/debug/info del build (se conservan error y warn): menos trabajo en celulares
   esbuild: { pure: ['console.log', 'console.debug', 'console.info'], legalComments: 'none' },
   build: { target: 'es2019', chunkSizeWarningLimit: 900 },

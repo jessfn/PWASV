@@ -1,11 +1,11 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import Login from '../views/Login.vue'
+import Home from '../views/Home.vue'
 
-// El resto de las pantallas se descargan solo al visitarlas: el arranque pesa mucho menos
+// Inicio y acceso van con la app; el resto se descarga al visitarlas (y se precarga en segundo plano)
 const Register = () => import('../views/Register.vue')
 const ForgotPassword = () => import('../views/ForgotPassword.vue')
-const Home = () => import('../views/Home.vue')
 const Historial = () => import('../views/Historial.vue')
 const Profile = () => import('../views/Profile.vue')
 const Notificaciones = () => import('../views/Notificaciones.vue')
@@ -65,5 +65,14 @@ router.onError((error, to) => {
   }
 })
 router.afterEach(() => sessionStorage.removeItem('chunk-reload'))
+
+// Descarga en segundo plano las pantallas más usadas cuando el teléfono está libre y la red lo permite
+export function precargarPantallas() {
+  const c = navigator.connection || {}
+  if (c.saveData || /(^|-)2g$/.test(c.effectiveType || '')) return
+  const tarea = () => [Profile, Notificaciones, Manuales, Support, Settings].forEach((f) => f().catch(() => {}))
+  if ('requestIdleCallback' in window) requestIdleCallback(tarea, { timeout: 8000 })
+  else setTimeout(tarea, 4000)
+}
 
 export default router

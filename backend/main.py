@@ -159,6 +159,33 @@ class RestablecerPasswordRequest(BaseModel):
     token: str
     nueva_contrasena: str
 
+_err_cli_hits = {}
+
+@app.post("/errores-cliente")
+async def errores_cliente(request: Request):
+    """Recibe errores de la app del teléfono (sin datos personales) para diagnosticar pantallas que no cargan."""
+    ip = request.client.host if request.client else "?"
+    ahora = _tm.time()
+    hits = [t for t in _err_cli_hits.get(ip, []) if ahora - t < 3600]
+    if len(hits) >= 30:
+        return {"ok": False}
+    hits.append(ahora)
+    _err_cli_hits[ip] = hits
+    try:
+        d = json.loads((await request.body())[:4000] or b"{}")
+        cursor.execute(
+            "INSERT INTO client_errors (tipo, mensaje, ruta, usuario_id, ua, version, sw, ip) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+            (str(d.get("tipo", ""))[:30], str(d.get("mensaje", ""))[:500], str(d.get("ruta", ""))[:200],
+             d.get("usuario_id") if isinstance(d.get("usuario_id"), int) else None,
+             str(d.get("ua", ""))[:250], str(d.get("version", ""))[:40], bool(d.get("sw")), ip))
+        conn.commit()
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+    return {"ok": True}
+
 @app.post("/auth/olvide-password")
 async def olvide_password(datos: OlvidePasswordRequest, request: Request):
     """Envía al correo una liga de un solo uso. Siempre responde igual (no revela si el correo existe)."""
@@ -398,6 +425,16 @@ try:
         )
     """, fetch_type='none')
     
+    # Errores reportados por la app del teléfono (diagnóstico)
+    ejecutar_consulta_segura("""
+        CREATE TABLE IF NOT EXISTS client_errors (
+            id SERIAL PRIMARY KEY,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            tipo VARCHAR(30), mensaje TEXT, ruta VARCHAR(200), usuario_id INTEGER,
+            ua VARCHAR(250), version VARCHAR(40), sw BOOLEAN, ip VARCHAR(64)
+        )
+    """, fetch_type='none')
+
     # Recuperación de contraseña por correo (token guardado como huella SHA-256)
     ejecutar_consulta_segura("""
         CREATE TABLE IF NOT EXISTS password_resets (
@@ -11951,7 +11988,7 @@ _AUDIT_RULES = [(m, _re.compile(p), a, mod, lbl) for (m, p, a, mod, lbl) in _AUD
 # Rutas que NO se registran (ruido / lectura simple / internos)
 _AUDIT_SKIP_PREFIXES = ("/sys/", "/health", "/docs", "/openapi", "/redoc", "/auth/check",
                         "/auth/me", "/auth/validar", "/debug/", "/fotos-base64", "/static",
-                        "/admin/login", "/login")
+                        "/admin/login", "/login", "/errores-cliente")
 
 def _classify_request(method, path):
     for methods, rgx, action, module, label_tpl in _AUDIT_RULES:

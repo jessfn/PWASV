@@ -113,45 +113,6 @@ body {
   animation: shimmer 3s infinite ease-in-out;
 }
 
-/* ═══════════════════════════════════════════════════════════
-   MODO LIGERO (html.perf-lite): se activa solo en celulares de gama baja
-   Quita el desenfoque de fondo (lo más pesado de pintar) y los adornos animados,
-   y reemplaza el "vidrio" por un fondo casi opaco para que todo siga legible.
-   ═══════════════════════════════════════════════════════════ */
-html.perf-lite *,
-html.perf-lite *::before,
-html.perf-lite *::after {
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-}
-html.perf-lite .animate-pulse-slow,
-html.perf-lite .animate-pulse,
-html.perf-lite .animate-bounce,
-html.perf-lite .apple-gradient-orb,
-html.perf-lite .apple-orb,
-html.perf-lite .apple-dynamic-bg *,
-html.perf-lite .deco,
-html.perf-lite .orb {
-  animation: none !important;
-  filter: none !important;
-}
-html.perf-lite .blur-xl,
-html.perf-lite .blur-2xl,
-html.perf-lite .blur-3xl { filter: none !important; }
-html.perf-lite .mix-blend-multiply { mix-blend-mode: normal !important; }
-html.perf-lite .glass-card,
-html.perf-lite .glass-modal,
-html.perf-lite .glass-item,
-html.perf-lite .apple-header-card,
-html.perf-lite .apple-section-card,
-html.perf-lite .apple-activity-card,
-html.perf-lite .apple-header-section { background-color: rgba(255, 255, 255, 0.95) !important; }
-/* La tarjeta del login mantiene su aspecto original (es un solo elemento, no pesa) */
-html.perf-lite .form-card {
-  -webkit-backdrop-filter: blur(16px) saturate(1.5) !important;
-  backdrop-filter: blur(16px) saturate(1.5) !important;
-}
-
 /* Pantalla de acceso: el fondo de toda la página es verde (evita la franja clara inferior en iOS/Android) */
 html.login-bg,
 html.login-bg body { background: #0b3d24 !important; }

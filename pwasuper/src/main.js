@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 import App from './App.vue'
-import router from './router'
+import router, { precargarPantallas } from './router'
+import { iniciarReporteErrores } from './utils/errorReporter.js'
 
 // Importar estilos (Tailwind CSS y personalizados)
 import './style.css'
@@ -54,11 +55,15 @@ const app = createApp(App)
 // Registrar componente Font Awesome globalmente
 app.component('font-awesome-icon', FontAwesomeIcon)
 
+// Reporte de errores del dispositivo (para diagnosticar pantallas que no cargan)
+iniciarReporteErrores(app)
+
 // Usar router
 app.use(router)
 
 // Montar aplicación y notificar que está lista
 app.mount('#app')
+window.addEventListener('load', () => setTimeout(precargarPantallas, 3000))
 
 // Emitir evento para ocultar splash screen
 window.dispatchEvent(new CustomEvent('app-ready'))

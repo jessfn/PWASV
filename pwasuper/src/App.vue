@@ -11,6 +11,7 @@ import CargoModal from './components/CargoModal.vue';
 import AccountDeactivatedModal from './components/AccountDeactivatedModal.vue';
 import { useNotifications } from './composables/useNotifications.js';
 import { API_URL } from './utils/network.js';
+import { reportarError, recuperarApp } from './utils/errorReporter.js';
 import { apiService } from './services/apiService.js';
 import { manualesService } from './services/manualesService.js';
 import { registrarDispositivoActual, iniciarTrackingPeriodico, detenerTrackingPeriodico } from './services/dispositivoTrackingService.js';
@@ -23,6 +24,36 @@ const userData = ref(null);
 const showMobileMenu = ref(false);
 // Pantallas que se pueden abrir sin sesión (incluye la liga del correo de recuperación)
 const RUTAS_PUBLICAS = ['Login', 'Register', 'ForgotPassword', 'ResetPassword'];
+
+// ── Carga de la pantalla: nunca se queda en blanco sin explicación ──
+const rutaLista = ref(false);
+const cargaLenta = ref(false);
+const errorCarga = ref(false);
+const vistaVacia = ref(false);
+const mostrarCarga = computed(() => !rutaLista.value || errorCarga.value || vistaVacia.value);
+const textoCarga = computed(() => (errorCarga.value || vistaVacia.value)
+  ? 'No se pudo mostrar esta pantalla'
+  : (cargaLenta.value ? 'Está tardando más de lo normal…' : 'Cargando…'));
+const reintentar = () => recuperarApp();
+router.isReady().then(() => { rutaLista.value = true; });
+router.onError((e) => { errorCarga.value = true; reportarError('ruta', (e && e.message) || e); });
+setTimeout(() => { if (!rutaLista.value) cargaLenta.value = true; }, 8000);
+// Si en 15 s la pantalla sigue sin cargar (versión mezclada en caché), se limpia y recarga una vez sola
+setTimeout(() => {
+  if (!rutaLista.value && !sessionStorage.getItem('auto-recuperacion')) {
+    sessionStorage.setItem('auto-recuperacion', '1');
+    reportarError('autorecuperacion', route.fullPath);
+    recuperarApp();
+  }
+}, 15000);
+// Si la ruta resolvió pero el área principal quedó vacía, se avisa y se ofrece reintentar
+setTimeout(() => {
+  const m = document.querySelector('main.main-content');
+  if (rutaLista.value && m && m.children.length === 0) {
+    vistaVacia.value = true;
+    reportarError('vista-vacia', route.fullPath);
+  }
+}, 9000);
 const showAccountDeactivatedModal = ref(false);
 const showTerritorioModal = ref(false);
 const showCargoModal = ref(false);
@@ -816,6 +847,11 @@ const currentUserId = computed(() => {
 
     <!-- Contenido principal -->
     <main class="main-content relative z-10" :style="{ paddingTop: isLoggedIn ? 'calc(120px + env(safe-area-inset-top, 0px))' : '0' }">
+      <div v-if="mostrarCarga" class="route-loader" role="status" aria-live="polite">
+        <span v-if="!errorCarga && !vistaVacia" class="route-loader__spin" aria-hidden="true"></span>
+        <p class="route-loader__txt">{{ textoCarga }}</p>
+        <button v-if="cargaLenta || errorCarga || vistaVacia" type="button" class="route-loader__btn" @click="reintentar">Reintentar</button>
+      </div>
       <router-view v-slot="{ Component }">
         <transition name="fade" mode="out-in">
           <component :is="Component" />
@@ -1295,4 +1331,31 @@ body {
   animation: menu-backdrop-in 0.14s ease both;
 }
 @keyframes menu-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* Indicador de carga de pantalla */
+.route-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  text-align: center;
+  pointer-events: none;
+}
+.route-loader__spin {
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 3.5px solid rgba(22, 163, 74, 0.25); border-top-color: #16a34a;
+  animation: route-spin 0.8s linear infinite;
+}
+.route-loader__txt { font-size: 15px; font-weight: 600; color: #166534; }
+.route-loader__btn {
+  pointer-events: auto;
+  padding: 12px 26px; border: 0; border-radius: 14px; font-size: 15px; font-weight: 700; color: #fff;
+  background: linear-gradient(180deg, #22b455, #15803d); box-shadow: 0 10px 20px -10px rgba(21, 128, 61, 0.7);
+}
+@keyframes route-spin { to { transform: rotate(360deg); } }
 </style>
