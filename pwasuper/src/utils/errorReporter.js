@@ -49,6 +49,7 @@ export function iniciarReporteErrores(app) {
 
 // Recuperación total: borra cachés y service workers viejos y recarga (arregla versiones mezcladas)
 export async function recuperarApp() {
+  if (!navigator.onLine) return // sin internet no se borra nada: la app abre desde su memoria
   try {
     if (navigator.serviceWorker) {
       const regs = await navigator.serviceWorker.getRegistrations()

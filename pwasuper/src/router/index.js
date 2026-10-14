@@ -57,11 +57,12 @@ router.beforeEach((to, from, next) => {
 // se recarga una sola vez para tomar la versión nueva en lugar de quedarse en blanco.
 router.onError((error, to) => {
   const msg = String((error && error.message) || error)
-  if (/dynamically imported module|Importing a module script failed|Loading chunk|Failed to fetch/i.test(msg)) {
-    if (!sessionStorage.getItem('chunk-reload')) {
-      sessionStorage.setItem('chunk-reload', '1')
-      window.location.assign(to && to.fullPath ? to.fullPath : '/')
-    }
+  if (!/dynamically imported module|Importing a module script failed|Loading chunk|Failed to fetch|Load failed/i.test(msg)) return
+  if (navigator.onLine && !sessionStorage.getItem('chunk-reload')) {
+    sessionStorage.setItem('chunk-reload', '1')
+    window.location.assign(to && to.fullPath ? to.fullPath : '/')
+  } else {
+    router.replace('/').catch(() => {}) // sin internet: Inicio siempre está disponible
   }
 })
 router.afterEach(() => sessionStorage.removeItem('chunk-reload'))

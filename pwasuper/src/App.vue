@@ -25,40 +25,36 @@ const showMobileMenu = ref(false);
 // Pantallas que se pueden abrir sin sesión (incluye la liga del correo de recuperación)
 const RUTAS_PUBLICAS = ['Login', 'Register', 'ForgotPassword', 'ResetPassword'];
 
-// ── Carga de la pantalla: nunca se queda en blanco sin explicación ──
+// ── Carga de la pantalla: sin mensajes ni botones; todo se resuelve solo y sin tocar el modo sin conexión ──
 const rutaLista = ref(false);
-const cargaLenta = ref(false);
-const errorCarga = ref(false);
-const vistaVacia = ref(false);
-const mostrarCarga = computed(() => !rutaLista.value || errorCarga.value || vistaVacia.value);
-const textoCarga = computed(() => (errorCarga.value || vistaVacia.value)
-  ? 'No se pudo mostrar esta pantalla'
-  : (cargaLenta.value ? 'Está tardando más de lo normal…' : 'Cargando…'));
-const reintentar = () => recuperarApp();
+const mostrarCarga = computed(() => !rutaLista.value);
 router.isReady().then(() => { rutaLista.value = true; });
-router.onError((e) => { errorCarga.value = true; reportarError('ruta', (e && e.message) || e); });
-setTimeout(() => { if (!rutaLista.value) cargaLenta.value = true; }, 8000);
-// Si en 15 s la pantalla sigue sin cargar (versión mezclada en caché), se limpia y recarga una vez sola
+router.onError((e) => { reportarError('ruta', (e && e.message) || e); });
+// Si en 15 s no hay pantalla y HAY internet (versión mezclada en caché): limpia y recarga una sola vez.
+// Sin internet no se toca nada: así la app sigue abriendo desde su memoria sin conexión.
 setTimeout(() => {
-  if (!rutaLista.value && !sessionStorage.getItem('auto-recuperacion')) {
+  if (!rutaLista.value && navigator.onLine && !sessionStorage.getItem('auto-recuperacion')) {
     sessionStorage.setItem('auto-recuperacion', '1');
     reportarError('autorecuperacion', route.fullPath);
     recuperarApp();
   }
 }, 15000);
-// Si la ruta resolvió pero el área principal quedó vacía, se avisa y se ofrece reintentar
+// Si la pantalla quedó vacía o invisible: se reporta y, con internet, se recarga una sola vez (sin avisos)
 setTimeout(() => {
   const m = document.querySelector('main.main-content');
+  let problema = null;
   if (rutaLista.value && m && m.children.length === 0) {
-    vistaVacia.value = true;
-    reportarError('vista-vacia', route.fullPath);
+    problema = 'vista-vacia';
   } else if (rutaLista.value && m && route.name === 'Home') {
-    // En Inicio, el centro de la pantalla debe estar cubierto por la propia pantalla; si se ve el fondo, está invisible
     const e = document.elementFromPoint(window.innerWidth / 2, window.innerHeight * 0.6);
     const base = e && (e.classList.contains('app-bg') || e.classList.contains('app-root') || e.classList.contains('main-content') || e === document.body || e === document.documentElement);
-    if (base) {
-      vistaVacia.value = true;
-      reportarError('vista-invisible', `${route.fullPath} sobre=${String(e.className).slice(0, 40)}`);
+    if (base) problema = 'vista-invisible';
+  }
+  if (problema) {
+    reportarError(problema, route.fullPath);
+    if (navigator.onLine && !sessionStorage.getItem('auto-recarga')) {
+      sessionStorage.setItem('auto-recarga', '1');
+      location.reload();
     }
   }
 }, 9000);
@@ -855,10 +851,8 @@ const currentUserId = computed(() => {
 
     <!-- Contenido principal -->
     <main class="main-content relative z-10" :style="{ paddingTop: isLoggedIn ? 'calc(120px + env(safe-area-inset-top, 0px))' : '0' }">
-      <div v-if="mostrarCarga" class="route-loader" role="status" aria-live="polite">
-        <span v-if="!errorCarga && !vistaVacia" class="route-loader__spin" aria-hidden="true"></span>
-        <p class="route-loader__txt">{{ textoCarga }}</p>
-        <button v-if="cargaLenta || errorCarga || vistaVacia" type="button" class="route-loader__btn" @click="reintentar">Reintentar</button>
+      <div v-if="mostrarCarga" class="route-loader" role="status" aria-label="Cargando">
+        <span class="route-loader__spin" aria-hidden="true"></span>
       </div>
       <router-view v-slot="{ Component }">
         <transition name="fade" mode="out-in">
@@ -1358,12 +1352,6 @@ body {
   width: 34px; height: 34px; border-radius: 50%;
   border: 3.5px solid rgba(22, 163, 74, 0.25); border-top-color: #16a34a;
   animation: route-spin 0.8s linear infinite;
-}
-.route-loader__txt { font-size: 15px; font-weight: 600; color: #166534; }
-.route-loader__btn {
-  pointer-events: auto;
-  padding: 12px 26px; border: 0; border-radius: 14px; font-size: 15px; font-weight: 700; color: #fff;
-  background: linear-gradient(180deg, #22b455, #15803d); box-shadow: 0 10px 20px -10px rgba(21, 128, 61, 0.7);
 }
 @keyframes route-spin { to { transform: rotate(360deg); } }
 </style>
