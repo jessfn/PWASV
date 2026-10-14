@@ -52,6 +52,14 @@ setTimeout(() => {
   if (rutaLista.value && m && m.children.length === 0) {
     vistaVacia.value = true;
     reportarError('vista-vacia', route.fullPath);
+  } else if (rutaLista.value && m && route.name === 'Home') {
+    // En Inicio, el centro de la pantalla debe estar cubierto por la propia pantalla; si se ve el fondo, está invisible
+    const e = document.elementFromPoint(window.innerWidth / 2, window.innerHeight * 0.6);
+    const base = e && (e.classList.contains('app-bg') || e.classList.contains('app-root') || e.classList.contains('main-content') || e === document.body || e === document.documentElement);
+    if (base) {
+      vistaVacia.value = true;
+      reportarError('vista-invisible', `${route.fullPath} sobre=${String(e.className).slice(0, 40)}`);
+    }
   }
 }, 9000);
 const showAccountDeactivatedModal = ref(false);

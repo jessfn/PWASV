@@ -139,7 +139,7 @@ const requestNotificationPermission = async () => {
       return false
     }
   }
-  return Notification.permission === 'granted'
+  return 'Notification' in window && Notification.permission === 'granted'
 }
 
 /**
