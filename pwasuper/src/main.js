@@ -2,6 +2,8 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import router, { precargarPantallas } from './router'
 import { iniciarReporteErrores } from './utils/errorReporter.js'
+import { iniciarActualizador } from './utils/actualizador.js'
+import { notificarActualizacion } from './utils/serviceWorkerRegistration.js'
 
 // Importar estilos (Tailwind CSS y personalizados)
 import './style.css'
@@ -63,6 +65,10 @@ app.use(router)
 
 // Montar aplicación y notificar que está lista
 app.mount('#app')
+
+// Actualización reactiva: al publicar una versión nueva, la app abierta se actualiza sola con el aviso "Actualizando…"
+const actualizador = iniciarActualizador((version) => notificarActualizacion('version-' + version))
+router.afterEach(() => { actualizador.revisarAhora() })
 window.addEventListener('load', () => setTimeout(precargarPantallas, 3000))
 
 // Emitir evento para ocultar splash screen

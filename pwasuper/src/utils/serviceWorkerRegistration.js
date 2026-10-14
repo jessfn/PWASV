@@ -13,6 +13,11 @@ let onUpdateCallback = null;
 // cualquier actualización disparara múltiples recargas en cascada.
 let registrationPromise = null;
 
+// Permite que otros módulos (actualizador de versiones) disparen el aviso "Actualizando…"
+export function notificarActualizacion(version) {
+  if (onUpdateCallback) onUpdateCallback(version);
+}
+
 // Registrar el service worker
 export function registerServiceWorker(onUpdate) {
   // Guardar callback para notificar actualizaciones

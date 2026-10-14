@@ -3,13 +3,24 @@ import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
+// Identificador único de cada compilación: va dentro del código y también en /version.json
+const BUILD_ID = Date.now().toString(36)
+const versionJson = () => ({
+  name: 'version-json',
+  apply: 'build',
+  generateBundle() {
+    this.emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify({ build: BUILD_ID, time: new Date().toISOString() }) })
+  },
+})
+
 export default defineConfig({
-  define: { __BUILD__: JSON.stringify(new Date().toISOString().slice(0, 16)) },
+  define: { __BUILD__: JSON.stringify(BUILD_ID) },
   // Quita console.log/debug/info del build (se conservan error y warn): menos trabajo en celulares
   esbuild: { pure: ['console.log', 'console.debug', 'console.info'], legalComments: 'none' },
   build: { target: 'es2019', chunkSizeWarningLimit: 900 },
   plugins: [
     vue(),
+    versionJson(),
     VitePWA({
       registerType: 'autoUpdate',
       // El registro/actualización del SW lo maneja a mano
@@ -20,6 +31,7 @@ export default defineConfig({
       manifest: false,
       workbox: {
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        globIgnores: ['**/version.json'],
         clientsClaim: true,
         skipWaiting: true,
         cleanupOutdatedCaches: true,
@@ -32,6 +44,8 @@ export default defineConfig({
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
+          // La versión publicada siempre se pregunta a la red (nunca desde la memoria)
+          { urlPattern: /\/version\.json/i, handler: 'NetworkOnly' },
           {
             urlPattern: /\/api\//i,
             handler: 'NetworkOnly',

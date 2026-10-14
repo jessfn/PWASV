@@ -64,6 +64,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { registerServiceWorker } from '../utils/serviceWorkerRegistration.js';
+import { aplicarActualizacion } from '../utils/actualizador.js';
 
 const showUpdateModal = ref(false);
 const showUpdateToast = ref(false);
@@ -82,7 +83,8 @@ function updateServiceWorker() {
 }
 
 // Mostrar toast y cuenta regresiva (rápido - 2 segundos)
-function showAutoUpdateToast() {
+function showAutoUpdateToast(version) {
+  if (showUpdateToast.value) return; // ya se muestra: no duplicar
   showUpdateToast.value = true;
   countdown.value = 2;
   
@@ -90,7 +92,9 @@ function showAutoUpdateToast() {
     countdown.value--;
     if (countdown.value <= 0) {
       clearInterval(countdownInterval);
-      window.location.reload();
+      // 'auto-reload': el service worker nuevo ya manda; otra señal usa la vía fiable
+      if (version === 'auto-reload') window.location.reload();
+      else aplicarActualizacion();
     }
   }, 1000);
 }
@@ -102,11 +106,11 @@ function handleUpdate(version) {
   
   if (version === 'auto-reload') {
     // Recarga automática desde el SW
-    showAutoUpdateToast();
+    showAutoUpdateToast('auto-reload');
   } else {
     // Nueva versión disponible
     autoUpdate.value = true;
-    showAutoUpdateToast();
+    showAutoUpdateToast(version);
   }
 }
 

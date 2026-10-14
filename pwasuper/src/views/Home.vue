@@ -1275,6 +1275,9 @@ const fileInputCameraRegistro = ref(null);
 const fileInputGalleryRegistro = ref(null);
 const historial = ref([]);
 const enviando = ref(false);
+// Mientras se envía un registro la app no se actualiza sola (se espera a que termine)
+watch([enviandoAsistencia, enviando], ([a, b]) => { window.__appOcupada = (a || b) ? 1 : 0; }, { immediate: true });
+onUnmounted(() => { window.__appOcupada = 0; });
 const error = ref(null);
 const router = useRouter();
 const isOnline = ref(true);
