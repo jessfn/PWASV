@@ -26,7 +26,9 @@ const routes = [
   { path: '/manuales', name: 'Manuales', component: Manuales },
   { path: '/support', name: 'Support', component: Support },
   { path: '/settings', name: 'Settings', component: Settings },
-  { path: '/reportes', name: 'Reportes', component: Reportes }
+  { path: '/reportes', name: 'Reportes', component: Reportes },
+  // Cualquier otra dirección (/index.html, enlaces viejos, errores de escritura) lleva al Inicio: nunca pantalla vacía
+  { path: '/:pathMatch(.*)*', redirect: '/' }
 ]
 
 const router = createRouter({
@@ -36,6 +38,10 @@ const router = createRouter({
 
 // Guard de navegación para proteger rutas
 router.beforeEach((to, from, next) => {
+  // Enlaces antiguos con # (por ejemplo /#/historial) se convierten en rutas normales
+  if (to.hash && to.hash.startsWith('#/')) {
+    return next({ path: to.hash.slice(1), replace: true })
+  }
   const user = localStorage.getItem('user')
   const isLoggedIn = !!user
   

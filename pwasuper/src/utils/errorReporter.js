@@ -7,7 +7,7 @@ let total = 0
 
 export function reportarError(tipo, mensaje, extra = {}) {
   try {
-    const msg = String(mensaje || '').slice(0, 400)
+    const msg = String(mensaje || '').slice(0, 900)
     const clave = tipo + msg
     if (enviados.has(clave) || total >= 5) return
     enviados.add(clave)
@@ -61,4 +61,27 @@ export async function recuperarApp() {
     }
   } catch { /* seguimos con la recarga */ }
   location.reload()
+}
+
+// Foto del estado de la pantalla para diagnosticar teléfonos donde "solo se ve el encabezado"
+export function diagnostico(extra = {}) {
+  try {
+    const m = document.querySelector('main.main-content')
+    const centro = document.elementFromPoint(window.innerWidth / 2, window.innerHeight * 0.6)
+    const vv = window.visualViewport
+    let almacenamiento = true
+    try { localStorage.setItem('__t', '1'); localStorage.removeItem('__t') } catch { almacenamiento = false }
+    let u = null
+    try { u = JSON.parse(localStorage.getItem('user') || 'null') } catch { u = 'invalido' }
+    return JSON.stringify({
+      ruta: location.pathname + location.search.slice(0, 30), hash: location.hash.slice(0, 20),
+      main: m ? m.children.length : -1, texto: m ? m.innerText.length : -1,
+      centro: centro ? String(centro.className || centro.tagName).slice(0, 30) : null,
+      win: [window.innerWidth, window.innerHeight], vv: vv ? [Math.round(vv.width), Math.round(vv.height)] : null,
+      standalone: !!(window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true,
+      online: navigator.onLine, almacenamiento, estado: document.readyState,
+      user: u === 'invalido' ? 'invalido' : (u ? { id: !!u.id, cargo: !!u.cargo, terr: !!u.territorio } : null),
+      ...extra,
+    }).slice(0, 900)
+  } catch (e) { return 'diagnostico-fallo ' + e }
 }

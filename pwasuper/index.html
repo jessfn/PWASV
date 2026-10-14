@@ -3,6 +3,46 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/pwa-192x192.png" />
+    <script>
+      // Vigilante: si pasados 10 s la app no pintó nada (o su archivo principal falló), con internet limpia
+      // la memoria vieja y recarga UNA vez. Sin internet no toca nada (la app sigue abriendo sin conexión).
+      (function () {
+        var hecho = false;
+        function estado() {
+          var app = document.getElementById('app');
+          var m = app && app.querySelector('main');
+          return {
+            r: document.readyState, on: navigator.onLine, ruta: location.pathname,
+            app: app ? app.children.length : -1, main: m ? m.children.length : -1,
+            sw: !!(navigator.serviceWorker && navigator.serviceWorker.controller),
+            js: [].slice.call(document.scripts).map(function (s) { return (s.src || '').split('/').pop(); }).filter(Boolean).join(',')
+          };
+        }
+        function vacio(e) { return e.app === 0 || (e.main === 0); }
+        function avisar(tipo, e) {
+          try {
+            var cuerpo = JSON.stringify({ tipo: tipo, mensaje: JSON.stringify(e).slice(0, 900), ruta: location.pathname,
+              ua: navigator.userAgent.slice(0, 200), version: '', sw: e.sw });
+            if (navigator.sendBeacon) navigator.sendBeacon(location.origin + '/api/errores-cliente', new Blob([cuerpo], { type: 'text/plain' }));
+          } catch (x) { /* nunca debe romper */ }
+        }
+        function recuperar(motivo) {
+          if (hecho || !navigator.onLine) return;
+          try { if (sessionStorage.getItem('vigilante')) return; sessionStorage.setItem('vigilante', '1'); } catch (x) { return; }
+          hecho = true;
+          avisar(motivo, estado());
+          var t = [];
+          if (navigator.serviceWorker) t.push(navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); }));
+          if (window.caches) t.push(caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); }));
+          Promise.all(t).catch(function () {}).then(function () { location.replace(location.pathname + '?r=' + Date.now() + location.hash); });
+        }
+        setTimeout(function () { if (document.readyState === 'complete' && vacio(estado())) recuperar('vigilante-vacio'); }, 10000);
+        window.addEventListener('error', function (ev) {
+          var t = ev.target;
+          if (t && t.tagName === 'SCRIPT' && /\/assets\//.test(t.src || '')) setTimeout(function () { recuperar('vigilante-script'); }, 1500);
+        }, true);
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     
     <!-- PWA Meta Tags -->

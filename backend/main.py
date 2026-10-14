@@ -175,7 +175,7 @@ async def errores_cliente(request: Request):
         d = json.loads((await request.body())[:4000] or b"{}")
         cursor.execute(
             "INSERT INTO client_errors (tipo, mensaje, ruta, usuario_id, ua, version, sw, ip) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
-            (str(d.get("tipo", ""))[:30], str(d.get("mensaje", ""))[:500], str(d.get("ruta", ""))[:200],
+            (str(d.get("tipo", ""))[:30], str(d.get("mensaje", ""))[:1000], str(d.get("ruta", ""))[:200],
              d.get("usuario_id") if isinstance(d.get("usuario_id"), int) else None,
              str(d.get("ua", ""))[:250], str(d.get("version", ""))[:40], bool(d.get("sw")), ip))
         conn.commit()

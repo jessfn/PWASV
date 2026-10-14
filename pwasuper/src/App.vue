@@ -11,7 +11,7 @@ import CargoModal from './components/CargoModal.vue';
 import AccountDeactivatedModal from './components/AccountDeactivatedModal.vue';
 import { useNotifications } from './composables/useNotifications.js';
 import { API_URL } from './utils/network.js';
-import { reportarError, recuperarApp } from './utils/errorReporter.js';
+import { reportarError, recuperarApp, diagnostico } from './utils/errorReporter.js';
 import { apiService } from './services/apiService.js';
 import { manualesService } from './services/manualesService.js';
 import { registrarDispositivoActual, iniciarTrackingPeriodico, detenerTrackingPeriodico } from './services/dispositivoTrackingService.js';
@@ -51,7 +51,7 @@ setTimeout(() => {
     if (base) problema = 'vista-invisible';
   }
   if (problema) {
-    reportarError(problema, route.fullPath);
+    reportarError(problema, diagnostico({ nombre: String(route.name || ''), coinc: route.matched.length }));
     if (navigator.onLine && !sessionStorage.getItem('auto-recarga')) {
       sessionStorage.setItem('auto-recarga', '1');
       location.reload();
