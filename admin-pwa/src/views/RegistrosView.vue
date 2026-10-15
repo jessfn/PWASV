@@ -8,6 +8,7 @@
     </div>
     
     <Sidebar @logout="logout" />
+    <ExportarBaseModal :show="mostrarExportar" tipo-fijo="actividades" @close="mostrarExportar = false" />
     
     <main class="main-content">
       <!-- ================== STICKY WRAPPER FOR HEADER + STATS ================== -->
@@ -132,15 +133,16 @@
                   </svg>
                   <span>Filtros</span>
                 </button>
-                <button 
-                  @click="exportarRegistros('csv')" 
+                <button
+                  v-if="puedeExportar"
+                  @click="mostrarExportar = true"
                   class="apple-filter-btn export"
-                  title="Exportar a CSV"
+                  title="Exportar actividades a Excel"
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
-                  <span>CSV</span>
+                  <span>Exportar</span>
                 </button>
               </div>
             </div>
@@ -1276,6 +1278,7 @@ import { useRouter } from 'vue-router'
 import axios from 'axios'
 import * as XLSX from 'xlsx'
 import Sidebar from '../components/Sidebar.vue'
+import ExportarBaseModal from '../components/ExportarBaseModal.vue'
 import { usuariosService } from '../services/usuariosService.js'
 import authService from '../services/authService.js'
 import notificacionesService from '../services/notificacionesService.js'
@@ -1299,6 +1302,9 @@ const mostrarSugerencias = ref(false)
 // Variable reactiva para permisos del usuario actual (se actualiza en tiempo real)
 const userPermisos = ref(authService.getCurrentUser()?.permisos || {})
 const userRol = ref(authService.getCurrentUser()?.rol || '')
+// Exportar actividades: admin, o quien tenga el permiso del módulo (el servidor aplica territorio / técnicos asignados)
+const mostrarExportar = ref(false)
+const puedeExportar = computed(() => authService.isAdmin() || userPermisos.value?.registros === true)
 
 // Permiso para eliminar registros - REACTIVO
 const puedeEliminarRegistros = computed(() => {

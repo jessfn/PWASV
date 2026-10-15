@@ -12274,12 +12274,14 @@ _EXPORT_COLS = {
         ("ID", 10), ("Fecha y hora", 19), ("ID usuario", 11), ("Nombre del usuario", 38), ("Cargo", 24),
         ("Territorio", 26), ("Tipo de actividad", 16), ("Categoría", 32), ("Categoría (otro)", 24),
         ("Descripción", 70), ("Latitud", 12), ("Longitud", 12), ("URL de la foto", 60),
+        ("Correo", 30), ("CURP", 22), ("Teléfono", 16), ("Supervisor", 30),
     ],
     "asistencias": [
         ("ID", 10), ("Fecha", 12), ("ID usuario", 11), ("Nombre del usuario", 38), ("Cargo", 24),
         ("Territorio", 26), ("Hora de entrada", 19), ("Hora de salida", 19), ("Horas de la jornada", 12),
         ("Descripción entrada", 60), ("Descripción salida", 60), ("Lat. entrada", 12), ("Long. entrada", 12),
         ("Lat. salida", 12), ("Long. salida", 12), ("URL foto entrada", 60), ("URL foto salida", 60),
+        ("Correo", 30), ("CURP", 22), ("Teléfono", 16), ("Supervisor", 30),
     ],
 }
 
@@ -12339,7 +12341,7 @@ def _export_fila(tipo, r):
     """Devuelve la fila como lista de valores (datetime/float/str/None) en el orden de _EXPORT_COLS."""
     if tipo == "actividades":
         return [r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9],
-                _export_num(r[10]), _export_num(r[11]), _export_url_foto(r[12])]
+                _export_num(r[10]), _export_num(r[11]), _export_url_foto(r[12]), r[13], r[14], r[15], r[16]]
     ent, sal = r[6], r[7]
     horas = None
     if isinstance(ent, _dt.datetime) and isinstance(sal, _dt.datetime):
@@ -12350,7 +12352,7 @@ def _export_fila(tipo, r):
             horas = None
     return [r[0], r[1], r[2], r[3], r[4], r[5], ent, sal, horas, r[8], r[9],
             _export_num(r[10]), _export_num(r[11]), _export_num(r[12]), _export_num(r[13]),
-            _export_url_foto(r[14]), _export_url_foto(r[15])]
+            _export_url_foto(r[14]), _export_url_foto(r[15]), r[16], r[17], r[18], r[19]]
 
 
 def _export_escribir_xlsx(ruta, tipo, filas, total, filtros_txt, max_filas_hoja=_EXPORT_MAX_FILAS_HOJA, progreso=None):
@@ -12501,7 +12503,8 @@ def _export_trabajo(job_id, tipo, territorio, fecha_inicio, fecha_fin, solicitan
                 cond.append("r.fecha_hora < (%s::date + 1)"); prm.append(fecha_fin)
             frm = "FROM registros r LEFT JOIN usuarios u ON u.id = r.usuario_id"
             sel = ("SELECT r.id, r.fecha_hora, r.usuario_id, u.nombre_completo, u.cargo, u.territorio, r.tipo_actividad, "
-                   "r.categoria_actividad, r.categoria_actividad_otro, r.descripcion, r.latitud, r.longitud, r.foto_url ")
+                   "r.categoria_actividad, r.categoria_actividad_otro, r.descripcion, r.latitud, r.longitud, r.foto_url, "
+                   "u.correo, u.curp, u.telefono, u.supervisor ")
             orden = " ORDER BY r.id DESC"
         else:
             if territorio:
@@ -12513,7 +12516,7 @@ def _export_trabajo(job_id, tipo, territorio, fecha_inicio, fecha_fin, solicitan
             frm = "FROM asistencias a LEFT JOIN usuarios u ON u.id = a.usuario_id"
             sel = ("SELECT a.id, a.fecha, a.usuario_id, u.nombre_completo, u.cargo, u.territorio, a.hora_entrada, a.hora_salida, "
                    "a.descripcion_entrada, a.descripcion_salida, a.latitud_entrada, a.longitud_entrada, a.latitud_salida, "
-                   "a.longitud_salida, a.foto_entrada_url, a.foto_salida_url ")
+                   "a.longitud_salida, a.foto_entrada_url, a.foto_salida_url, u.correo, u.curp, u.telefono, u.supervisor ")
             orden = " ORDER BY a.fecha DESC, a.id DESC"
         if facilitador:
             col = "r.usuario_id" if tipo == "actividades" else "a.usuario_id"
