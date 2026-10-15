@@ -123,9 +123,10 @@
                 <span>Limpiar</span>
               </button>
               <button 
-                @click="exportarCSV" 
+                v-if="puedeExportar"
+                @click="mostrarExportar = true" 
                 class="apple-filter-btn export"
-                title="Exportar a CSV"
+                title="Exportar asistencias a Excel"
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -457,6 +458,7 @@
       </div>
     </transition>
 
+    <ExportarBaseModal :show="mostrarExportar" tipo-fijo="asistencias" @close="mostrarExportar = false" />
     <MapaAsistenciaModal 
       :visible="mapaModalVisible"
       :asistencia="asistenciaSeleccionada"
@@ -716,6 +718,7 @@
 <script>
 import Sidebar from '../components/Sidebar.vue'
 import MapaAsistenciaModal from '../components/MapaAsistenciaModal.vue'
+import ExportarBaseModal from '../components/ExportarBaseModal.vue'
 import AsistenciasService from '../services/asistenciasServiceOptimized.js'
 import authService from '../services/authService.js'
 import { API_URL } from '../config/api.js'
@@ -727,7 +730,8 @@ export default {
   name: 'AsistenciaView',
   components: {
     Sidebar,
-    MapaAsistenciaModal
+    MapaAsistenciaModal,
+    ExportarBaseModal
   },
   setup() {
     // Estadísticas en tiempo real con polling inteligente (Apple-style)
@@ -833,6 +837,7 @@ export default {
       deleteError: null,
       // Permisos reactivos del usuario actual
       userPermisos: {},
+      mostrarExportar: false,
       userRol: ''
     }
   },
@@ -908,6 +913,10 @@ export default {
     puedeEditarAsistencias() {
       if (this.userRol === 'admin' || authService.isAdmin()) return true
       return this.userPermisos?.asistencia_acciones === true
+    },
+    // Exportar: admin, o quien tenga el permiso del módulo de asistencias (el servidor aplica territorio / técnicos asignados)
+    puedeExportar() {
+      return authService.isAdmin() || this.userPermisos?.asistencia === true
     }
   },
   async mounted() {
@@ -1336,40 +1345,6 @@ export default {
         return (words[0][0] + words[1][0]).toUpperCase()
       }
       return name.substring(0, 2).toUpperCase()
-    },
-    
-    exportarCSV() {
-      try {
-        // Preparar datos para exportar (asistencias filtradas)
-        const datos = this.asistenciasFiltradas.map(asistencia => ({
-          'Fecha': this.formatearFecha(asistencia.fecha),
-          'Usuario': asistencia.usuario?.nombre || 'N/A',
-          'Email': asistencia.usuario?.email || 'N/A',
-          'Cargo': asistencia.usuario?.cargo || 'N/A',
-          'Presente': asistencia.presente ? 'Sí' : 'No',
-          'Distancia': asistencia.distancia_metros ? `${asistencia.distancia_metros}m` : 'N/A',
-          'Territorio': asistencia.usuario?.territorio || 'N/A'
-        }))
-        
-        // Convertir a CSV
-        const headers = Object.keys(datos[0]).join(',')
-        const rows = datos.map(row => Object.values(row).join(','))
-        const csv = [headers, ...rows].join('\\n')
-        
-        // Descargar archivo
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-        const link = document.createElement('a')
-        const url = URL.createObjectURL(blob)
-        link.setAttribute('href', url)
-        link.setAttribute('download', `asistencias_${new Date().toISOString().split('T')[0]}.csv`)
-        link.style.visibility = 'hidden'
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-      } catch (error) {
-        console.error('Error al exportar CSV:', error)
-        alert('Error al exportar el archivo CSV')
-      }
     },
     
     irAPagina(numeroPagina) {

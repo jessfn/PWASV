@@ -12450,7 +12450,41 @@ def _export_escribir_xlsx(ruta, tipo, filas, total, filtros_txt, max_filas_hoja=
     return estado["n"], estado["hojas"]
 
 
-def _export_trabajo(job_id, tipo, territorio, fecha_inicio, fecha_fin, solicitante):
+def _export_alcance(payload, tipo):
+    """Qué puede exportar quien lo pide, leído de la base (no del token, que puede estar desfasado):
+    - admin: todo.  - con permiso del módulo (asistencia / registros): solo lo suyo.
+    - territorial: solo su territorio.  - facilitador: solo los técnicos que tiene asignados.
+    Devuelve (territorio, facilitador) donde facilitador es (admin_id, usuario_id) o None."""
+    usuario = str(payload.get("sub", "")).strip()
+    conexion = None
+    try:
+        conexion, _c = abrir_conexion_aislada()
+        cur = conexion.cursor()
+        cur.execute("SELECT id, rol, permisos, activo, es_territorial, territorio, cargo, usuario_id FROM admin_users WHERE username = %s", (usuario,))
+        row = cur.fetchone()
+    finally:
+        try:
+            if conexion:
+                conexion.close()
+        except Exception:
+            pass
+    if not row or not row[3]:
+        raise HTTPException(status_code=403, detail="Tu cuenta está desactivada o no existe")
+    admin_id, rol, permisos_raw, _act, es_terr, terr, cargo, uid = row
+    if str(rol or "").lower() != "admin":
+        try:
+            permisos = json.loads(permisos_raw) if permisos_raw else {}
+        except Exception:
+            permisos = {}
+        modulo = "asistencia" if tipo == "asistencias" else "registros"
+        if permisos.get(modulo) is not True:
+            raise HTTPException(status_code=403, detail=f"No tienes permiso para exportar {tipo}")
+    territorio = terr if (es_terr and terr) else None
+    facilitador = (admin_id, uid) if "FACILITADOR" in str(cargo or "").upper() else None
+    return territorio, facilitador
+
+
+def _export_trabajo(job_id, tipo, territorio, fecha_inicio, fecha_fin, solicitante, facilitador=None):
     """Hilo en segundo plano: consulta con conexión aislada y genera el .xlsx."""
     conexion = None
     try:
@@ -12481,6 +12515,11 @@ def _export_trabajo(job_id, tipo, territorio, fecha_inicio, fecha_fin, solicitan
                    "a.descripcion_entrada, a.descripcion_salida, a.latitud_entrada, a.longitud_entrada, a.latitud_salida, "
                    "a.longitud_salida, a.foto_entrada_url, a.foto_salida_url ")
             orden = " ORDER BY a.fecha DESC, a.id DESC"
+        if facilitador:
+            col = "r.usuario_id" if tipo == "actividades" else "a.usuario_id"
+            cond.append(f"{col} IN (SELECT tecnico_usuario_id FROM facilitador_tecnico_asignaciones "
+                        "WHERE activo = TRUE AND (facilitador_admin_id = %s OR (%s IS NOT NULL AND facilitador_usuario_id = %s)))")
+            prm.extend([facilitador[0], facilitador[1], facilitador[1]])
         where = (" WHERE " + " AND ".join(cond)) if cond else ""
         cur.execute("SELECT COUNT(*) " + frm + where, tuple(prm))
         total = cur.fetchone()[0]
@@ -12488,6 +12527,8 @@ def _export_trabajo(job_id, tipo, territorio, fecha_inicio, fecha_fin, solicitan
 
         filtros = []
         filtros.append(f"territorio = {territorio}" if territorio else "todos los territorios")
+        if facilitador:
+            filtros.append("solo los técnicos asignados a tu cuenta de facilitador")
         filtros.append(f"desde {fecha_inicio}" if fecha_inicio else "desde el inicio")
         filtros.append(f"hasta {fecha_fin}" if fecha_fin else "hasta el momento de la extracción")
         filtros_txt = " · ".join(filtros)
@@ -12547,11 +12588,9 @@ async def iniciar_exportacion_base(tipo: str, request: Request):
     fecha_fin = _export_fecha(datos.get("fecha_fin"))
     if fecha_inicio and fecha_fin and fecha_inicio > fecha_fin:
         raise HTTPException(status_code=400, detail="La fecha de inicio no puede ser posterior a la fecha final")
-    # Un administrador territorial solo puede exportar su propio territorio
-    territorio = None
-    if payload.get("es_territorial") and payload.get("territorio"):
-        territorio = payload.get("territorio")
-    elif datos.get("territorio"):
+    # Alcance según permisos reales de la cuenta: módulo permitido, territorio propio, técnicos asignados
+    territorio, facilitador = _export_alcance(payload, tipo)
+    if not territorio and datos.get("territorio"):
         territorio = str(datos.get("territorio")).strip() or None
 
     os.makedirs(_EXPORT_DIR, exist_ok=True)
@@ -12568,7 +12607,7 @@ async def iniciar_exportacion_base(tipo: str, request: Request):
         _export_guardar_estado(job_id, estado="iniciando", tipo=tipo, solicitante=solicitante,
                                territorio=territorio, procesadas=0, total=0, creado=_time.time())
         _export_activos[tipo] = job_id
-    _th.Thread(target=_export_trabajo, args=(job_id, tipo, territorio, fecha_inicio, fecha_fin, solicitante), daemon=True).start()
+    _th.Thread(target=_export_trabajo, args=(job_id, tipo, territorio, fecha_inicio, fecha_fin, solicitante, facilitador), daemon=True).start()
     return {"job_id": job_id, "estado": "iniciando", "reutilizado": False}
 
 

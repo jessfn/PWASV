@@ -21,8 +21,8 @@
       <div class="exp-body">
         <!-- Paso 1: elegir -->
         <template v-if="fase === 'config'">
-          <p class="exp-label">¿Qué base quieres descargar?</p>
-          <div class="exp-options">
+          <p v-if="!tipoFijo" class="exp-label">¿Qué base quieres descargar?</p>
+          <div v-if="!tipoFijo" class="exp-options">
             <button type="button" class="exp-option" :class="{ active: tipo === 'actividades' }" @click="tipo = 'actividades'">
               <span class="exp-option-title">Actividades</span>
               <span class="exp-option-sub">Registros de campo y gabinete</span>
@@ -105,10 +105,11 @@
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import exportarBaseService from '../services/exportarBaseService.js'
 
-const props = defineProps({ show: { type: Boolean, default: false } })
+const props = defineProps({ show: { type: Boolean, default: false }, tipoFijo: { type: String, default: '' } })
 const emit = defineEmits(['close'])
 
-const tipo = ref('actividades')
+const tipo = ref(props.tipoFijo || 'actividades')
+watch(() => props.tipoFijo, (v) => { if (v) tipo.value = v })
 const usarRango = ref(false)
 const fechaInicio = ref('')
 const fechaFin = ref('')
