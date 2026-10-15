@@ -12273,15 +12273,15 @@ _EXPORT_COLS = {
     "actividades": [
         ("ID", 10), ("Fecha y hora", 19), ("ID usuario", 11), ("Nombre del usuario", 38), ("Cargo", 24),
         ("Territorio", 26), ("Tipo de actividad", 16), ("Categoría", 32), ("Categoría (otro)", 24),
-        ("Descripción", 70), ("Latitud", 12), ("Longitud", 12), ("URL de la foto", 60),
-        ("Correo", 30), ("CURP", 22), ("Teléfono", 16), ("Supervisor", 30),
+        ("Descripción", 70), ("Latitud", 12), ("Longitud", 12),
+        ("Correo", 30), ("CURP", 22), ("Teléfono", 16), ("Supervisor", 30), ("URL de la foto", 60),
     ],
     "asistencias": [
         ("ID", 10), ("Fecha", 12), ("ID usuario", 11), ("Nombre del usuario", 38), ("Cargo", 24),
         ("Territorio", 26), ("Hora de entrada", 19), ("Hora de salida", 19), ("Horas de la jornada", 12),
         ("Descripción entrada", 60), ("Descripción salida", 60), ("Lat. entrada", 12), ("Long. entrada", 12),
-        ("Lat. salida", 12), ("Long. salida", 12), ("URL foto entrada", 60), ("URL foto salida", 60),
-        ("Correo", 30), ("CURP", 22), ("Teléfono", 16), ("Supervisor", 30),
+        ("Lat. salida", 12), ("Long. salida", 12),
+        ("Correo", 30), ("CURP", 22), ("Teléfono", 16), ("Supervisor", 30), ("URL foto entrada", 60), ("URL foto salida", 60),
     ],
 }
 
@@ -12341,7 +12341,7 @@ def _export_fila(tipo, r):
     """Devuelve la fila como lista de valores (datetime/float/str/None) en el orden de _EXPORT_COLS."""
     if tipo == "actividades":
         return [r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9],
-                _export_num(r[10]), _export_num(r[11]), _export_url_foto(r[12]), r[13], r[14], r[15], r[16]]
+                _export_num(r[10]), _export_num(r[11]), r[13], r[14], r[15], r[16], _export_url_foto(r[12])]
     ent, sal = r[6], r[7]
     horas = None
     if isinstance(ent, _dt.datetime) and isinstance(sal, _dt.datetime):
@@ -12352,14 +12352,19 @@ def _export_fila(tipo, r):
             horas = None
     return [r[0], r[1], r[2], r[3], r[4], r[5], ent, sal, horas, r[8], r[9],
             _export_num(r[10]), _export_num(r[11]), _export_num(r[12]), _export_num(r[13]),
-            _export_url_foto(r[14]), _export_url_foto(r[15]), r[16], r[17], r[18], r[19]]
+            r[16], r[17], r[18], r[19], _export_url_foto(r[14]), _export_url_foto(r[15])]
 
 
-def _export_escribir_xlsx(ruta, tipo, filas, total, filtros_txt, max_filas_hoja=_EXPORT_MAX_FILAS_HOJA, progreso=None):
+_EXPORT_N_FOTOS = {"actividades": 1, "asistencias": 2}
+
+
+def _export_escribir_xlsx(ruta, tipo, filas, total, filtros_txt, max_filas_hoja=_EXPORT_MAX_FILAS_HOJA, progreso=None, con_fotos=False):
     """Escribe el Excel por streaming (memoria constante). `filas` es un iterable de filas ya convertidas.
     Divide en varias hojas cuando se supera `max_filas_hoja`. Devuelve (filas_escritas, hojas)."""
     import xlsxwriter
     cols = _EXPORT_COLS[tipo]
+    if not con_fotos:   # las URL de fotos son las últimas columnas: solo las ven los usuarios con rol admin
+        cols = cols[:-_EXPORT_N_FOTOS[tipo]]
     ncols = len(cols)
     titulo = "Actividades" if tipo == "actividades" else "Asistencias"
     wb = xlsxwriter.Workbook(ruta, {"constant_memory": True, "remove_timezone": True, "strings_to_urls": False,
@@ -12423,7 +12428,7 @@ def _export_escribir_xlsx(ruta, tipo, filas, total, filtros_txt, max_filas_hoja=
             nueva_hoja()
         ws = estado["ws"]
         r = 4 + estado["en_hoja"]
-        for i, v in enumerate(fila):
+        for i, v in enumerate(fila[:ncols]):
             if v is None or v == "":
                 continue
             if i in idx_dt or i in idx_d:
@@ -12456,7 +12461,7 @@ def _export_alcance(payload, tipo):
     """Qué puede exportar quien lo pide, leído de la base (no del token, que puede estar desfasado):
     - admin: todo.  - con permiso del módulo (asistencia / registros): solo lo suyo.
     - territorial: solo su territorio.  - facilitador: solo los técnicos que tiene asignados.
-    Devuelve (territorio, facilitador) donde facilitador es (admin_id, usuario_id) o None."""
+    Devuelve (territorio, facilitador, es_admin) donde facilitador es (admin_id, usuario_id) o None."""
     usuario = str(payload.get("sub", "")).strip()
     conexion = None
     try:
@@ -12483,10 +12488,10 @@ def _export_alcance(payload, tipo):
             raise HTTPException(status_code=403, detail=f"No tienes permiso para exportar {tipo}")
     territorio = terr if (es_terr and terr) else None
     facilitador = (admin_id, uid) if "FACILITADOR" in str(cargo or "").upper() else None
-    return territorio, facilitador
+    return territorio, facilitador, str(rol or "").lower() == "admin"
 
 
-def _export_trabajo(job_id, tipo, territorio, fecha_inicio, fecha_fin, solicitante, facilitador=None):
+def _export_trabajo(job_id, tipo, territorio, fecha_inicio, fecha_fin, solicitante, facilitador=None, con_fotos=False):
     """Hilo en segundo plano: consulta con conexión aislada y genera el .xlsx."""
     conexion = None
     try:
@@ -12547,7 +12552,7 @@ def _export_trabajo(job_id, tipo, territorio, fecha_inicio, fecha_fin, solicitan
         ruta_tmp = _export_ruta(job_id, "base.xlsx.part")
         n, hojas = _export_escribir_xlsx(
             ruta_tmp, tipo, filas(), total, filtros_txt,
-            progreso=lambda k: _export_guardar_estado(job_id, procesadas=k))
+            progreso=lambda k: _export_guardar_estado(job_id, procesadas=k), con_fotos=con_fotos)
         os.replace(ruta_tmp, _export_ruta(job_id, "base.xlsx"))
         _export_guardar_estado(job_id, estado="listo", procesadas=n, total=max(int(total), n), hojas=hojas,
                                bytes=os.path.getsize(_export_ruta(job_id, "base.xlsx")))
@@ -12592,7 +12597,7 @@ async def iniciar_exportacion_base(tipo: str, request: Request):
     if fecha_inicio and fecha_fin and fecha_inicio > fecha_fin:
         raise HTTPException(status_code=400, detail="La fecha de inicio no puede ser posterior a la fecha final")
     # Alcance según permisos reales de la cuenta: módulo permitido, territorio propio, técnicos asignados
-    territorio, facilitador = _export_alcance(payload, tipo)
+    territorio, facilitador, es_admin = _export_alcance(payload, tipo)
     if not territorio and datos.get("territorio"):
         territorio = str(datos.get("territorio")).strip() or None
 
@@ -12610,7 +12615,7 @@ async def iniciar_exportacion_base(tipo: str, request: Request):
         _export_guardar_estado(job_id, estado="iniciando", tipo=tipo, solicitante=solicitante,
                                territorio=territorio, procesadas=0, total=0, creado=_time.time())
         _export_activos[tipo] = job_id
-    _th.Thread(target=_export_trabajo, args=(job_id, tipo, territorio, fecha_inicio, fecha_fin, solicitante, facilitador), daemon=True).start()
+    _th.Thread(target=_export_trabajo, args=(job_id, tipo, territorio, fecha_inicio, fecha_fin, solicitante, facilitador, es_admin), daemon=True).start()
     return {"job_id": job_id, "estado": "iniciando", "reutilizado": False}
 
 

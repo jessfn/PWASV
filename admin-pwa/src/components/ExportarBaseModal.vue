@@ -43,7 +43,7 @@
           </div>
 
           <ul class="exp-notes">
-            <li>Incluye usuario, cargo, territorio, correo, CURP, teléfono, supervisor, coordenadas y la URL de cada foto.</li>
+            <li>Incluye usuario, cargo, territorio, correo, CURP, teléfono, supervisor y coordenadas. Las URL de fotos solo se incluyen para usuarios con rol admin.</li>
             <li>Solo se exportan los datos que tu cuenta puede ver (tu territorio o tus técnicos asignados).</li>
             <li>Si hay más de 999,995 registros, el Excel los reparte en varias hojas.</li>
             <li>Una base grande puede tardar varios minutos en prepararse.</li>
