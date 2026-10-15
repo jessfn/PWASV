@@ -299,7 +299,7 @@ async function login() {
     } catch (err) {
       if (err.response) {
         const s = err.response.status;
-        errorMessage.value = s === 401 ? 'Credenciales incorrectas. Verifica tu email y contraseña.'
+        errorMessage.value = s === 401 ? 'Contraseña incorrecta.'
           : s === 403 ? (err.response.data?.detail || 'Cuenta desactivada. Contacta al administrador.')
           : s === 500 ? 'Error del servidor. Inténtalo en unos minutos.'
           : (err.response.data?.detail || 'Error al iniciar sesión.');

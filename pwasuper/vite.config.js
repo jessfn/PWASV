@@ -15,9 +15,6 @@ const versionJson = () => ({
 
 export default defineConfig({
   define: { __BUILD__: JSON.stringify(BUILD_ID) },
-  // Quita console.log/debug/info del build (se conservan error y warn): menos trabajo en celulares
-  esbuild: { pure: ['console.log', 'console.debug', 'console.info'], legalComments: 'none' },
-  build: { target: 'es2019', chunkSizeWarningLimit: 900 },
   plugins: [
     vue(),
     versionJson(),

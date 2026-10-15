@@ -1,6 +1,6 @@
 import { createApp } from 'vue'
 import App from './App.vue'
-import router, { precargarPantallas } from './router'
+import router from './router'
 import { iniciarReporteErrores } from './utils/errorReporter.js'
 import { iniciarActualizador } from './utils/actualizador.js'
 import { notificarActualizacion } from './utils/serviceWorkerRegistration.js'
@@ -15,6 +15,18 @@ import { faHeadset, faUserGear, faCommentDots, faHeadphones } from '@fortawesome
 
 // Agregar iconos a la librería
 library.add(faHeadset, faUserGear, faCommentDots, faHeadphones)
+
+// Importar Leaflet CSS globalmente
+import 'leaflet/dist/leaflet.css'
+
+// Corregir el problema del ícono de Leaflet
+import { Icon } from 'leaflet'
+delete Icon.Default.prototype._getIconUrl
+Icon.Default.mergeOptions({
+  iconRetinaUrl: '/leaflet/marker-icon-2x.png',
+  iconUrl: '/leaflet/marker-icon.png',
+  shadowUrl: '/leaflet/marker-shadow.png',
+})
 
 // Importar utilidad de registro del Service Worker
 import { registerServiceWorker, waitForServiceWorkerReady } from './utils/serviceWorkerRegistration.js'
@@ -69,7 +81,6 @@ app.mount('#app')
 // Actualización reactiva: al publicar una versión nueva, la app abierta se actualiza sola con el aviso "Actualizando…"
 const actualizador = iniciarActualizador((version) => notificarActualizacion('version-' + version))
 router.afterEach(() => { actualizador.revisarAhora() })
-window.addEventListener('load', () => setTimeout(precargarPantallas, 3000))
 
 // Emitir evento para ocultar splash screen
 window.dispatchEvent(new CustomEvent('app-ready'))
