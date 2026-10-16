@@ -12278,7 +12278,7 @@ _EXPORT_COLS = {
     ],
     "asistencias": [
         ("ID", 10), ("Fecha", 12), ("ID usuario", 11), ("Nombre del usuario", 38), ("Cargo", 24),
-        ("Territorio", 26), ("Hora de entrada", 19), ("Hora de salida", 19), ("Horas de la jornada", 12),
+        ("Territorio", 26), ("Hora de entrada", 14), ("Hora de salida", 14), ("Horas trabajadas (h:mm)", 16),
         ("Descripción entrada", 60), ("Descripción salida", 60), ("Lat. entrada", 12), ("Long. entrada", 12),
         ("Lat. salida", 12), ("Long. salida", 12),
         ("Correo", 30), ("CURP", 22), ("Teléfono", 16), ("Supervisor", 30), ("URL foto entrada", 60), ("URL foto salida", 60),
@@ -12374,7 +12374,8 @@ def _export_escribir_xlsx(ruta, tipo, filas, total, filtros_txt, max_filas_hoja=
     f_hd = wb.add_format({"bold": True, "font_color": "#FFFFFF", "bg_color": "#1F6F43", "align": "center", "valign": "vcenter", "text_wrap": True, "border": 1, "border_color": "#C9D6CE"})
     f_dt = wb.add_format({"num_format": "dd/mm/yyyy hh:mm:ss"})
     f_d = wb.add_format({"num_format": "dd/mm/yyyy"})
-    f_h = wb.add_format({"num_format": "0.00"})
+    f_h = wb.add_format({"num_format": "[h]:mm", "align": "center"})   # horas trabajadas como h:mm (se pueden sumar en Excel)
+    f_hora = wb.add_format({"num_format": "hh:mm:ss", "align": "center"})   # hora del día, sin repetir la fecha
     f_c = wb.add_format({"num_format": "0.000000"})
     f_k = wb.add_format({"bold": True, "font_size": 22, "font_color": "#1F6F43", "bg_color": "#E6F2EA", "align": "center", "valign": "vcenter", "num_format": "#,##0", "border": 1, "border_color": "#C9D6CE"})
     f_kl = wb.add_format({"bold": True, "font_size": 9, "font_color": "#14492D", "bg_color": "#E6F2EA", "align": "center", "valign": "vcenter", "border": 1, "border_color": "#C9D6CE"})
@@ -12433,7 +12434,7 @@ def _export_escribir_xlsx(ruta, tipo, filas, total, filtros_txt, max_filas_hoja=
                 continue
             if i in idx_dt or i in idx_d:
                 if isinstance(v, _dt.datetime):
-                    ws.write_datetime(r, i, v, f_dt if i in idx_dt else f_d)
+                    ws.write_datetime(r, i, v, (f_hora if (tipo == "asistencias" and i in idx_dt) else f_dt) if i in idx_dt else f_d)
                 elif isinstance(v, _dt.date):
                     ws.write_datetime(r, i, _dt.datetime(v.year, v.month, v.day), f_d)
                 else:
@@ -12441,7 +12442,7 @@ def _export_escribir_xlsx(ruta, tipo, filas, total, filtros_txt, max_filas_hoja=
             elif i in idx_c:
                 ws.write_number(r, i, v, f_c)
             elif i in idx_h:
-                ws.write_number(r, i, v, f_h)
+                ws.write_number(r, i, v / 24.0, f_h)
             elif isinstance(v, (int, float)) and not isinstance(v, bool):
                 ws.write_number(r, i, v)
             else:
