@@ -178,6 +178,14 @@ export const notificacionesService = {
   },
 
   /**
+   * Marcar "Enterado" (constancia con fecha y hora)
+   */
+  async marcarEnterado(notificacionId, usuarioId, deviceId = null) {
+    const response = await api.post(`/notificaciones/${notificacionId}/enterado`, { usuario_id: usuarioId, device_id: deviceId })
+    return response.data
+  },
+
+  /**
    * Marcar notificación como leída
    */
   async marcarComoLeida(notificacionId, usuarioId, deviceId = null) {

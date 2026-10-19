@@ -195,6 +195,7 @@
                   <th>Subtítulo</th>
                   <th>Destinatarios</th>
                   <th>Fecha de Envío</th>
+                  <th>Enterados</th>
                   <th>Estado</th>
                   <th>Acciones</th>
                 </tr>
@@ -236,6 +237,13 @@
                   </td>
                   <td>
                     <span class="apple-date-badge">{{ formatearFecha(notificacion.fecha_envio) }}</span>
+                  </td>
+                  <td>
+                    <div class="ent-col">
+                      <b>{{ notificacion.enterados || 0 }} / {{ notificacion.destinatarios_total || 0 }}</b>
+                      <i><em :style="{ width: (notificacion.destinatarios_total ? Math.min(100, Math.round((notificacion.enterados || 0) * 100 / notificacion.destinatarios_total)) : 0) + '%' }"></em></i>
+                      <span v-if="notificacion.requiere_enterado" class="ent-req">La pidieron</span>
+                    </div>
                   </td>
                   <td>
                     <span class="apple-status-badge enviada">Enviada</span>
@@ -442,6 +450,14 @@
                 </div>
               </div>
 
+              <!-- Pedir enterado -->
+              <div class="form-group-compact">
+                <label class="enterado-opcion">
+                  <input v-model="formNotificacion.requiere_enterado" type="checkbox" />
+                  <span><b>Pedir que confirmen “Enterado”</b><small>Cada persona marca un botón y queda constancia con fecha y hora. Podrás ver quién falta y recordarle.</small></span>
+                </label>
+              </div>
+
               <!-- Archivo adjunto -->
               <div class="form-group-compact">
                 <label for="archivo">Archivo adjunto</label>
@@ -646,6 +662,14 @@
                   <span class="file-name">📎 {{ archivoActual }}</span>
                   <span class="file-note">(Se mantendrá si no seleccionas uno nuevo)</span>
                 </div>
+              </div>
+
+              <!-- Pedir enterado -->
+              <div class="form-group-compact">
+                <label class="enterado-opcion">
+                  <input v-model="formEdicion.requiere_enterado" type="checkbox" />
+                  <span><b>Pedir que confirmen “Enterado”</b><small>Cada persona marca un botón y queda constancia con fecha y hora.</small></span>
+                </label>
               </div>
 
               <!-- Archivo adjunto nuevo -->
@@ -925,7 +949,46 @@
           </div>
 
           <!-- Resumen de estadísticas -->
-          <div class="stats-summary">
+          <!-- Constancia de enterado -->
+          <div v-if="enterados" class="ent-panel">
+            <div class="ent-titulo">
+              <span>Constancia de enterado</span>
+              <span v-if="enterados.requiere_enterado" class="ent-obligatoria">La pidieron</span>
+            </div>
+            <div class="ent-cards">
+              <div class="ent-card"><small>Destinatarios</small><b>{{ enterados.resumen.destinatarios }}</b></div>
+              <div class="ent-card ent-ok"><small>Enterados</small><b>{{ enterados.resumen.enterados }} <em>{{ enterados.resumen.pct_enterados }}%</em></b></div>
+              <div class="ent-card ent-vio"><small>Solo vieron</small><b>{{ enterados.resumen.vieron }} <em>{{ enterados.resumen.pct_vieron }}%</em></b></div>
+              <div class="ent-card ent-sin"><small>Sin leer</small><b>{{ enterados.resumen.sin_leer }} <em>{{ enterados.resumen.pct_sin_leer }}%</em></b></div>
+            </div>
+            <div class="ent-bar" role="img" :aria-label="'Enterados ' + enterados.resumen.pct_enterados + ' por ciento'">
+              <i class="ent-b-ok" :style="{ width: enterados.resumen.pct_enterados + '%' }"></i>
+              <i class="ent-b-vio" :style="{ width: enterados.resumen.pct_vieron + '%' }"></i>
+              <i class="ent-b-sin" :style="{ width: enterados.resumen.pct_sin_leer + '%' }"></i>
+            </div>
+            <div class="ent-barra">
+              <div class="ent-tabs" role="tablist">
+                <button type="button" role="tab" :class="{ on: entEstado === 'enterado' }" @click="cambiarEntEstado('enterado')">Enterados <b>{{ enterados.resumen.enterados }}</b></button>
+                <button type="button" role="tab" :class="{ on: entEstado === 'vieron' }" @click="cambiarEntEstado('vieron')">Solo vieron <b>{{ enterados.resumen.vieron }}</b></button>
+                <button type="button" role="tab" :class="{ on: entEstado === 'sin_leer' }" @click="cambiarEntEstado('sin_leer')">Sin leer <b>{{ enterados.resumen.sin_leer }}</b></button>
+              </div>
+              <input v-model.trim="entBusqueda" type="search" class="ent-buscar" placeholder="Buscar por nombre, correo o territorio" @input="buscarEnt" />
+              <button type="button" class="ent-btn" :disabled="recordando || (enterados.resumen.vieron + enterados.resumen.sin_leer) === 0" @click="recordarEnterados">{{ recordando ? 'Enviando…' : 'Recordar a quienes faltan' }}</button>
+              <button type="button" class="ent-btn ent-btn--sec" :disabled="descargandoEnt" @click="descargarEnterados">{{ descargandoEnt ? 'Generando…' : 'Excel' }}</button>
+            </div>
+            <ul v-if="enterados.usuarios.length" class="ent-lista">
+              <li v-for="u in enterados.usuarios" :key="u.id">
+                <div class="ent-quien"><strong>{{ u.nombre }}</strong><span>{{ u.territorio || 'Sin territorio' }}<template v-if="u.cargo"> · {{ u.cargo }}</template></span></div>
+                <span v-if="entEstado === 'enterado'" class="ent-cuando ok">{{ formatearFecha(u.enterado_en) }}</span>
+                <span v-else-if="entEstado === 'vieron'" class="ent-cuando">Vista {{ formatearFecha(u.vista_en) }}</span>
+                <span v-else class="ent-cuando sin">Sin leer</span>
+              </li>
+            </ul>
+            <p v-else class="ent-vacio">{{ entCargando ? 'Cargando…' : 'No hay personas en este grupo.' }}</p>
+            <button v-if="enterados.usuarios.length < enterados.total_filtrados" type="button" class="ent-mas" :disabled="entCargando" @click="masEnterados">{{ entCargando ? 'Cargando…' : 'Ver más (' + (enterados.total_filtrados - enterados.usuarios.length) + ')' }}</button>
+          </div>
+
+          <div v-if="false" class="stats-summary">
             <div class="stats-grid">
               <div class="stat-card stat-total">
                 <div class="stat-icon">
@@ -1001,7 +1064,7 @@
           </div>
 
           <!-- Pestañas para usuarios -->
-          <div class="stats-tabs">
+          <div v-if="false" class="stats-tabs">
             <div class="tabs-header">
               <button 
                 class="tab-button" 
@@ -1151,6 +1214,7 @@ import notificacionesService from '../services/notificacionesService.js'
 import usuariosService from '../services/usuariosService.js'
 import authService from '../services/authService.js'
 import pushService from '../services/pushService.js'
+import enteradosService from '../services/enteradosService.js'
 
 export default {
   name: 'NotificacionesView',
@@ -1175,6 +1239,14 @@ export default {
       totalNotificaciones: 0,
       
       // Modal crear notificación
+      // Enterado (constancia por persona)
+      enterados: null,
+      entEstado: 'enterado',
+      entBusqueda: '',
+      entCargando: false,
+      recordando: false,
+      descargandoEnt: false,
+
       // Avisos push (dispositivos de los usuarios y entrega de cada notificación)
       pushResumen: null,
       pushUsuarios: {},
@@ -1191,6 +1263,7 @@ export default {
         descripcion: '',
         enlace_url: '',
         enviada_a_todos: true,
+        requiere_enterado: false,
         usuario_ids: []
       },
       
@@ -1207,6 +1280,7 @@ export default {
         descripcion: '',
         enlace_url: '',
         enviada_a_todos: true,
+        requiere_enterado: false,
         usuario_ids: []
       },
       busquedaUsuariosEdicion: '',
@@ -1617,6 +1691,7 @@ export default {
           descripcion: notificacionCompleta.descripcion || '',
           enlace_url: notificacionCompleta.enlace_url || '',
           enviada_a_todos: notificacionCompleta.enviada_a_todos,
+          requiere_enterado: !!notificacion.requiere_enterado,
           usuario_ids: notificacionCompleta.enviada_a_todos ? [] : 
             (notificacionCompleta.destinatarios || []).map(u => u.id)
         }
@@ -1716,6 +1791,7 @@ export default {
         descripcion: '',
         enlace_url: '',
         enviada_a_todos: true,
+        requiere_enterado: false,
         usuario_ids: []
       }
       this.archivoSeleccionadoEdicion = null
@@ -1833,6 +1909,63 @@ export default {
 
     // ==================== ESTADÍSTICAS ====================
     
+    // ==================== ENTERADO ====================
+
+    async cargarEnterados(id, reset = true) {
+      this.entCargando = true
+      try {
+        const offset = reset ? 0 : (this.enterados ? this.enterados.usuarios.length : 0)
+        const r = await enteradosService.obtener(id, { estado: this.entEstado, q: this.entBusqueda, limit: 50, offset })
+        if (!reset && this.enterados) r.usuarios = this.enterados.usuarios.concat(r.usuarios)
+        this.enterados = r
+      } catch (error) {
+        console.warn('Enterados:', error)
+        if (reset) this.enterados = null
+        this.mostrarToast(error.message, 'error')
+      } finally {
+        this.entCargando = false
+      }
+    },
+
+    cambiarEntEstado(estado) {
+      this.entEstado = estado
+      this.cargarEnterados(this.notificacionActualId, true)
+    },
+
+    buscarEnt() {
+      clearTimeout(this._entTimer)
+      this._entTimer = setTimeout(() => this.cargarEnterados(this.notificacionActualId, true), 350)
+    },
+
+    masEnterados() {
+      this.cargarEnterados(this.notificacionActualId, false)
+    },
+
+    async recordarEnterados() {
+      if (!this.notificacionActualId || this.recordando) return
+      this.recordando = true
+      try {
+        const r = await enteradosService.recordar(this.notificacionActualId)
+        this.mostrarToast(r.enviados > 0 ? `Recordatorio enviado a ${r.enviados} dispositivo(s) de ${r.con_push} persona(s)` : `Nadie de los ${r.pendientes} pendientes tiene avisos activados en el teléfono`, r.enviados > 0 ? 'success' : 'info')
+      } catch (error) {
+        this.mostrarToast(error.message, 'error')
+      } finally {
+        this.recordando = false
+      }
+    },
+
+    async descargarEnterados() {
+      if (!this.notificacionActualId || this.descargandoEnt) return
+      this.descargandoEnt = true
+      try {
+        await enteradosService.descargarExcel(this.notificacionActualId)
+      } catch (error) {
+        this.mostrarToast(error.message, 'error')
+      } finally {
+        this.descargandoEnt = false
+      }
+    },
+
     // ==================== AVISOS PUSH ====================
 
     async cargarPush() {
@@ -1890,6 +2023,10 @@ export default {
         console.log('📊 Cargando estadísticas para notificación:', notificacion.id)
         
         this.cargarPushNotificacion(notificacion.id)
+        this.entEstado = 'enterado'
+        this.entBusqueda = ''
+        this.enterados = null
+        this.cargarEnterados(notificacion.id, true)
         const estadisticas = await notificacionesService.obtenerEstadisticasNotificacion(notificacion.id)
         this.estadisticasNotificacion = estadisticas
         
@@ -1908,6 +2045,7 @@ export default {
       this.mostrarModalEstadisticas = false
       this.estadisticasNotificacion = null
       this.pushNotif = null
+      this.enterados = null
       this.notificacionActualId = null
       this.cargandoEstadisticas = false
       this.tabActiva = 'leidos'
@@ -1922,6 +2060,7 @@ export default {
         console.log('🔄 Recargando estadísticas para notificación:', this.notificacionActualId)
         
         this.cargarPushNotificacion(this.notificacionActualId)
+        this.cargarEnterados(this.notificacionActualId, true)
         const estadisticas = await notificacionesService.obtenerEstadisticasNotificacion(this.notificacionActualId)
         this.estadisticasNotificacion = estadisticas
         
@@ -5892,4 +6031,54 @@ export default {
 .push-reenviar { margin-top: 12px; padding: 9px 16px; border: 0; border-radius: 10px; background: #1d5fc4; color: #fff; font-weight: 600; font-size: 13px; cursor: pointer; }
 .push-reenviar:hover:not(:disabled) { background: #174fa6; }
 .push-reenviar:disabled { opacity: 0.5; cursor: default; }
+</style>
+
+<style scoped>
+/* Enterado: opción al crear, columna en la tabla y panel de constancia */
+.enterado-opcion { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid #b6e3c6; border-radius: 12px; background: #f1faf4; cursor: pointer; }
+.enterado-opcion input { margin-top: 3px; width: 17px; height: 17px; accent-color: #15803d; flex: none; }
+.enterado-opcion span { display: flex; flex-direction: column; gap: 2px; font-size: 13.5px; color: #14532d; }
+.enterado-opcion small { font-size: 12px; color: #4b5d52; font-weight: 400; }
+
+.ent-col { display: flex; flex-direction: column; gap: 4px; min-width: 120px; }
+.ent-col b { font-size: 13px; color: #14532d; }
+.ent-col i { display: block; height: 6px; border-radius: 3px; background: #e2e8e4; overflow: hidden; }
+.ent-col i em { display: block; height: 100%; background: #16a34a; }
+.ent-col small { font-size: 11px; color: #5b6676; }
+.ent-req { font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: #dcf5e5; color: #14532d; width: fit-content; }
+
+.ent-panel { margin: 18px 0 6px; padding: 16px 18px; border-radius: 16px; background: #fff; border: 1px solid #d7e5dc; }
+.ent-titulo { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: #14532d; letter-spacing: 0.02em; text-transform: uppercase; margin-bottom: 12px; }
+.ent-obligatoria { font-size: 11px; text-transform: none; letter-spacing: 0; padding: 2px 9px; border-radius: 999px; background: #dcf5e5; color: #14532d; }
+.ent-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.ent-card { padding: 10px 12px; border-radius: 12px; background: #f3f6f4; display: flex; flex-direction: column; gap: 2px; }
+.ent-card small { font-size: 11.5px; color: #4b5563; }
+.ent-card b { font-size: 20px; color: #0f172a; }
+.ent-card b em { font-style: normal; font-size: 12px; font-weight: 600; opacity: 0.85; }
+.ent-ok { background: #dcf5e5; } .ent-ok small, .ent-ok b { color: #14532d; }
+.ent-vio { background: #e3eefc; } .ent-vio small, .ent-vio b { color: #0b3f8f; }
+.ent-sin { background: #fdf0d3; } .ent-sin small, .ent-sin b { color: #7a4300; }
+.ent-bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; gap: 2px; margin-bottom: 14px; background: #eef1ef; }
+.ent-bar i { display: block; height: 100%; transition: width 0.5s ease; }
+.ent-b-ok { background: #16a34a; } .ent-b-vio { background: #2f7bf0; } .ent-b-sin { background: #f2b035; }
+.ent-barra { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+.ent-tabs { display: inline-flex; padding: 3px; border-radius: 999px; background: #eef1ef; }
+.ent-tabs button { border: 0; background: transparent; padding: 6px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600; color: #475467; cursor: pointer; }
+.ent-tabs button b { margin-left: 4px; font-weight: 700; }
+.ent-tabs button.on { background: #fff; color: #14532d; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15); }
+.ent-buscar { flex: 1; min-width: 180px; height: 34px; padding: 0 12px; border: 1px solid #d5dbd7; border-radius: 10px; font-size: 13px; }
+.ent-btn { height: 34px; padding: 0 14px; border: 0; border-radius: 10px; background: #15803d; color: #fff; font-weight: 600; font-size: 12.5px; cursor: pointer; }
+.ent-btn:disabled { opacity: 0.5; cursor: default; }
+.ent-btn--sec { background: #fff; color: #14532d; border: 1px solid #b6e3c6; }
+.ent-lista { list-style: none; margin: 0; padding: 0; border: 1px solid #e3e9e5; border-radius: 12px; max-height: 320px; overflow-y: auto; }
+.ent-lista li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 14px; border-bottom: 1px solid #eef2ef; }
+.ent-lista li:last-child { border-bottom: 0; }
+.ent-quien { display: flex; flex-direction: column; min-width: 0; }
+.ent-quien strong { font-size: 13px; font-weight: 600; color: #0f172a; }
+.ent-quien span { font-size: 12px; color: #5b6676; }
+.ent-cuando { font-size: 12px; color: #475467; white-space: nowrap; }
+.ent-cuando.ok { color: #14532d; font-weight: 600; }
+.ent-cuando.sin { color: #7a4300; font-weight: 600; }
+.ent-vacio { padding: 18px; text-align: center; color: #5b6676; font-size: 13px; }
+.ent-mas { display: block; margin: 10px auto 0; padding: 8px 18px; border: 1px solid #b6e3c6; border-radius: 999px; background: #fff; color: #14532d; font-weight: 600; font-size: 12.5px; cursor: pointer; }
 </style>

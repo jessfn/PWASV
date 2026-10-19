@@ -449,6 +449,20 @@ try:
     """, fetch_type='none')
     ejecutar_consulta_segura("CREATE INDEX IF NOT EXISTS idx_password_resets_usuario ON password_resets(usuario_id, created_at)", fetch_type='none')
 
+    # "Enterado" de notificaciones (constancia por persona) y opción de que la notificación lo requiera
+    ejecutar_consulta_segura("ALTER TABLE notificaciones ADD COLUMN IF NOT EXISTS requiere_enterado BOOLEAN DEFAULT FALSE", fetch_type='none')
+    ejecutar_consulta_segura("""
+        CREATE TABLE IF NOT EXISTS notificacion_enterados (
+            id BIGSERIAL PRIMARY KEY,
+            notificacion_id INTEGER NOT NULL REFERENCES notificaciones(id) ON DELETE CASCADE,
+            usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+            device_id VARCHAR(120),
+            enterado_at TIMESTAMP NOT NULL DEFAULT (NOW() AT TIME ZONE 'America/Mexico_City'),
+            UNIQUE (notificacion_id, usuario_id)
+        )
+    """, fetch_type='none')
+    ejecutar_consulta_segura("CREATE INDEX IF NOT EXISTS idx_enterados_notif ON notificacion_enterados(notificacion_id)", fetch_type='none')
+
     # Notificaciones push (un registro por dispositivo) y bitácora de envíos
     ejecutar_consulta_segura("""
         CREATE TABLE IF NOT EXISTS push_suscripciones (
@@ -6898,6 +6912,7 @@ async def crear_notificacion(
     usuario_ids: str = Form(None),  # JSON string con lista de IDs
     actividad_id: int = Form(None),  # ID de la actividad/reporte vinculado
     motivos_atencion: str = Form(None),  # JSON string con lista de motivos
+    requiere_enterado: bool = Form(False),  # pide que cada persona marque 'Enterado'
     archivo: UploadFile = File(None)
 ):
     """Crear una nueva notificación"""
@@ -7000,14 +7015,14 @@ async def crear_notificacion(
                 titulo, subtitulo, descripcion, enlace_url,
                 archivo, archivo_tipo, archivo_nombre,
                 enviada_a_todos, actividad_id, motivos_atencion,
-                fecha_creacion, fecha_envio
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                fecha_creacion, fecha_envio, requiere_enterado
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """, (
             titulo, subtitulo, descripcion, enlace_url,
             archivo_bytes, archivo_tipo, archivo_nombre,
             enviada_a_todos, actividad_id, motivos_array,
-            fecha_creacion, fecha_envio
+            fecha_creacion, fecha_envio, bool(requiere_enterado)
         ))
         
         notificacion_id = cursor.fetchone()[0]
@@ -7120,7 +7135,10 @@ async def listar_notificaciones(limit: int = 50, offset: int = 0, tipo: str = 't
                         LEFT JOIN usuarios u ON nu.usuario_id = u.id
                         WHERE nu.notificacion_id = n.id
                     )
-                END as destinatarios_texto
+                END as destinatarios_texto,
+                COALESCE(n.requiere_enterado, FALSE),
+                (SELECT COUNT(*) FROM notificacion_enterados e WHERE e.notificacion_id = n.id),
+                (SELECT COUNT(*) FROM notificacion_usuarios nu3 WHERE nu3.notificacion_id = n.id)
             FROM notificaciones n
             {where_clause}
             ORDER BY n.fecha_creacion DESC
@@ -7145,6 +7163,8 @@ async def listar_notificaciones(limit: int = 50, offset: int = 0, tipo: str = 't
         count_query = f"SELECT COUNT(*) FROM notificaciones n {where_clause}"
         cursor.execute(count_query, params)
         total = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM usuarios WHERE COALESCE(activo, TRUE) = TRUE")
+        usuarios_activos_total = cursor.fetchone()[0]
         
         notificaciones = []
         for row in resultados:
@@ -7159,7 +7179,10 @@ async def listar_notificaciones(limit: int = 50, offset: int = 0, tipo: str = 't
                 "enviada_a_todos": row[7],
                 "fecha_creacion": row[8].isoformat() if row[8] else None,
                 "fecha_envio": row[9].isoformat() if row[9] else None,
-                "destinatarios_texto": row[10]
+                "destinatarios_texto": row[10],
+                "requiere_enterado": bool(row[11]),
+                "enterados": int(row[12] or 0),
+                "destinatarios_total": (usuarios_activos_total if row[7] else int(row[13] or 0))
             }
             notificaciones.append(notificacion)
         
@@ -7897,6 +7920,7 @@ async def actualizar_notificacion(
     enlace_url: str = Form(None),
     enviada_a_todos: bool = Form(True),
     usuario_ids: str = Form(None),
+    requiere_enterado: bool = Form(None),
     archivo: UploadFile = File(None)
 ):
     """Actualizar una notificación existente"""
@@ -7976,6 +8000,9 @@ async def actualizar_notificacion(
                 enlace_url = %s, enviada_a_todos = %s
         """
         update_params = [titulo, subtitulo, descripcion, enlace_url, enviada_a_todos]
+        if requiere_enterado is not None:
+            update_query += ", requiere_enterado = %s"
+            update_params.append(bool(requiere_enterado))
         
         # Agregar campos de archivo si hay nuevo archivo
         if archivo and archivo.filename:
@@ -8371,16 +8398,18 @@ async def obtener_notificaciones_usuario_mejorado(
                    n.actividad_id, n.motivos_atencion,
                    r.tipo_actividad, r.categoria_actividad, r.categoria_actividad_otro,
                    r.foto_url, r.fecha_hora as actividad_fecha, r.descripcion as actividad_descripcion,
-                   r.latitud, r.longitud
+                   r.latitud, r.longitud,
+                   COALESCE(n.requiere_enterado, FALSE) AS requiere_enterado, ne.enterado_at
             FROM notificaciones n
             LEFT JOIN notificacion_usuarios nu ON n.id = nu.notificacion_id
             LEFT JOIN notificacion_leidos nl ON n.id = nl.notificacion_id AND nl.usuario_id = %s
+            LEFT JOIN notificacion_enterados ne ON ne.notificacion_id = n.id AND ne.usuario_id = %s
             LEFT JOIN registros r ON n.actividad_id = r.id
             WHERE (n.enviada_a_todos = TRUE OR nu.usuario_id = %s)
             AND n.fecha_envio IS NOT NULL
             ORDER BY n.fecha_envio DESC NULLS LAST, n.fecha_creacion DESC
             LIMIT %s OFFSET %s
-        """, (usuario_id, usuario_id, limit, offset))
+        """, (usuario_id, usuario_id, usuario_id, limit, offset))
         
         resultados = cursor.fetchall()
         
@@ -8431,7 +8460,10 @@ async def obtener_notificaciones_usuario_mejorado(
                 "tiene_archivo": bool(resultado[5]),
                 "leida": bool(resultado[10]),  # Estado de lectura
                 "actividad": actividad_data,  # Datos de la actividad vinculada
-                "motivos_atencion": resultado[12]  # Motivos de atención
+                "motivos_atencion": resultado[12],  # Motivos de atención
+                "requiere_enterado": bool(resultado[21]),
+                "enterado": resultado[22] is not None,
+                "enterado_en": resultado[22].isoformat() if resultado[22] else None
             }
             notificaciones.append(notificacion)
         
@@ -13099,6 +13131,224 @@ async def admin_push_prueba(usuario_id: int, request: Request):
     return await _push_probar_usuario(usuario_id, "Aviso de prueba", "Tu administrador comprobó que tus avisos llegan correctamente.")
 
 # ==================== FIN NOTIFICACIONES PUSH ====================
+
+
+# ==================== ENTERADO DE NOTIFICACIONES ====================
+# Cada persona puede marcar "Enterado" en una notificación (queda constancia con fecha y hora).
+# Estados por persona: sin leer -> vista (abrió el detalle) -> enterado (tocó el botón).
+import io as _io
+_recordar_hits = {}
+
+
+class EnteradoIn(BaseModel):
+    usuario_id: int
+    device_id: Optional[str] = None
+
+
+@app.post("/notificaciones/{notificacion_id}/enterado")
+async def marcar_enterado(notificacion_id: int, datos: EnteradoIn):
+    """Marca la notificación como 'Enterado' (una sola vez por persona; repetir la petición no duplica)."""
+    conexion = None
+    try:
+        conexion, cur = abrir_conexion_aislada()
+        cur.execute("SELECT 1 FROM usuarios WHERE id = %s", (datos.usuario_id,))
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        cur.execute("""SELECT 1 FROM notificaciones n LEFT JOIN notificacion_usuarios nu ON nu.notificacion_id = n.id AND nu.usuario_id = %s
+                       WHERE n.id = %s AND (n.enviada_a_todos = TRUE OR nu.usuario_id IS NOT NULL)""", (datos.usuario_id, notificacion_id))
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="Notificación no visible para este usuario")
+        dev = (datos.device_id or "")[:120] or None
+        cur.execute("""INSERT INTO notificacion_enterados (notificacion_id, usuario_id, device_id, enterado_at)
+                       VALUES (%s, %s, %s, NOW() AT TIME ZONE 'America/Mexico_City')
+                       ON CONFLICT (notificacion_id, usuario_id) DO NOTHING""", (notificacion_id, datos.usuario_id, dev))
+        # quien se da por enterado también la vio
+        cur.execute("""INSERT INTO notificacion_leidos (notificacion_id, usuario_id, device_id)
+                       VALUES (%s, %s, %s) ON CONFLICT (notificacion_id, usuario_id) DO NOTHING""", (notificacion_id, datos.usuario_id, dev))
+        cur.execute("SELECT enterado_at FROM notificacion_enterados WHERE notificacion_id = %s AND usuario_id = %s", (notificacion_id, datos.usuario_id))
+        fecha = cur.fetchone()[0]
+        conexion.commit()
+        return {"ok": True, "enterado": True, "enterado_en": fecha.isoformat() if fecha else None}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ [ENTERADO] {e}")
+        raise HTTPException(status_code=500, detail="No se pudo registrar el enterado")
+    finally:
+        try:
+            if conexion:
+                conexion.close()
+        except Exception:
+            pass
+
+
+def _notif_alcance(payload):
+    """Admin que consulta enterados: administrador, o con permiso de Notificaciones. Si es territorial, solo su territorio."""
+    conexion = None
+    try:
+        conexion, cur = abrir_conexion_aislada()
+        cur.execute("SELECT rol, permisos, activo, es_territorial, territorio FROM admin_users WHERE username = %s", (str(payload.get("sub", "")).strip(),))
+        fila = cur.fetchone()
+    finally:
+        try:
+            if conexion:
+                conexion.close()
+        except Exception:
+            pass
+    if not fila or not fila[2]:
+        raise HTTPException(status_code=403, detail="Tu cuenta está desactivada o no existe")
+    rol, permisos_raw, _a, es_terr, terr = fila
+    if str(rol or "").lower() != "admin":
+        try:
+            permisos = json.loads(permisos_raw) if permisos_raw else {}
+        except Exception:
+            permisos = {}
+        if permisos.get("notificaciones") is not True:
+            raise HTTPException(status_code=403, detail="No tienes permiso para ver las notificaciones")
+    return terr if (es_terr and terr) else None
+
+
+_ENT_BASE = """
+    WITH dest AS (
+        SELECT u.id, u.nombre_completo, u.correo, u.cargo, u.territorio
+        FROM usuarios u
+        WHERE COALESCE(u.activo, TRUE) = TRUE
+          AND ((SELECT enviada_a_todos FROM notificaciones WHERE id = %(nid)s) = TRUE
+               OR u.id IN (SELECT usuario_id FROM notificacion_usuarios WHERE notificacion_id = %(nid)s))
+          {terr}
+    ), est AS (
+        SELECT d.*, l.leida_en, e.enterado_at,
+               CASE WHEN e.id IS NOT NULL THEN 'enterado' WHEN l.id IS NOT NULL THEN 'vieron' ELSE 'sin_leer' END AS estado
+        FROM dest d
+        LEFT JOIN notificacion_leidos l ON l.notificacion_id = %(nid)s AND l.usuario_id = d.id
+        LEFT JOIN notificacion_enterados e ON e.notificacion_id = %(nid)s AND e.usuario_id = d.id
+    )
+"""
+
+
+def _ent_sql(territorio):
+    return _ENT_BASE.format(terr="AND u.territorio = %(terr)s" if territorio else "")
+
+
+@app.get("/admin/notificaciones/{notificacion_id}/enterados")
+async def admin_enterados(notificacion_id: int, request: Request, estado: str = "enterado", q: str = "", limit: int = 50, offset: int = 0):
+    payload = _jwt_admin(request)
+    territorio = _notif_alcance(payload)
+    estado = estado if estado in ("enterado", "vieron", "sin_leer") else "enterado"
+    limit = max(1, min(int(limit), 200))
+    offset = max(0, int(offset))
+    conexion = None
+    try:
+        conexion, cur = abrir_conexion_aislada()
+        cur.execute("SELECT titulo, requiere_enterado, enviada_a_todos, fecha_envio FROM notificaciones WHERE id = %s", (notificacion_id,))
+        n = cur.fetchone()
+        if not n:
+            raise HTTPException(status_code=404, detail="Notificación no encontrada")
+        prm = {"nid": notificacion_id, "terr": territorio}
+        base = _ent_sql(territorio)
+        cur.execute(base + "SELECT COUNT(*), COUNT(*) FILTER (WHERE estado='enterado'), COUNT(*) FILTER (WHERE estado='vieron'), COUNT(*) FILTER (WHERE estado='sin_leer') FROM est", prm)
+        total, ent, vie, sin = cur.fetchone()
+        filtro = "WHERE estado = %(estado)s"
+        prm["estado"] = estado
+        if q.strip():
+            filtro += " AND (LOWER(nombre_completo) LIKE %(q)s OR LOWER(COALESCE(correo,'')) LIKE %(q)s OR LOWER(COALESCE(territorio,'')) LIKE %(q)s)"
+            prm["q"] = f"%{q.strip().lower()}%"
+        cur.execute(base + f"SELECT COUNT(*) FROM est {filtro}", prm)
+        n_filtrados = cur.fetchone()[0]
+        orden = {"enterado": "enterado_at DESC", "vieron": "leida_en DESC NULLS LAST", "sin_leer": "nombre_completo"}[estado]
+        prm["lim"], prm["off"] = limit, offset
+        cur.execute(base + f"SELECT id, nombre_completo, correo, cargo, territorio, leida_en, enterado_at FROM est {filtro} ORDER BY {orden} LIMIT %(lim)s OFFSET %(off)s", prm)
+        filas = [{"id": r[0], "nombre": r[1], "correo": r[2], "cargo": r[3], "territorio": r[4],
+                  "vista_en": r[5].isoformat() if r[5] else None, "enterado_en": r[6].isoformat() if r[6] else None} for r in cur.fetchall()]
+        pct = lambda x: round(x * 100.0 / total, 1) if total else 0
+        return {"titulo": n[0], "requiere_enterado": bool(n[1]), "enviada_a_todos": bool(n[2]),
+                "resumen": {"destinatarios": total, "enterados": ent, "vieron": vie, "sin_leer": sin,
+                            "pct_enterados": pct(ent), "pct_vieron": pct(vie), "pct_sin_leer": pct(sin)},
+                "estado": estado, "total_filtrados": n_filtrados, "usuarios": filas, "limit": limit, "offset": offset,
+                "solo_territorio": territorio}
+    finally:
+        try:
+            if conexion:
+                conexion.close()
+        except Exception:
+            pass
+
+
+@app.get("/admin/notificaciones/{notificacion_id}/enterados/excel")
+async def admin_enterados_excel(notificacion_id: int, request: Request):
+    payload = _jwt_admin(request)
+    territorio = _notif_alcance(payload)
+    conexion = None
+    try:
+        conexion, cur = abrir_conexion_aislada()
+        cur.execute("SELECT titulo FROM notificaciones WHERE id = %s", (notificacion_id,))
+        n = cur.fetchone()
+        if not n:
+            raise HTTPException(status_code=404, detail="Notificación no encontrada")
+        cur.execute(_ent_sql(territorio) + "SELECT nombre_completo, correo, cargo, territorio, estado, leida_en, enterado_at FROM est ORDER BY CASE estado WHEN 'enterado' THEN 0 WHEN 'vieron' THEN 1 ELSE 2 END, nombre_completo",
+                    {"nid": notificacion_id, "terr": territorio})
+        filas = cur.fetchall()
+    finally:
+        try:
+            if conexion:
+                conexion.close()
+        except Exception:
+            pass
+    import xlsxwriter
+    buf = _io.BytesIO()
+    wb = xlsxwriter.Workbook(buf, {"in_memory": True, "remove_timezone": True, "strings_to_formulas": False})
+    ws = wb.add_worksheet("Enterados")
+    f_t = wb.add_format({"bold": True, "font_size": 14, "font_color": "#FFFFFF", "bg_color": "#1F6F43"})
+    f_h = wb.add_format({"bold": True, "font_color": "#FFFFFF", "bg_color": "#1F6F43", "border": 1, "align": "center"})
+    f_dt = wb.add_format({"num_format": "dd/mm/yyyy hh:mm"})
+    ws.merge_range(0, 0, 0, 6, f"Enterados · {n[0]}", f_t)
+    cols = [("Nombre", 36), ("Correo", 32), ("Cargo", 22), ("Territorio", 24), ("Estado", 12), ("Vista el", 18), ("Enterado el", 18)]
+    nombres = {"enterado": "Enterado", "vieron": "Solo vio", "sin_leer": "Sin leer"}
+    for i, (c, w) in enumerate(cols):
+        ws.set_column(i, i, w)
+        ws.write(2, i, c, f_h)
+    for r, f in enumerate(filas, start=3):
+        ws.write(r, 0, f[0] or ""); ws.write(r, 1, f[1] or ""); ws.write(r, 2, f[2] or ""); ws.write(r, 3, f[3] or "")
+        ws.write(r, 4, nombres.get(f[4], f[4]))
+        if f[5]: ws.write_datetime(r, 5, f[5], f_dt)
+        if f[6]: ws.write_datetime(r, 6, f[6], f_dt)
+    ws.freeze_panes(3, 1)
+    ws.autofilter(2, 0, 2 + len(filas), len(cols) - 1)
+    wb.close()
+    nombre = f"Enterados_{notificacion_id}_{_dt.datetime.now().strftime('%Y-%m-%d_%H%M')}.xlsx"
+    return Response(content=buf.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
+
+
+@app.post("/admin/notificaciones/{notificacion_id}/recordar")
+async def admin_recordar_enterado(notificacion_id: int, request: Request):
+    """Recordatorio push solo a quienes aún no marcan 'Enterado' (máx. 1 cada 10 minutos por notificación)."""
+    payload = _jwt_admin(request)
+    territorio = _notif_alcance(payload)
+    ahora = _time.time()
+    if ahora - _recordar_hits.get(notificacion_id, 0) < 600:
+        raise HTTPException(status_code=429, detail="Ya se envió un recordatorio hace poco. Espera unos minutos.")
+    conexion = None
+    try:
+        conexion, cur = abrir_conexion_aislada()
+        cur.execute("SELECT titulo FROM notificaciones WHERE id = %s", (notificacion_id,))
+        n = cur.fetchone()
+        if not n:
+            raise HTTPException(status_code=404, detail="Notificación no encontrada")
+        cur.execute(_ent_sql(territorio) + "SELECT id FROM est WHERE estado <> 'enterado'", {"nid": notificacion_id, "terr": territorio})
+        pendientes = [r[0] for r in cur.fetchall()]
+        subs = _push_suscripciones_de(conexion, pendientes) if pendientes else []
+    finally:
+        try:
+            if conexion:
+                conexion.close()
+        except Exception:
+            pass
+    _recordar_hits[notificacion_id] = ahora
+    res = await _aio.get_event_loop().run_in_executor(None, _push_enviar, subs, _push_payload("Recordatorio: " + n[0], "Abre el aviso y toca Enterado.", notificacion_id), notificacion_id)
+    return {"ok": True, "pendientes": len(pendientes), "con_push": len({s[1] for s in subs}), **res}
+
+# ==================== FIN ENTERADO DE NOTIFICACIONES ====================
 
 
 if __name__ == "__main__":

@@ -45,6 +45,7 @@ export const notificacionesService = {
       }
       
       formData.append('enviada_a_todos', notificacion.enviada_a_todos)
+      formData.append('requiere_enterado', notificacion.requiere_enterado ? 'true' : 'false')
       
       // Si no es para todos, incluir usuarios seleccionados
       if (!notificacion.enviada_a_todos && notificacion.usuario_ids && notificacion.usuario_ids.length > 0) {
@@ -167,6 +168,7 @@ export const notificacionesService = {
       }
       
       formData.append('enviada_a_todos', notificacion.enviada_a_todos)
+      formData.append('requiere_enterado', notificacion.requiere_enterado ? 'true' : 'false')
       
       // Si no es para todos, incluir usuarios seleccionados
       if (!notificacion.enviada_a_todos && notificacion.usuario_ids && notificacion.usuario_ids.length > 0) {

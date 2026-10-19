@@ -111,7 +111,7 @@
                   <div class="nf-body">
                     <div class="nf-top">
                       <h3 class="nf-title">{{ n.titulo }}</h3>
-                      <span class="nf-meta"><time class="nf-time" :datetime="n.fecha_creacion">{{ horaCorta(n.fecha_creacion) }}</time><span v-if="!n.leida" class="nf-dot" role="img" aria-label="Sin leer"></span></span>
+                      <span class="nf-meta"><time class="nf-time" :datetime="n.fecha_creacion">{{ horaCorta(n.fecha_creacion) }}</time><span v-if="n.enterado" class="nf-ent" role="img" aria-label="Enterado" title="Enterado"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M8 12.5l3 3 5-6" /></svg></span><span v-else-if="n.requiere_enterado" class="nf-pide" title="Pide que confirmes">Confirmar</span><span v-if="!n.leida" class="nf-dot" role="img" aria-label="Sin leer"></span></span>
                     </div>
                     <p v-if="n.subtitulo" class="nf-sub">{{ n.subtitulo }}</p>
                     <p v-if="n.descripcion && n.descripcion.trim()" class="nf-desc">{{ n.descripcion }}</p>
@@ -413,6 +413,24 @@
                 
               </div>
               
+              <!-- Enterado: constancia con fecha y hora -->
+              <div class="nf-enterar" :class="{ 'is-req': notificacionSeleccionada.requiere_enterado && !notificacionSeleccionada.enterado, 'is-hecho': notificacionSeleccionada.enterado }">
+                <template v-if="notificacionSeleccionada.enterado">
+                  <span class="nf-enterar__ok">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M8 12.5l3 3 5-6" /></svg>
+                    <b>Enterado</b><em>{{ textoEnterado(notificacionSeleccionada.enterado_en) }}</em>
+                  </span>
+                  <small v-if="notificacionSeleccionada.enterado_pendiente">Se enviará cuando tengas internet.</small>
+                </template>
+                <template v-else>
+                  <p v-if="notificacionSeleccionada.requiere_enterado" class="nf-enterar__txt">Esta notificación pide que confirmes que la leíste.</p>
+                  <button type="button" class="nf-enterar__btn" :disabled="enterando" @click="darEnterado(notificacionSeleccionada)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M8 12.5l3 3 5-6" /></svg>
+                    {{ enterando ? 'Guardando…' : 'Enterado' }}
+                  </button>
+                </template>
+              </div>
+
               <!-- Footer -->
               <footer class="sf-modal-footer">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -468,6 +486,7 @@ import { apiService } from '../services/apiService.js'
 import { useNotifications } from '../composables/useNotifications.js'
 import { API_URL } from '../utils/network.js'
 import PushOptIn from '../components/PushOptIn.vue'
+import { marcarEnterado, sincronizarEnterados, enteradosPendientes } from '../utils/enterado.js'
 
 // Estados reactivos
 const notificaciones = ref([])
@@ -478,6 +497,7 @@ const cargandoMas = ref(false)
 const error = ref('')
 const soloNoLeidas = ref(false) // CAMBIO: Cambiar a no leídas por defecto
 const notificacionesLeidas = ref(new Set()) // IDs de notificaciones leídas
+const enterando = ref(false) // guardando el "Enterado"
 const videoFallo = ref(false) // el video del detalle no pudo reproducirse
 const conteoNoLeidas = ref(0) // NUEVO: Contador de no leídas
 const conteoAnterior = ref(0) // NUEVO: Para detectar cambios en el contador
@@ -671,6 +691,48 @@ const gruposNotificaciones = computed(() => {
 })
 
 // Nunca se muestra el nombre del archivo: solo qué es (video, imagen, documento)
+const textoEnterado = (iso) => {
+  if (!iso) return ''
+  const f = new Date(iso)
+  if (isNaN(f)) return ''
+  const g = grupoDeFecha(iso)
+  const hora = f.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+  if (g.clave === 'hoy') return 'hoy, ' + hora
+  if (g.clave === 'ayer') return 'ayer, ' + hora
+  return f.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) + ', ' + hora
+}
+
+// Aplica el enterado a la lista y al detalle abierto (respuesta inmediata)
+const aplicarEnterado = (id, iso, pendiente) => {
+  const n = notificaciones.value.find(x => x.id === id)
+  if (n) { n.enterado = true; n.enterado_en = iso; n.leida = true }
+  if (notificacionSeleccionada.value && notificacionSeleccionada.value.id === id) {
+    notificacionSeleccionada.value = { ...notificacionSeleccionada.value, enterado: true, enterado_en: iso, enterado_pendiente: !!pendiente, leida: true }
+  }
+}
+
+const darEnterado = async (n) => {
+  const usuarioId = obtenerUsuarioId()
+  if (!usuarioId || enterando.value || !n || n.enterado) return
+  enterando.value = true
+  const r = await marcarEnterado(n.id, usuarioId)
+  enterando.value = false
+  if (!r.ok) { mostrarNotificacionError('No se pudo guardar el enterado. Inténtalo de nuevo.'); return }
+  aplicarEnterado(n.id, r.enterado_en, r.offline)
+  try { if (navigator.vibrate) navigator.vibrate(18) } catch { /* sin vibración */ }
+}
+
+// Marca como enterado (solo en pantalla) lo que se hizo sin internet y aún no llega al servidor
+const marcarPendientesEnLista = () => {
+  const pend = enteradosPendientes()
+  if (!pend.size) return
+  notificaciones.value.forEach(n => { if (pend.has(n.id) && !n.enterado) { n.enterado = true; n.enterado_en = n.enterado_en || new Date().toISOString() } })
+}
+const alVolverInternet = async () => {
+  const enviados = await sincronizarEnterados()
+  if (enviados) cargarNotificaciones(true)
+}
+
 const etiquetaArchivo = (tipo) => {
   const t = String(tipo || '').toLowerCase()
   if (t.includes('pdf')) return 'Documento PDF'
@@ -854,6 +916,7 @@ const cargarNotificaciones = async (resetear = true) => {
     }
     
     totalNotificaciones.value = response.total || 0
+    marcarPendientesEnLista()
     offset.value += limit.value
 
     console.log(`✅ ${response.notificaciones?.length || 0} notificaciones cargadas`)
@@ -1768,10 +1831,11 @@ onMounted(async () => {
 
 // Aviso push recibido con la app abierta: la lista se actualiza al instante
 const alLlegarPush = () => { if (!cargando.value) cargarNotificaciones(true) }
-onMounted(() => window.addEventListener('notificaciones:nueva', alLlegarPush))
+onMounted(() => { window.addEventListener('notificaciones:nueva', alLlegarPush); window.addEventListener('online', alVolverInternet); sincronizarEnterados() })
 
 onBeforeUnmount(() => {
   window.removeEventListener('notificaciones:nueva', alLlegarPush)
+  window.removeEventListener('online', alVolverInternet)
   if (autoUpdateInterval) {
     clearInterval(autoUpdateInterval)
   }
@@ -6606,4 +6670,32 @@ video::-webkit-media-controls {
 .nf-item.is-unread.nf-tipo--video .nf-ico { background: #d3d9fb; color: #2d31a0; }
 .nf-item.nf-tipo--imagen .nf-ico { background: #f5e3f3; color: #8a2a82; }
 .nf-item.is-unread.nf-tipo--imagen .nf-ico { background: #f0d4ed; color: #7a2073; }
+</style>
+
+<style scoped>
+/* Enterado: icono pequeño en la lista y barra fija en el detalle */
+.nf-ent { display: inline-grid; place-items: center; width: 18px; height: 18px; color: #15803d; }
+.nf-ent svg { width: 18px; height: 18px; }
+.nf-pide { font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: #fdebc8; color: #7a4300; line-height: 1.5; }
+
+.nf-enterar { flex: none; padding: 12px 16px calc(env(safe-area-inset-bottom, 0px) + 12px); border-top: 1px solid rgba(15, 23, 42, 0.08); background: #fff; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.nf-enterar__txt { margin: 0; font-size: 0.84rem; color: #7a4300; font-weight: 600; text-align: center; }
+.nf-enterar__btn {
+  width: 100%; max-width: 420px; height: 46px; border: 1.5px solid #86d4a2; border-radius: 14px; background: #effaf3; color: #14532d;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;
+  font: 650 0.98rem -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', system-ui, sans-serif;
+  transition: transform 0.15s, background 0.2s; -webkit-tap-highlight-color: transparent;
+}
+.nf-enterar__btn svg { width: 22px; height: 22px; }
+.nf-enterar__btn:active:not(:disabled) { transform: scale(0.97); }
+.nf-enterar__btn:disabled { opacity: 0.6; cursor: default; }
+.nf-enterar.is-req .nf-enterar__btn { background: #15803d; border-color: #15803d; color: #fff; box-shadow: 0 10px 22px -12px rgba(21, 128, 61, 0.8); }
+.nf-enterar__ok { display: inline-flex; align-items: center; gap: 8px; color: #14532d; font-size: 0.95rem; }
+.nf-enterar__ok svg { width: 22px; height: 22px; color: #15803d; }
+.nf-enterar__ok em { font-style: normal; color: #475467; font-size: 0.86rem; }
+.nf-enterar small { color: #7a4300; font-size: 0.78rem; }
+</style>
+
+<style scoped>
+.sf-modal-footer { color: #5b6676 !important; font-size: 0.72rem !important; }
 </style>
