@@ -101,7 +101,9 @@
                   @keydown.space.prevent="abrirDetalleNotificacion(n)"
                 >
                   <span class="nf-ico" aria-hidden="true">
-                    <svg v-if="tipoNotif(n) === 'archivo'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.1l-9.2 9.2a6 6 0 01-8.5-8.5l9.2-9.2a4 4 0 015.7 5.7l-9.2 9.2a2 2 0 01-2.8-2.8l8.5-8.5" /></svg>
+                    <svg v-if="tipoNotif(n) === 'video'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3" /><path d="M10 9.5v5l4.5-2.5z" fill="currentColor" /></svg>
+                    <svg v-else-if="tipoNotif(n) === 'imagen'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3" /><circle cx="9" cy="10" r="1.6" /><path d="M21 16l-5-5-8 8" /></svg>
+                    <svg v-else-if="tipoNotif(n) === 'archivo'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.1l-9.2 9.2a6 6 0 01-8.5-8.5l9.2-9.2a4 4 0 015.7 5.7l-9.2 9.2a2 2 0 01-2.8-2.8l8.5-8.5" /></svg>
                     <svg v-else-if="tipoNotif(n) === 'actividad'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" /><path d="M9 5a2 2 0 012-2h2a2 2 0 012 2v0a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /><path d="M9 12h6M9 16h4" /></svg>
                     <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 01-3.4 0" /></svg>
                   </span>
@@ -115,15 +117,15 @@
                     <p v-if="n.descripcion && n.descripcion.trim()" class="nf-desc">{{ n.descripcion }}</p>
 
                     <div v-if="n.tiene_archivo && esImagen(n.archivo_tipo)" class="nf-media" @click.stop="verNotificacionCompleta(n)">
-                      <img :src="obtenerUrlArchivo(n.id)" :alt="n.archivo_nombre" @error="onImageError" @load="onImageLoad" loading="lazy" />
+                      <img :src="obtenerUrlArchivo(n.id)" alt="Imagen de la notificación" @error="onImageError" @load="onImageLoad" loading="lazy" />
                     </div>
-                    <div v-else-if="n.tiene_archivo && esVideo(n.archivo_tipo)" class="nf-vtile" @click.stop="verNotificacionCompleta(n)" role="button" :aria-label="'Reproducir video: ' + (n.archivo_nombre || 'video')">
-                      <span class="nf-vtile__play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z" /></svg></span>
-                      <span class="nf-vtile__txt"><b>Video</b><em>{{ n.archivo_nombre || 'Toca para reproducir' }}</em></span>
+                    <div v-else-if="n.tiene_archivo && esVideo(n.archivo_tipo)" class="nf-vthumb" @click.stop="verNotificacionCompleta(n)" role="button" aria-label="Reproducir video">
+                      <video class="nf-vthumb__v" :src="obtenerUrlArchivo(n.id) + '#t=0.5'" muted playsinline webkit-playsinline preload="metadata" tabindex="-1" aria-hidden="true"></video>
+                      <span class="nf-vthumb__play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z" /></svg></span>
                     </div>
                     <span v-else-if="n.tiene_archivo" class="nf-chip">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.4 11.1l-9.2 9.2a6 6 0 01-8.5-8.5l9.2-9.2a4 4 0 015.7 5.7l-9.2 9.2a2 2 0 01-2.8-2.8l8.5-8.5" /></svg>
-                      <span class="nf-chip__t">{{ n.archivo_nombre || 'Archivo adjunto' }}</span>
+                      <span class="nf-chip__t">{{ etiquetaArchivo(n.archivo_tipo) }}</span>
                     </span>
                   </div>
 
@@ -281,7 +283,7 @@
                   <div class="sf-image-container" @click="verImagen(obtenerUrlArchivo(notificacionSeleccionada.id))">
                     <img 
                       :src="obtenerUrlArchivo(notificacionSeleccionada.id)"
-                      :alt="notificacionSeleccionada.archivo_nombre"
+                      :alt="'Imagen de la notificación'"
                       class="sf-image-preview"
                       @error="onImageError"
                       @load="onImageLoad"
@@ -318,7 +320,6 @@
                       <a :href="obtenerUrlArchivo(notificacionSeleccionada.id)" target="_blank" rel="noopener" class="nf-player__btn">Abrir video</a>
                     </div>
                   </div>
-                  <p class="sf-video-name">{{ notificacionSeleccionada.archivo_nombre }}</p>
                 </section>
                 
                 <!-- Archivo adjunto (otros tipos) -->
@@ -328,7 +329,7 @@
                       <span>{{ obtenerInicialesTipoArchivo(notificacionSeleccionada.archivo_tipo) }}</span>
                     </div>
                     <div class="sf-file-info">
-                      <h4 class="sf-file-name">{{ notificacionSeleccionada.archivo_nombre }}</h4>
+                      <h4 class="sf-file-name">{{ etiquetaArchivo(notificacionSeleccionada.archivo_tipo) }}</h4>
                       <p class="sf-file-type">{{ notificacionSeleccionada.archivo_tipo.toUpperCase() }}</p>
                     </div>
                     
@@ -658,7 +659,7 @@ const gruposNotificaciones = computed(() => {
   const q = busqueda.value.toLowerCase()
   const lista = notificacionesFiltradas.value.filter(n => {
     if (!q) return true
-    return [n.titulo, n.subtitulo, n.descripcion, n.archivo_nombre].some(t => t && String(t).toLowerCase().includes(q))
+    return [n.titulo, n.subtitulo, n.descripcion].some(t => t && String(t).toLowerCase().includes(q))
   })
   const mapa = new Map()
   for (const n of lista) {
@@ -669,9 +670,18 @@ const gruposNotificaciones = computed(() => {
   return [...mapa.values()].sort((x, y) => x.orden - y.orden)
 })
 
+// Nunca se muestra el nombre del archivo: solo qué es (video, imagen, documento)
+const etiquetaArchivo = (tipo) => {
+  const t = String(tipo || '').toLowerCase()
+  if (t.includes('pdf')) return 'Documento PDF'
+  if (t.includes('doc') || t.includes('word')) return 'Documento'
+  if (t.includes('xls') || t.includes('sheet') || t.includes('excel')) return 'Hoja de cálculo'
+  return 'Archivo adjunto'
+}
+
 const tipoNotif = (n) => {
   if (n.actividad || n.actividad_id) return 'actividad'
-  if (notificacionesService.tieneArchivo(n)) return 'archivo'
+  if (notificacionesService.tieneArchivo(n)) return esVideo(n.archivo_tipo) ? 'video' : (esImagen(n.archivo_tipo) ? 'imagen' : 'archivo')
   return 'general'
 }
 
@@ -6580,4 +6590,20 @@ video::-webkit-media-controls {
 .nf-player__fallo { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px; padding: 16px; text-align: center; color: #fff; background: rgba(15, 23, 42, 0.86); }
 .nf-player__fallo p { margin: 0; font-size: 0.9rem; }
 .nf-player__btn { padding: 9px 18px; border-radius: 999px; background: #fff; color: #0f172a; font-weight: 650; font-size: 0.86rem; text-decoration: none; }
+</style>
+
+<style scoped>
+/* Video en la lista: se ve como video (primer cuadro y botón de reproducir) */
+.nf-vthumb { position: relative; margin-top: 10px; border-radius: 16px; overflow: hidden; cursor: pointer; aspect-ratio: 16 / 9; max-height: 240px; width: 100%;
+  background: linear-gradient(135deg, #1f2a3a 0%, #334155 100%); box-shadow: 0 12px 26px -16px rgba(15, 23, 42, 0.7); }
+.nf-vthumb__v { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; background: transparent; }
+.nf-vthumb::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.35) 100%); pointer-events: none; }
+.nf-vthumb__play { position: absolute; z-index: 1; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; display: grid; place-items: center;
+  color: #fff; background: rgba(0, 0, 0, 0.5); border: 1.5px solid rgba(255, 255, 255, 0.75); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); transition: transform 0.15s; }
+.nf-vthumb__play svg { width: 26px; height: 26px; margin-left: 3px; }
+.nf-vthumb:active .nf-vthumb__play { transform: scale(0.92); }
+.nf-item.nf-tipo--video .nf-ico { background: #e1e5f8; color: #3b3fa8; }
+.nf-item.is-unread.nf-tipo--video .nf-ico { background: #d3d9fb; color: #2d31a0; }
+.nf-item.nf-tipo--imagen .nf-ico { background: #f5e3f3; color: #8a2a82; }
+.nf-item.is-unread.nf-tipo--imagen .nf-ico { background: #f0d4ed; color: #7a2073; }
 </style>
