@@ -1585,4 +1585,18 @@ body {
   animation: route-spin 0.8s linear infinite;
 }
 @keyframes route-spin { to { transform: rotate(360deg); } }
+
+/* Rendimiento en celular: sin orbes difuminados, sin desenfoque de fondo ni animaciones infinitas decorativas
+   (solo se conservan los indicadores de carga). Es lo que hacia lentas y entrecortadas las vistas. */
+@media (max-width: 900px), (hover: none) {
+  .apple-dynamic-bg, .apple-gradient-orb, .apple-orb { display: none !important; }
+  .main-content *:not([class*="spin"]), .main-content *:not([class*="spin"])::before, .main-content *:not([class*="spin"])::after {
+    animation-iteration-count: 1 !important;
+  }
+  .main-content [class*="apple-"], .main-content [class*="sf-"], .main-content [class*="nf-"],
+  .main-content [class*="rp-"], .main-content [class*="modal"] {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
 </style>
