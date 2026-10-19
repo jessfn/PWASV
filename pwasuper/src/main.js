@@ -4,6 +4,7 @@ import router from './router'
 import { iniciarReporteErrores } from './utils/errorReporter.js'
 import { iniciarActualizador } from './utils/actualizador.js'
 import { prepararSonido } from './utils/sonidoNotificacion.js'
+import { precargarDatos } from './utils/precarga.js'
 import { iniciarMedidaEncabezados } from './utils/antiTraslape.js'
 import { notificarActualizacion } from './utils/serviceWorkerRegistration.js'
 
@@ -76,6 +77,9 @@ iniciarMedidaEncabezados()
 // Actualización reactiva: al publicar una versión nueva, la app abierta se actualiza sola con el aviso "Actualizando…"
 const actualizador = iniciarActualizador((version) => notificarActualizacion('version-' + version))
 router.afterEach(() => { actualizador.revisarAhora() })
+
+// Con el teléfono libre, se descargan las listas más usadas para que las pantallas abran al instante
+window.addEventListener('load', () => setTimeout(() => { if ('requestIdleCallback' in window) requestIdleCallback(precargarDatos, { timeout: 6000 }); else precargarDatos() }, 2500))
 
 // Emitir evento para ocultar splash screen
 window.dispatchEvent(new CustomEvent('app-ready'))
