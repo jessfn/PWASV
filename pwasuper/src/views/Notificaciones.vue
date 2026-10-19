@@ -6526,3 +6526,26 @@ video::-webkit-media-controls {
   .nf-items { grid-template-columns: repeat(auto-fill, minmax(440px, 1fr)); gap: 16px; }
 }
 </style>
+
+<style scoped>
+/* =====================================================================
+   Marco fijo + recuadro con scroll propio (igual que Historial):
+   la página no se desplaza; solo se desplaza la lista dentro del recuadro
+   ===================================================================== */
+.apple-scroll-container {
+  position: absolute !important; inset: 0 !important; overflow: hidden !important;
+  display: flex !important; flex-direction: column;
+  padding: calc(var(--hdr-bottom, 110px) + 12px) 12px calc(env(safe-area-inset-bottom, 0px) + 12px) !important;
+}
+.nf-wrap {
+  flex: 1; min-height: 0; width: 100%; max-width: 1280px !important; margin: 0 auto;
+  overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  padding: 14px 14px calc(env(safe-area-inset-bottom, 0px) + 78px) !important;
+  background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(255, 255, 255, 0.95); border-radius: 22px;
+  box-shadow: 0 14px 34px -22px rgba(15, 90, 50, 0.45);
+}
+.apple-loading-card, .apple-error-card { margin-top: 8px; }
+@media (min-width: 640px) { .apple-scroll-container { padding-left: 20px !important; padding-right: 20px !important; } .nf-wrap { padding: 18px 20px 92px !important; } }
+@media (min-width: 1024px) { .apple-scroll-container { padding-left: 28px !important; padding-right: 28px !important; padding-bottom: 20px !important; } }
+@media (min-width: 1700px) { .nf-wrap { max-width: 1560px !important; } }
+</style>
