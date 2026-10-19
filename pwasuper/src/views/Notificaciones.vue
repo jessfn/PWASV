@@ -429,6 +429,7 @@ import { useNotifications } from '../composables/useNotifications.js'
 import { API_URL } from '../utils/network.js'
 import PushOptIn from '../components/PushOptIn.vue'
 import DocumentoAdjunto from '../components/DocumentoAdjunto.vue'
+import { cacheLeer, cacheGuardar } from '../utils/cacheVista.js'
 import { tipoDocumento } from '../utils/documentos.js'
 import { marcarEnterado, sincronizarEnterados, enteradosPendientes } from '../utils/enterado.js'
 
@@ -702,10 +703,14 @@ const cargarNotificaciones = async (resetear = true) => {
     }
 
     if (resetear) {
-      cargando.value = true
       offset.value = 0
-      notificaciones.value = []
       error.value = ''
+      // Primera carga de la vista: se muestra al instante lo ultimo guardado y se actualiza en segundo plano
+      if (!notificaciones.value.length && !soloNoLeidas.value) {
+        const c = cacheLeer('notificaciones')
+        if (c && c.length) notificaciones.value = c
+      }
+      cargando.value = notificaciones.value.length === 0
     } else {
       cargandoMas.value = true
     }
@@ -742,6 +747,7 @@ const cargarNotificaciones = async (resetear = true) => {
     }
     
     totalNotificaciones.value = response.total || 0
+    if (resetear && !soloNoLeidas.value && notificaciones.value.length) cacheGuardar('notificaciones', notificaciones.value.slice(0, 40))
     marcarPendientesEnLista()
     offset.value += limit.value
 

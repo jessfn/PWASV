@@ -20,7 +20,7 @@
     <div class="hs-root">
       <div class="hs-page">
     <div class="glass-card hs-panel">
-      <div class="hs-scroll" ref="scrollEl">
+      <div class="hs-scroll" ref="scrollEl" @scroll.passive="alDesplazar">
       <div v-if="error" class="mb-3 bg-red-100 border-l-4 border-red-500 text-red-700 p-3" role="alert">
         <p class="text-xs">{{ error }}</p>
         <p class="text-xs mt-1">
@@ -36,7 +36,7 @@
         </div>
         <div class="space-y-2">
           <!-- Agrupar registros por fecha -->
-          <div v-for="grupo in agruparRegistrosPorFecha(registros)" :key="grupo.fecha">
+          <div v-for="grupo in agruparRegistrosPorFecha(registros.slice(0, limiteReg))" :key="grupo.fecha">
             <!-- Separador de fecha -->
             <div class="flex items-center gap-2 my-3 px-2">
               <div class="flex-1 h-px bg-gradient-to-r from-transparent via-purple-400 to-transparent"></div>
@@ -250,7 +250,7 @@
         </div>
         <div class="space-y-2">
           <!-- Agrupar asistencias por fecha -->
-          <div v-for="grupo in agruparAsistenciasPorFecha(asistencias)" :key="grupo.fecha">
+          <div v-for="grupo in agruparAsistenciasPorFecha(asistencias.slice(0, limiteAsis))" :key="grupo.fecha">
             <!-- Separador de fecha mejorado -->
             <div class="flex items-center gap-2 my-3 px-2">
               <div class="flex-1 h-px bg-gradient-to-r from-transparent via-blue-500 to-transparent"></div>
@@ -431,13 +431,13 @@
       </div>
       
       <!-- Cargando registros -->
-      <div v-if="tabActiva === 'registros' && cargando" class="text-center py-6">
+      <div v-if="tabActiva === 'registros' && cargando && registros.length === 0" class="text-center py-6">
         <div class="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary mx-auto"></div>
         <p class="mt-3 text-gray-500 text-sm">Cargando registros...</p>
       </div>
 
       <!-- Cargando asistencias -->
-      <div v-if="tabActiva === 'asistencias' && cargandoAsistencias" class="text-center py-6">
+      <div v-if="tabActiva === 'asistencias' && cargandoAsistencias && asistencias.length === 0" class="text-center py-6">
         <div class="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary mx-auto"></div>
         <p class="mt-3 text-gray-500 text-sm">Cargando asistencias...</p>
       </div>
@@ -502,7 +502,8 @@ L.Icon.Default.mergeOptions({
 });
 import 'leaflet/dist/leaflet.css';
 import { apiService } from '../services/apiService.js';
-import { checkInternetConnection, getOfflineMessage } from '../utils/network.js';
+import { getOfflineMessage } from '../utils/network.js';
+import { cacheLeer, cacheGuardar } from '../utils/cacheVista.js';
 
 // Variable reactiva para la URL de la API
 const currentApiUrl = ref('');
@@ -520,11 +521,21 @@ const isOnline = ref(true);
 const userInfo = ref(null);
 const tabActiva = ref('asistencias');
 const scrollEl = ref(null);
+// Ultimo estado guardado: la vista abre al instante con lo ultimo que se vio y luego se actualiza
+const limiteReg = ref(40);
+const limiteAsis = ref(40);
+const alDesplazar = (e) => {
+  const c = e.target;
+  if (c.scrollHeight - c.scrollTop - c.clientHeight < 700) { limiteReg.value += 40; limiteAsis.value += 40; }
+};
 watch(tabActiva, () => { if (scrollEl.value) scrollEl.value.scrollTop = 0; });
 const imagenModalVisible = ref(false);
 const imagenSeleccionada = ref('');
 
 // Comprobar autenticación y cargar datos
+watch(registros, (v) => { if (v && v.length) cacheGuardar('historial_registros', v.slice(0, 200)); });
+watch(asistencias, (v) => { if (v && v.length) cacheGuardar('historial_asistencias', v.slice(0, 200)); });
+
 onMounted(async () => {
   const userStr = localStorage.getItem('user');
   if (!userStr) {
@@ -533,12 +544,18 @@ onMounted(async () => {
   }
   
   userInfo.value = JSON.parse(userStr);
-  
+
+  // Mostrar de inmediato lo ultimo guardado (si lo hay)
+  const cReg = cacheLeer('historial_registros');
+  const cAsis = cacheLeer('historial_asistencias');
+  if (cReg && cReg.length) { registros.value = cReg; cargando.value = false; }
+  if (cAsis && cAsis.length) { asistencias.value = cAsis; cargandoAsistencias.value = false; }
+
   // Inicializar URL de la API
   currentApiUrl.value = apiService.getCurrentApiUrl() || '';
   
   // Verificar conexión a internet
-  isOnline.value = await checkInternetConnection();
+  isOnline.value = navigator.onLine;   // sin esperar a la red: la lista se muestra al instante y se actualiza sola
   if (!isOnline.value) {
     error.value = getOfflineMessage();
     cargando.value = false;
@@ -566,7 +583,7 @@ async function cargarRegistros() {
   error.value = null;
   
   // Verificar conexión a internet antes de cargar
-  isOnline.value = await checkInternetConnection();
+  isOnline.value = navigator.onLine;   // sin esperar a la red: la lista se muestra al instante y se actualiza sola
   if (!isOnline.value) {
     error.value = getOfflineMessage();
     cargando.value = false;
@@ -618,7 +635,7 @@ async function cargarAsistencias() {
   error.value = null;
   
   // Verificar conexión a internet antes de cargar
-  isOnline.value = await checkInternetConnection();
+  isOnline.value = navigator.onLine;   // sin esperar a la red: la lista se muestra al instante y se actualiza sola
   if (!isOnline.value) {
     error.value = getOfflineMessage();
     cargandoAsistencias.value = false;

@@ -379,6 +379,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { manualesService } from '../services/manualesService'
 import DocumentoAdjunto from '../components/DocumentoAdjunto.vue'
+import { cacheLeer, cacheGuardar } from '../utils/cacheVista.js'
 
 // Estado
 const cargando = ref(false)
@@ -405,12 +406,18 @@ const cargarManuales = async () => {
     return
   }
   
-  cargando.value = true
+  // Se muestra de inmediato lo ultimo guardado y se actualiza en segundo plano
+  if (manuales.value.length === 0) {
+    const c = cacheLeer('manuales')
+    if (c && c.length) manuales.value = c
+  }
+  cargando.value = manuales.value.length === 0
   error.value = null
   
   try {
     const response = await manualesService.obtenerManualesUsuario(usuarioId.value)
     manuales.value = response.manuales || []
+    if (manuales.value.length) cacheGuardar('manuales', manuales.value)
   } catch (err) {
     console.error('Error cargando manuales:', err)
     error.value = err.message || 'Error al cargar manuales'

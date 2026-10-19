@@ -919,7 +919,7 @@ const currentUserId = computed(() => {
         <span class="route-loader__spin" aria-hidden="true"></span>
       </div>
       <router-view v-slot="{ Component }">
-        <transition name="fade" mode="out-in">
+        <transition name="vista">
           <component :is="Component" />
         </transition>
       </router-view>
@@ -934,15 +934,10 @@ const currentUserId = computed(() => {
 </template>
 
 <style>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.12s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
+/* Cambio de vista: la nueva aparece al instante (solo un suave fundido de entrada) y la anterior se quita sin esperar */
+.vista-enter-active { transition: opacity 0.1s ease-out; }
+.vista-enter-from { opacity: 0; }
+.vista-leave-active { display: none !important; transition: none !important; }
 
 /* Título del header con tipografía elegante y animación de brillo */
 .header-title {
