@@ -137,19 +137,10 @@
 
       <!-- Sistema de Asistencia Integrado -->
       <div v-if="seccionActiva === 'asistencia' || modoAsistencia" :class="modoAsistencia ? (tipoAsistencia === 'entrada' ? 'glass-card-blue relative px-0 py-2' : 'glass-card-red relative px-0 py-2') : 'relative px-0 py-2'">
-        <!-- Icono de regresar (solo visible en modo asistencia) -->
-        <button 
-          v-if="modoAsistencia"
-          @click="cancelarAsistencia"
-          class="absolute top-3 left-3 w-8 h-8 sm:w-9 sm:h-9 bg-white rounded-full shadow-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all duration-200 z-20"
-          title="Regresar"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:h-5 sm:w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        
-        <div class="hm-section-head is-center">
+        <div class="hm-section-head is-center" :class="{ 'has-back': modoAsistencia }">
+          <button v-if="modoAsistencia" type="button" class="hm-back" aria-label="Regresar" title="Regresar" @click="cancelarAsistencia">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 19l-7-7 7-7" /></svg>
+          </button>
           <h2 class="hm-h2">Control de Jornada</h2>
           <p class="hm-hint">
             {{ modoAsistencia ? 'Completa los datos para ' + (tipoAsistencia === 'entrada' ? 'registro de inicio' : 'registro de término') : 'Registra tu inicio y término de jornada' }}
@@ -8247,4 +8238,17 @@ watch([entradaMarcada, salidaMarcada], () => {
   .hm-side__date, .hm-side__progress { display: none; }
   .hm-container > div .hm-action__icon { display: none; }
 }
+
+/* Boton regresar: forma parte del encabezado (ya no flota sobre el contenido) */
+.hm-section-head { position: relative; }
+.hm-section-head.has-back { padding-inline: 48px; }
+.hm-back {
+  position: absolute; left: 0; top: 0; width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer;
+  color: #166534; background: rgba(22, 101, 52, 0.1); border: 1px solid rgba(22, 101, 52, 0.18);
+  transition: background .15s ease, transform .15s ease;
+}
+.hm-back svg { width: 18px; height: 18px; }
+.hm-back:hover { background: rgba(22, 101, 52, 0.16); }
+.hm-back:active { transform: scale(0.92); }
 </style>
