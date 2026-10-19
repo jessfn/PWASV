@@ -6967,6 +6967,10 @@ async def crear_notificacion(
             tipos_permitidos = {
                 '.jpg': 'imagen', '.jpeg': 'imagen', '.png': 'imagen', '.gif': 'imagen',
                 '.pdf': 'pdf',
+                '.doc': 'documento', '.docx': 'documento',
+                '.xls': 'excel', '.xlsx': 'excel', '.csv': 'excel',
+                '.ppt': 'presentacion', '.pptx': 'presentacion',
+                '.txt': 'texto', '.zip': 'zip',
                 '.mp4': 'video', '.avi': 'video', '.mov': 'video', '.wmv': 'video'
             }
             
@@ -7485,8 +7489,15 @@ async def marcar_notificacion_leida(notificacion_id: int, data: NotificacionLeer
 _MIME_POR_EXT = {
     ".mp4": "video/mp4", ".m4v": "video/mp4", ".mov": "video/quicktime", ".avi": "video/x-msvideo", ".wmv": "video/x-ms-wmv",
     ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".gif": "image/gif", ".pdf": "application/pdf",
+    ".doc": "application/msword", ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".xls": "application/vnd.ms-excel", ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ".csv": "text/csv",
+    ".ppt": "application/vnd.ms-powerpoint", ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".txt": "text/plain; charset=utf-8", ".zip": "application/zip",
 }
-_MIME_POR_TIPO = {"imagen": "image/jpeg", "pdf": "application/pdf", "video": "video/mp4"}
+_MIME_POR_TIPO = {"imagen": "image/jpeg", "pdf": "application/pdf", "video": "video/mp4", "documento": "application/msword",
+                  "excel": "application/vnd.ms-excel", "presentacion": "application/vnd.ms-powerpoint", "texto": "text/plain; charset=utf-8", "zip": "application/zip"}
+# Solo estos se muestran dentro del navegador; Word, Excel, PowerPoint y ZIP siempre se descargan
+_MOSTRAR_EN_LINEA = ("application/pdf", "image/", "video/", "text/plain")
 
 
 def _rango_bytes(cabecera, total):
@@ -7534,7 +7545,8 @@ async def descargar_archivo_notificacion(notificacion_id: int, request: Request,
         except UnicodeEncodeError:
             nombre_seguro = f"archivo_{notificacion_id}{ext or '.bin'}"
         from urllib.parse import quote as _q
-        disp = "attachment" if safe else "inline"
+        en_linea = mime.startswith(_MOSTRAR_EN_LINEA)
+        disp = "attachment" if (safe or not en_linea or request.query_params.get("descargar")) else "inline"
         cab = {
             "Accept-Ranges": "bytes",
             "Cache-Control": "public, max-age=3600",
@@ -7973,6 +7985,10 @@ async def actualizar_notificacion(
             tipos_permitidos = {
                 '.jpg': 'imagen', '.jpeg': 'imagen', '.png': 'imagen', '.gif': 'imagen',
                 '.pdf': 'pdf',
+                '.doc': 'documento', '.docx': 'documento',
+                '.xls': 'excel', '.xlsx': 'excel', '.csv': 'excel',
+                '.ppt': 'presentacion', '.pptx': 'presentacion',
+                '.txt': 'texto', '.zip': 'zip',
                 '.mp4': 'video', '.avi': 'video', '.mov': 'video', '.wmv': 'video'
             }
             
@@ -11273,7 +11289,7 @@ async def obtener_manual(manual_id: int):
         raise HTTPException(status_code=500, detail=f"Error al obtener manual: {str(e)}")
 
 @app.get("/manuales/{manual_id}/archivo")
-async def descargar_archivo_manual(manual_id: int):
+async def descargar_archivo_manual(manual_id: int, descargar: bool = False):
     """Descargar archivo de un manual"""
     try:
         if not conn:
@@ -11300,7 +11316,16 @@ async def descargar_archivo_manual(manual_id: int):
             'presentacion': 'application/vnd.ms-powerpoint'
         }
         
-        content_type = content_types.get(archivo_tipo, 'application/octet-stream')
+        por_ext = {
+            '.pdf': 'application/pdf', '.doc': 'application/msword',
+            '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            '.xls': 'application/vnd.ms-excel', '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            '.ppt': 'application/vnd.ms-powerpoint', '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        }
+        # el tipo exacto sale de la extensión (antes un .docx se enviaba como .doc y no abría)
+        content_type = por_ext.get(os.path.splitext(archivo_nombre)[1].lower()) or content_types.get(archivo_tipo, 'application/octet-stream')
+        # solo el PDF se muestra dentro del navegador; Word, Excel y PowerPoint se descargan
+        disposicion = 'inline' if (content_type == 'application/pdf' and not descargar) else 'attachment'
         
         # Sanitizar nombre de archivo para headers HTTP (solo ASCII)
         archivo_nombre_safe = archivo_nombre.encode('ascii', 'ignore').decode('ascii') or "documento"
@@ -11310,7 +11335,7 @@ async def descargar_archivo_manual(manual_id: int):
             content=archivo_bytes,
             media_type=content_type,
             headers={
-                "Content-Disposition": f"inline; filename=\"{archivo_nombre_safe}\"; filename*=UTF-8''{archivo_nombre_encoded}",
+                "Content-Disposition": f"{disposicion}; filename=\"{archivo_nombre_safe}\"; filename*=UTF-8''{archivo_nombre_encoded}",
                 "Access-Control-Allow-Origin": "*",
                 "Cache-Control": "public, max-age=3600"
             }

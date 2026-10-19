@@ -111,7 +111,7 @@
                   <div class="nf-body">
                     <div class="nf-top">
                       <h3 class="nf-title">{{ n.titulo }}</h3>
-                      <span class="nf-meta"><time class="nf-time" :datetime="n.fecha_creacion">{{ horaCorta(n.fecha_creacion) }}</time><span v-if="n.enterado" class="nf-ent" role="img" aria-label="Enterado" title="Enterado"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M8 12.5l3 3 5-6" /></svg></span><span v-else-if="n.requiere_enterado" class="nf-pide" title="Pide que confirmes">Confirmar</span><span v-if="!n.leida" class="nf-dot" role="img" aria-label="Sin leer"></span></span>
+                      <span class="nf-meta"><time class="nf-time" :datetime="n.fecha_creacion">{{ horaCorta(n.fecha_creacion) }}</time><span v-if="!n.leida" class="nf-dot" role="img" aria-label="Sin leer"></span></span>
                     </div>
                     <p v-if="n.subtitulo" class="nf-sub">{{ n.subtitulo }}</p>
                     <p v-if="n.descripcion && n.descripcion.trim()" class="nf-desc">{{ n.descripcion }}</p>
@@ -123,10 +123,22 @@
                       <video class="nf-vthumb__v" :src="obtenerUrlArchivo(n.id) + '#t=0.5'" muted playsinline webkit-playsinline preload="metadata" tabindex="-1" aria-hidden="true"></video>
                       <span class="nf-vthumb__play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z" /></svg></span>
                     </div>
-                    <span v-else-if="n.tiene_archivo" class="nf-chip">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.4 11.1l-9.2 9.2a6 6 0 01-8.5-8.5l9.2-9.2a4 4 0 015.7 5.7l-9.2 9.2a2 2 0 01-2.8-2.8l8.5-8.5" /></svg>
-                      <span class="nf-chip__t">{{ etiquetaArchivo(n.archivo_tipo) }}</span>
+                    <span v-else-if="n.tiene_archivo" class="nf-dochip">
+                      <span class="nf-dochip__ico" :style="{ background: tipoDoc(n).fondo, color: tipoDoc(n).color }">{{ tipoDoc(n).corto }}</span>
+                      <span class="nf-chip__t">{{ tipoDoc(n).etiqueta }}</span>
                     </span>
+
+                    <!-- Enterado: botón tipo "me gusta" en la esquina de la tarjeta -->
+                    <div class="nf-acts">
+                      <button type="button" class="nf-like" :class="{ 'is-on': n.enterado, 'is-req': n.requiere_enterado && !n.enterado }"
+                              :disabled="enterandoId === n.id" :aria-pressed="!!n.enterado"
+                              :aria-label="n.enterado ? 'Enterado' : 'Marcar como enterado'"
+                              :title="n.enterado ? 'Ya te diste por enterado' : 'Toca para confirmar que leíste este aviso'"
+                              @click.stop="darEnterado(n)">
+                        <template v-if="n.enterado"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg></template><template v-else><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 11v8a1 1 0 01-1 1H4a1 1 0 01-1-1v-7a1 1 0 011-1h3a4 4 0 004-4V5a2 2 0 014 0v5h3a2 2 0 012 2l-1 5a3 3 0 01-3 3h-7a3 3 0 01-3-3" /></svg></template>
+                        <span>{{ enterandoId === n.id ? 'Guardando…' : 'Enterado' }}</span>
+                      </button>
+                    </div>
                   </div>
 
                 </li>
@@ -322,70 +334,11 @@
                   </div>
                 </section>
                 
-                <!-- Archivo adjunto (otros tipos) -->
+                <!-- Documento: tarjeta con Abrir y Guardar -->
                 <section v-else-if="notificacionSeleccionada.tiene_archivo" class="sf-file-section">
-                  <div class="sf-file-card">
-                    <div class="sf-file-icon" :style="{ backgroundColor: obtenerColorTipoArchivo(notificacionSeleccionada.archivo_tipo) }">
-                      <span>{{ obtenerInicialesTipoArchivo(notificacionSeleccionada.archivo_tipo) }}</span>
-                    </div>
-                    <div class="sf-file-info">
-                      <h4 class="sf-file-name">{{ etiquetaArchivo(notificacionSeleccionada.archivo_tipo) }}</h4>
-                      <p class="sf-file-type">{{ notificacionSeleccionada.archivo_tipo.toUpperCase() }}</p>
-                    </div>
-                    
-                    <!-- Botón de descarga -->
-                    <button 
-                      v-if="!notificacionSeleccionada.estadoDescarga"
-                      @click="abrirArchivo(notificacionSeleccionada.id)"
-                      class="sf-download-btn"
-                    >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="7,10 12,15 17,10"/>
-                        <line x1="12" y1="15" x2="12" y2="3"/>
-                      </svg>
-                      <span>Descargar</span>
-                    </button>
-                    
-                    <!-- Estado: Descargando -->
-                    <div v-else-if="notificacionSeleccionada.estadoDescarga === 'descargando'" class="sf-download-progress">
-                      <div class="sf-progress-ring">
-                        <svg viewBox="0 0 36 36">
-                          <circle cx="18" cy="18" r="16" fill="none" stroke="currentColor" stroke-width="2" opacity="0.2"/>
-                          <circle cx="18" cy="18" r="16" fill="none" stroke="currentColor" stroke-width="2" 
-                                  :stroke-dasharray="100" 
-                                  :stroke-dashoffset="100 - (notificacionSeleccionada.progresoDescarga || 0)"
-                                  transform="rotate(-90 18 18)"/>
-                        </svg>
-                        <span>{{ notificacionSeleccionada.progresoDescarga }}%</span>
-                      </div>
-                    </div>
-                    
-                    <!-- Estado: Completado -->
-                    <div v-else-if="notificacionSeleccionada.estadoDescarga === 'completado'" class="sf-download-complete">
-                      <button @click="verArchivoDescargado()" class="sf-open-btn">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                          <polyline points="15,3 21,3 21,9"/>
-                          <line x1="10" y1="14" x2="21" y2="3"/>
-                        </svg>
-                        Abrir
-                      </button>
-                    </div>
-                    
-                    <!-- Estado: Error -->
-                    <button 
-                      v-else-if="notificacionSeleccionada.estadoDescarga === 'error'"
-                      @click="abrirArchivo(notificacionSeleccionada.id)"
-                      class="sf-retry-btn"
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M1 4v6h6M23 20v-6h-6"/>
-                        <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
-                      </svg>
-                      Reintentar
-                    </button>
-                  </div>
+                  <DocumentoAdjunto :key="notificacionSeleccionada.id" :url="obtenerUrlArchivo(notificacionSeleccionada.id)"
+                                    :tipo-archivo="notificacionSeleccionada.archivo_tipo" :nombre="notificacionSeleccionada.archivo_nombre"
+                                    :titulo="notificacionSeleccionada.titulo" />
                 </section>
                 
                 <!-- Enlace externo -->
@@ -416,18 +369,12 @@
               <!-- Enterado: constancia con fecha y hora -->
               <div class="nf-enterar" :class="{ 'is-req': notificacionSeleccionada.requiere_enterado && !notificacionSeleccionada.enterado, 'is-hecho': notificacionSeleccionada.enterado }">
                 <template v-if="notificacionSeleccionada.enterado">
-                  <span class="nf-enterar__ok">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M8 12.5l3 3 5-6" /></svg>
-                    <b>Enterado</b><em>{{ textoEnterado(notificacionSeleccionada.enterado_en) }}</em>
-                  </span>
+                  <span class="nf-enterar__ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg><b>Enterado</b><em>{{ textoEnterado(notificacionSeleccionada.enterado_en) }}</em></span>
                   <small v-if="notificacionSeleccionada.enterado_pendiente">Se enviará cuando tengas internet.</small>
                 </template>
                 <template v-else>
-                  <p v-if="notificacionSeleccionada.requiere_enterado" class="nf-enterar__txt">Esta notificación pide que confirmes que la leíste.</p>
-                  <button type="button" class="nf-enterar__btn" :disabled="enterando" @click="darEnterado(notificacionSeleccionada)">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M8 12.5l3 3 5-6" /></svg>
-                    {{ enterando ? 'Guardando…' : 'Enterado' }}
-                  </button>
+                  <p class="nf-enterar__txt">{{ notificacionSeleccionada.requiere_enterado ? 'Esta notificación pide que confirmes que la leíste.' : 'Confirma que leíste este aviso.' }}</p>
+                  <button type="button" class="nf-enterar__btn" :disabled="enterando" @click="darEnterado(notificacionSeleccionada)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 11v8a1 1 0 01-1 1H4a1 1 0 01-1-1v-7a1 1 0 011-1h3a4 4 0 004-4V5a2 2 0 014 0v5h3a2 2 0 012 2l-1 5a3 3 0 01-3 3h-7a3 3 0 01-3-3" /></svg>{{ enterando ? 'Guardando…' : 'Enterado' }}</button>
                 </template>
               </div>
 
@@ -486,6 +433,8 @@ import { apiService } from '../services/apiService.js'
 import { useNotifications } from '../composables/useNotifications.js'
 import { API_URL } from '../utils/network.js'
 import PushOptIn from '../components/PushOptIn.vue'
+import DocumentoAdjunto from '../components/DocumentoAdjunto.vue'
+import { tipoDocumento } from '../utils/documentos.js'
 import { marcarEnterado, sincronizarEnterados, enteradosPendientes } from '../utils/enterado.js'
 
 // Estados reactivos
@@ -497,7 +446,8 @@ const cargandoMas = ref(false)
 const error = ref('')
 const soloNoLeidas = ref(false) // CAMBIO: Cambiar a no leídas por defecto
 const notificacionesLeidas = ref(new Set()) // IDs de notificaciones leídas
-const enterando = ref(false) // guardando el "Enterado"
+const enterandoId = ref(null) // id de la notificación que se está guardando como "Enterado"
+const enterando = computed(() => enterandoId.value !== null)
 const videoFallo = ref(false) // el video del detalle no pudo reproducirse
 const conteoNoLeidas = ref(0) // NUEVO: Contador de no leídas
 const conteoAnterior = ref(0) // NUEVO: Para detectar cambios en el contador
@@ -714,9 +664,9 @@ const aplicarEnterado = (id, iso, pendiente) => {
 const darEnterado = async (n) => {
   const usuarioId = obtenerUsuarioId()
   if (!usuarioId || enterando.value || !n || n.enterado) return
-  enterando.value = true
+  enterandoId.value = n.id
   const r = await marcarEnterado(n.id, usuarioId)
-  enterando.value = false
+  enterandoId.value = null
   if (!r.ok) { mostrarNotificacionError('No se pudo guardar el enterado. Inténtalo de nuevo.'); return }
   aplicarEnterado(n.id, r.enterado_en, r.offline)
   try { if (navigator.vibrate) navigator.vibrate(18) } catch { /* sin vibración */ }
@@ -732,6 +682,8 @@ const alVolverInternet = async () => {
   const enviados = await sincronizarEnterados()
   if (enviados) cargarNotificaciones(true)
 }
+
+const tipoDoc = (n) => tipoDocumento(n.archivo_tipo, n.archivo_nombre)
 
 const etiquetaArchivo = (tipo) => {
   const t = String(tipo || '').toLowerCase()
@@ -6698,4 +6650,29 @@ video::-webkit-media-controls {
 
 <style scoped>
 .sf-modal-footer { color: #5b6676 !important; font-size: 0.72rem !important; }
+</style>
+
+<style scoped>
+/* Botón "Enterado" tipo me gusta, en la esquina de cada tarjeta */
+.nf-acts { display: flex; justify-content: flex-end; margin-top: 10px; }
+.nf-like {
+  display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 14px; border-radius: 999px; cursor: pointer;
+  border: 1.5px solid #c3cdd6; background: #fff; color: #334155;
+  font: 650 0.82rem -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', system-ui, sans-serif;
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s, color 0.2s, border-color 0.2s; -webkit-tap-highlight-color: transparent;
+}
+.nf-like svg { width: 18px; height: 18px; flex: none; }
+.nf-like:active:not(:disabled) { transform: scale(0.9); }
+.nf-like:disabled { opacity: 0.7; cursor: default; }
+.nf-like.is-req { border-color: #16a34a; color: #14532d; background: #effaf3; }
+.nf-like.is-on { background: #15803d; border-color: #15803d; color: #fff; animation: nf-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes nf-pop { 0% { transform: scale(0.88); } 60% { transform: scale(1.08); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .nf-like.is-on { animation: none; } }
+
+/* Documento en la lista */
+.nf-dochip { display: inline-flex; align-items: center; gap: 9px; max-width: 100%; margin-top: 10px; padding: 5px 12px 5px 5px; border-radius: 12px; background: #fff; border: 1px solid #dbe3ea; font-size: 0.8rem; font-weight: 600; color: #334155; }
+.nf-dochip__ico { min-width: 36px; height: 28px; padding: 0 6px; border-radius: 8px; display: grid; place-items: center; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em; }
+.nf-enterar__txt { font-weight: 500 !important; color: #475467 !important; }
+.nf-enterar.is-req .nf-enterar__txt { color: #7a4300 !important; font-weight: 650 !important; }
+.nf-enterar__btn svg { width: 22px; height: 22px; }
 </style>

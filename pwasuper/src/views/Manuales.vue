@@ -247,25 +247,15 @@
                   
                   <!-- Quick actions (tipo pill) -->
                   <div class="apple-quick-actions">
-                    <a 
+                    <DocumentoAdjunto
                       v-if="manualSeleccionado?.archivo_nombre"
-                      :href="getArchivoUrl(manualSeleccionado.id)"
-                      target="_blank"
-                      class="apple-action-pill apple-pill-document"
-                    >
-                      <div class="apple-pill-icon">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                          <polyline points="14 2 14 8 20 8"/>
-                          <line x1="12" y1="18" x2="12" y2="12"/>
-                          <line x1="9" y1="15" x2="15" y2="15"/>
-                        </svg>
-                      </div>
-                      <div class="apple-pill-text">
-                        <span class="apple-pill-label">Documento</span>
-                        <span class="apple-pill-action">Abrir PDF</span>
-                      </div>
-                    </a>
+                      :key="manualSeleccionado.id"
+                      class="man-doc"
+                      :url="getArchivoUrl(manualSeleccionado.id)"
+                      :tipo-archivo="manualSeleccionado.archivo_tipo || ''"
+                      :nombre="manualSeleccionado.archivo_nombre"
+                      :titulo="manualSeleccionado.titulo"
+                    />
                     
                     <a 
                       v-if="manualSeleccionado?.enlace_url"
@@ -386,6 +376,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { manualesService } from '../services/manualesService'
+import DocumentoAdjunto from '../components/DocumentoAdjunto.vue'
 
 // Estado
 const cargando = ref(false)
@@ -1858,4 +1849,9 @@ onMounted(() => {
 @media (min-width: 640px) { .apple-scroll-container { padding-left: 20px !important; padding-right: 20px !important; } .sf-manuales-scroll { padding: 18px 20px 92px !important; } }
 @media (min-width: 1024px) { .apple-scroll-container { padding-left: 28px !important; padding-right: 28px !important; padding-bottom: 20px !important; } }
 @media (min-width: 1700px) { .sf-manuales-list { max-width: 1560px !important; } }
+</style>
+
+<style scoped>
+.man-doc { width: 100%; }
+.apple-quick-actions { display: flex; flex-direction: column; gap: 10px; }
 </style>

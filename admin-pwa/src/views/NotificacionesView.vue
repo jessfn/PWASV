@@ -467,7 +467,7 @@
                     ref="archivoInput"
                     type="file"
                     class="file-input"
-                    accept=".jpg,.jpeg,.png,.gif,.pdf,.mp4,.avi,.mov,.wmv"
+                    accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.zip,.mp4,.avi,.mov,.wmv"
                     @change="manejarArchivoSeleccionado"
                   />
                   <label for="archivo" class="file-input-label-compact">
@@ -681,7 +681,7 @@
                     ref="archivoInputEdit"
                     type="file"
                     class="file-input"
-                    accept=".jpg,.jpeg,.png,.gif,.pdf,.mp4,.avi,.mov,.wmv"
+                    accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.zip,.mp4,.avi,.mov,.wmv"
                     @change="manejarArchivoSeleccionadoEdicion"
                   />
                   <label for="archivo-edit" class="file-input-label-compact">
