@@ -7,32 +7,11 @@
       <div class="absolute bottom-1/4 left-1/3 w-72 h-72 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-pulse-slow" style="animation-delay: 4s; background-color: rgba(56, 142, 60, 0.3);"></div>
     </div>
     
+    <ViewTitle title="Soporte Técnico" subtitle="Estamos aquí para ayudarte"><span class="vt-chip" :class="isHorarioAbierto ? 'is-on' : 'is-off'"><i></i>{{ isHorarioAbierto ? 'Disponible' : 'Fuera de horario' }}</span></ViewTitle>
+
     <div class="absolute inset-0 overflow-y-auto pt-16 sm:pt-20 pb-4">
       <div class="page-container relative z-10 px-2 sm:px-3 md:px-4 lg:px-6 xl:px-8 py-3 sm:py-4 lg:py-5 min-h-full max-w-full">
         <div class="w-full max-w-lg mx-auto space-y-4">
-      <!-- Header de Soporte -->
-      <div class="glass-card text-center">
-        <div class="flex items-center justify-center mb-3">
-          <div class="w-12 h-12 rounded-full flex items-center justify-center shadow-xl" style="background: linear-gradient(135deg, #65DB2E 0%, #4CAF50 100%);">
-            <font-awesome-icon 
-              icon="headset"
-              class="h-6 w-6 text-white"
-            />
-          </div>
-        </div>
-        
-        <h1 class="text-xl font-bold text-gray-800 mb-2 modern-title">Soporte Técnico</h1>
-        <div class="red-line mx-auto mb-2"></div>
-        <p class="text-gray-600 text-xs mb-3">Estamos aquí para ayudarte con cualquier problema o duda</p>
-        
-        <!-- Estado de disponibilidad -->
-        <div class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium" 
-             :class="isHorarioAbierto ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'">
-          <div class="w-1.5 h-1.5 rounded-full mr-2" :class="isHorarioAbierto ? 'bg-green-400' : 'bg-red-400'"></div>
-          {{ isHorarioAbierto ? 'Disponible Ahora' : 'Fuera de Horario' }}
-        </div>
-      </div>
-
       <!-- Horario de atención -->
       <div class="glass-card">
         <div class="flex items-center mb-3">
@@ -172,6 +151,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import ViewTitle from '../components/ViewTitle.vue'
 
 // Determinar si estamos en horario de atención
 const isHorarioAbierto = computed(() => {
@@ -249,8 +229,7 @@ const handleContactClick = (type) => {
     max-width: 1100px;
     display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; row-gap: 16px; align-items: stretch; align-content: start;
   }
-  .page-container > .max-w-lg > :first-child,
-  .page-container > .max-w-lg > :nth-child(4),
+  .page-container > .max-w-lg > :nth-child(3),
   .page-container > .max-w-lg > :last-child { grid-column: 1 / -1; }
   .page-container > .max-w-lg > .glass-card { margin-bottom: 0 !important; }
 }

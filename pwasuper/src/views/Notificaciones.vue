@@ -6276,7 +6276,6 @@ video::-webkit-media-controls {
 @media (min-width: 1024px) {
   .apple-header-content { max-width: 1280px; }
   .apple-header-fixed { padding-left: 28px; padding-right: 28px; }
-  .apple-scroll-container { padding-bottom: 0 !important; }
   .sf-notifications-scroll { padding-bottom: 92px; }
   .sf-notifications-list { max-width: 1336px; padding: 0 28px; }
   .sf-notification-stack { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 16px; align-items: start; }

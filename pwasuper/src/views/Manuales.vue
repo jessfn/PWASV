@@ -1828,7 +1828,6 @@ onMounted(() => {
 @media (min-width: 1024px) {
   .apple-header-content { max-width: 1280px; }
   .apple-header-fixed { padding-left: 28px; padding-right: 28px; }
-  .apple-scroll-container { padding-bottom: 0 !important; }
   .sf-manuales-scroll { padding-bottom: 92px; }
   .sf-manuales-list { max-width: 1336px; padding: 0 28px; }
   .sf-manuales-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 18px; align-items: start; }

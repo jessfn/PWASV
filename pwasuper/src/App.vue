@@ -954,18 +954,120 @@ const currentUserId = computed(() => {
 /* Escritorio: la barra superior ocupa todo el ancho útil, alineada con el contenido */
 @media (min-width: 1024px) {
   .app-top { max-width: 1280px; left: 28px; right: 28px; }
-  .app-header__bar { padding-top: 0.7rem; padding-bottom: 0.7rem; padding-left: 1.4rem; padding-right: 1.4rem; }
+  .app-header__bar { padding-top: 0.4rem !important; padding-bottom: 0.4rem !important; padding-left: 1.2rem !important; padding-right: 1.2rem !important; }
 }
 @media (min-width: 1700px) {
   .app-top { max-width: 1560px; }
 }
 
-/* Escritorio: la burbuja de soporte vive en la esquina inferior y el contenido le deja su lugar (sin encimarse) */
+
+/* =====================================================================
+   TÍTULO DE LA VISTA UNIDO A LA BARRA VERDE (todos los dispositivos)
+   La franja del título cuelga justo debajo de la barra, del mismo ancho,
+   en un verde más claro con borde luminoso: se ve como una sola pieza
+   pero el título se distingue. Sirve para .vt-strip (ViewTitle) y para
+   los encabezados fijos de Notificaciones, Manuales y Reportes.
+   ===================================================================== */
+html.has-vt .app-top:not(.is-open) .app-header { border-radius: 24px 24px 0 0; box-shadow: none; }
+
+.vt-strip,
+html .apple-header-fixed {
+  position: fixed !important;
+  top: calc(var(--app-top-h, 60px) - 2px) !important; /* se mete 2px bajo la barra: sin rendija de fondo entre ambas */
+  left: 8px !important;
+  right: 8px !important;
+  max-width: 32rem;
+  margin-inline: auto;
+  padding: 0 !important;
+  z-index: 39 !important;
+}
+@media (min-width: 768px) { .vt-strip, html .apple-header-fixed { max-width: 36rem; } }
+@media (min-width: 1024px) { .vt-strip, html .apple-header-fixed { left: 28px !important; right: 28px !important; max-width: 1280px; } }
+@media (min-width: 1700px) { .vt-strip, html .apple-header-fixed { max-width: 1560px; } }
+html .apple-header-fixed .apple-header-content { max-width: none !important; }
+
+/* la pieza visible: franja verde clara con brillo superior, esquinas redondeadas abajo */
+.vt-inner,
+html .apple-header-fixed .apple-header-card,
+html .apple-header-fixed .apple-compact-header {
+  position: relative;
+  background: linear-gradient(180deg, #067013 0%, #0d8120 38%, #1f9a35 100%) !important;
+  border: 0 !important;
+  border-radius: 0 0 24px 24px !important;
+  padding: 8px 16px 10px !important;
+  box-shadow: 0 14px 22px -16px rgba(0, 70, 12, 0.65) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  animation: vt-bajar 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes vt-bajar { from { opacity: 0; } to { opacity: 1; } }
+
+.vt-inner { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.vt-text { min-width: 0; }
+.vt-title, html .apple-header-fixed .apple-page-title, html .apple-header-fixed .apple-compact-title {
+  margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', 'Inter', 'Segoe UI', system-ui, sans-serif !important;
+  font-size: 1.05rem; font-weight: 600 !important; letter-spacing: -0.02em; line-height: 1.2; -webkit-font-smoothing: antialiased;
+  color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; background: none !important;
+  text-shadow: 0 1px 8px rgba(0, 40, 6, 0.22);
+}
+.vt-sub, html .apple-header-fixed .apple-page-subtitle, html .apple-header-fixed .apple-compact-subtitle {
+  margin: 1px 0 0; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', 'Inter', 'Segoe UI', system-ui, sans-serif !important;
+  font-size: 0.7rem; font-weight: 400 !important; letter-spacing: -0.005em; color: rgba(255, 255, 255, 0.84) !important; -webkit-font-smoothing: antialiased;
+}
+.vt-actions { flex: none; display: flex; align-items: center; gap: 8px; }
+
+/* controles de los encabezados existentes, en cristal claro sobre el verde */
+html .apple-header-fixed .apple-refresh-btn {
+  background: rgba(255, 255, 255, 0.2) !important; color: #fff !important; border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  box-shadow: none !important;
+}
+html .apple-header-fixed .apple-refresh-btn svg { color: #fff !important; stroke: #fff !important; width: 15px !important; height: 15px !important; }
+html .apple-header-fixed .apple-refresh-btn { width: 28px !important; height: 28px !important; min-width: 0 !important; padding: 0 !important; display: grid !important; place-items: center !important; }
+html .apple-header-fixed .apple-counter-badge {
+  background: rgba(255, 255, 255, 0.16) !important; border: 1px solid rgba(255, 255, 255, 0.24) !important; color: #fff !important;
+  border-top-color: rgba(255, 255, 255, 0.24) !important;
+}
+html .apple-header-fixed .apple-counter-badge { display: inline-flex !important; width: auto !important; border-radius: 999px !important; padding: 2px 9px !important; margin-top: 5px !important; font-size: 0.68rem !important; }
+html .apple-header-fixed .apple-counter-badge * { color: #fff !important; stroke: #fff !important; }
+
+
+.vt-back {
+  width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.3); color: #fff;
+  -webkit-tap-highlight-color: transparent; transition: transform 0.15s, background 0.2s;
+}
+.vt-back svg { width: 15px; height: 15px; }
+.vt-back:active { transform: scale(0.92); background: rgba(255, 255, 255, 0.32); }
+.vt-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
+  font-size: 0.68rem; font-weight: 600; color: #fff; background: rgba(255, 255, 255, 0.18); border: 1px solid rgba(255, 255, 255, 0.3);
+}
+.vt-chip i { width: 8px; height: 8px; border-radius: 50%; background: #fca5a5; }
+.vt-chip.is-on i { background: #86efac; box-shadow: 0 0 0 3px rgba(134, 239, 172, 0.3); }
+
+
+/* Barra verde superior más compacta (todos los dispositivos): menos alto, logo e iconos más pequeños */
+.app-header__bar { padding-top: 0.3rem !important; padding-bottom: 0.3rem !important; }
+.app-header .relative.w-9.h-9 { width: 1.85rem; height: 1.85rem; margin-right: 0.6rem; }
+.app-header .relative.w-9.h-9 svg { width: 1rem; height: 1rem; }
+.app-header__bar svg.h-6 { width: 1.2rem; height: 1.2rem; }
+.app-header__bar a.relative, .app-header__bar button { padding: 0.3rem !important; }
+.app-header .header-title { font-size: 0.7rem; }
+/* el Inicio y las vistas empiezan según la altura real de la barra */
+.hm-scroll { padding-top: calc(var(--app-top-h, 84px) + 12px) !important; }
+@media (min-width: 1024px) and (max-height: 820px) { .hm-scroll { padding-top: calc(var(--app-top-h, 84px) + 10px) !important; } }
+
+/* el contenido de las vistas con franja arranca justo debajo (medida en vivo, sin encimarse) */
+html.has-vt .absolute.inset-0.overflow-y-auto { padding-top: calc(var(--hdr-bottom, 60px) + 12px) !important; }
+
+/* Burbuja de soporte (todos los dispositivos): vive en la esquina inferior y el contenido le deja su lugar, sin encimarse */
+.support-bubble-container { top: auto !important; left: auto !important; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px) !important; right: 12px !important; transform: scale(0.82); transform-origin: bottom right; opacity: 0.72; transition: opacity 0.2s; }
+.support-bubble-container:hover, .support-bubble-container:active { opacity: 1; }
+.absolute.inset-0.overflow-y-auto, .apple-scroll-container { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 78px) !important; }
+.hm-scroll { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 78px) !important; }
 @media (min-width: 1024px) {
-  .support-bubble-container { top: auto !important; left: auto !important; bottom: 14px !important; right: 14px !important; transform: scale(0.8); transform-origin: bottom right; opacity: 0.6; transition: opacity 0.2s; }
-  .support-bubble-container:hover { opacity: 1; }
-  .absolute.inset-0.overflow-y-auto { padding-bottom: 92px !important; }
-  .apple-scroll-container { padding-bottom: 92px !important; }
+  .absolute.inset-0.overflow-y-auto, .apple-scroll-container { padding-bottom: 92px !important; }
+  .hm-scroll { padding-bottom: 92px !important; }
 }
 
 /* Escritorio: el menú es un panel flotante a la derecha, no una barra de lado a lado */

@@ -10,28 +10,11 @@
       <div class="absolute bottom-20 right-20 w-52 h-52 bg-green-300 rounded-full mix-blend-multiply filter blur-3xl opacity-18 animate-pulse-slow" style="animation-delay: 2.5s;"></div>
     </div>
 
+    <ViewTitle title="Configuración" subtitle="Personaliza tu experiencia"><button type="button" class="vt-back" aria-label="Regresar" @click="$router.back()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 19l-7-7 7-7" /></svg></button></ViewTitle>
+
     <div class="absolute inset-0 overflow-y-auto pt-16 sm:pt-20 pb-4">
       <div class="page-container relative z-10 px-2 sm:px-3 md:px-4 lg:px-6 xl:px-8 py-3 sm:py-4 lg:py-5 min-h-full max-w-full">
         <div class="w-full max-w-lg mx-auto space-y-4">
-        <!-- Header de la página -->
-        <div class="glass-card">
-          <div class="flex items-center gap-2 mb-2">
-            <button
-              @click="$router.back()"
-              class="p-1.5 rounded-lg hover:bg-white/20 transition-colors flex-shrink-0"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <div class="flex-1 min-w-0">
-              <h1 class="text-lg font-bold text-gray-900">Configuración</h1>
-              <p class="text-xs text-gray-500">Personaliza tu experiencia</p>
-            </div>
-          </div>
-          <div class="h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 rounded-full"></div>
-        </div>
-
         <!-- Sección: Almacenamiento en Caché -->
         <div class="glass-card">
           <div class="flex items-center gap-2 mb-4">
@@ -377,6 +360,7 @@
 <script setup>
 import { ref, computed, onMounted, onActivated } from 'vue';
 import { useRouter } from 'vue-router';
+import ViewTitle from '../components/ViewTitle.vue'
 import offlineService from '../services/offlineService.js';
 
 const router = useRouter();
@@ -900,7 +884,6 @@ onMounted(() => {
     max-width: 1100px;
     display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; row-gap: 16px; align-items: start; align-content: start;
   }
-  .page-container > .max-w-lg > :first-child { grid-column: 1 / -1; }
   .page-container > .max-w-lg > .glass-card { margin-bottom: 0 !important; }
   .page-container > .max-w-lg > .h-4 { display: none; }
 }

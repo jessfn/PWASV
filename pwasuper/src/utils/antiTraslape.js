@@ -12,7 +12,8 @@ export function iniciarMedidaEncabezados() {
   const medir = () => {
     pendiente = false
     const barra = document.querySelector('.app-top')
-    const encabezado = document.querySelector('.apple-header-fixed')
+    const encabezado = document.querySelector('.apple-header-fixed, .vt-strip')
+    raiz.classList.toggle('has-vt', !!encabezado)
     raiz.style.setProperty('--app-top-h', (barra ? Math.ceil(barra.getBoundingClientRect().bottom) : 0) + 'px')
     if (encabezado) raiz.style.setProperty('--hdr-bottom', Math.ceil(encabezado.getBoundingClientRect().bottom) + 'px')
     else raiz.style.removeProperty('--hdr-bottom')

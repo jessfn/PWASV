@@ -7,6 +7,8 @@
       <div class="absolute bottom-1/4 left-1/3 w-72 h-72 bg-teal-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-pulse-slow" style="animation-delay: 4s;"></div>
     </div>
 
+    <ViewTitle title="Mi Perfil" subtitle="Tu información y accesos" />
+
     <div class="absolute inset-0 overflow-y-auto pt-16 sm:pt-20 pb-3" style="z-index: 1;">
       <div class="page-container w-full max-w-sm mx-auto relative z-10 p-3 sm:p-4 lg:p-5">
       <!-- Header del perfil -->
@@ -888,6 +890,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import axios from 'axios'
+import ViewTitle from '../components/ViewTitle.vue'
 import { API_URL, checkInternetConnection, getOfflineMessage } from '../utils/network.js'
 import { apiService } from '../services/apiService.js'
 

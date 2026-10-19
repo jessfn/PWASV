@@ -220,7 +220,7 @@ const isHidden = ref(false)
 const isCompletelyHidden = ref(false) // Nueva variable para ocultar completamente
 const isDragging = ref(false)
 const isOnRight = ref(true) // Por defecto a la derecha
-const customY = ref(120) // Posición Y inicial arriba, del lado derecho
+const customY = ref(null) // Por defecto abajo a la derecha (nunca encima de encabezados ni botones)
 const position = ref({ x: 0, y: 0 })
 const dragStart = ref({ x: 0, y: 0 })
 const panelPosition = ref('bottom') // 'bottom' o 'top'
@@ -507,7 +507,8 @@ const loadSavedPosition = () => {
     if (saved) {
       const { isOnRight: savedIsOnRight, customY: savedCustomY } = JSON.parse(saved)
       isOnRight.value = savedIsOnRight
-      if (savedCustomY !== undefined) {
+      // Posiciones guardadas arriba (zona de encabezados) se descartan para que no tape botones
+      if (savedCustomY !== undefined && savedCustomY !== null && savedCustomY > 200) {
         customY.value = savedCustomY
       }
     }
