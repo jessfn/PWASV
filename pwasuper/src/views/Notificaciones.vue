@@ -117,9 +117,9 @@
                     <div v-if="n.tiene_archivo && esImagen(n.archivo_tipo)" class="nf-media" @click.stop="verNotificacionCompleta(n)">
                       <img :src="obtenerUrlArchivo(n.id)" :alt="n.archivo_nombre" @error="onImageError" @load="onImageLoad" loading="lazy" />
                     </div>
-                    <div v-else-if="n.tiene_archivo && esVideo(n.archivo_tipo)" class="nf-media nf-media--video" @click.stop="verNotificacionCompleta(n)">
-                      <video :src="obtenerUrlArchivo(n.id)" muted preload="metadata" @loadedmetadata="onVideoLoaded" @canplay="onVideoLoaded" @error="onVideoError" />
-                      <span class="nf-play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 7.5v9l7-4.5z" /></svg></span>
+                    <div v-else-if="n.tiene_archivo && esVideo(n.archivo_tipo)" class="nf-vtile" @click.stop="verNotificacionCompleta(n)" role="button" :aria-label="'Reproducir video: ' + (n.archivo_nombre || 'video')">
+                      <span class="nf-vtile__play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z" /></svg></span>
+                      <span class="nf-vtile__txt"><b>Video</b><em>{{ n.archivo_nombre || 'Toca para reproducir' }}</em></span>
                     </div>
                     <span v-else-if="n.tiene_archivo" class="nf-chip">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.4 11.1l-9.2 9.2a6 6 0 01-8.5-8.5l9.2-9.2a4 4 0 015.7 5.7l-9.2 9.2a2 2 0 01-2.8-2.8l8.5-8.5" /></svg>
@@ -298,15 +298,25 @@
                   </div>
                 </section>
                 
-                <!-- Vista previa de video -->
+                <!-- Video: reproductor nativo (con controles, en línea y a pantalla completa) -->
                 <section v-else-if="notificacionSeleccionada.tiene_archivo && esVideo(notificacionSeleccionada.archivo_tipo)" class="sf-video-section">
-                  <div class="sf-video-container">
-                    <video 
-                      :src="obtenerUrlArchivo(notificacionSeleccionada.id)"
+                  <div class="nf-player" :class="{ 'is-error': videoFallo }">
+                    <video
+                      :key="notificacionSeleccionada.id"
+                      class="nf-player__video"
+                      :src="obtenerUrlArchivo(notificacionSeleccionada.id) + '#t=0.1'"
                       controls
+                      playsinline
+                      webkit-playsinline
                       preload="metadata"
-                      class="sf-video-player"
+                      controlslist="nodownload"
+                      @loadeddata="videoFallo = false"
+                      @error="videoFallo = true"
                     ></video>
+                    <div v-if="videoFallo" class="nf-player__fallo">
+                      <p>No se pudo reproducir aquí.</p>
+                      <a :href="obtenerUrlArchivo(notificacionSeleccionada.id)" target="_blank" rel="noopener" class="nf-player__btn">Abrir video</a>
+                    </div>
                   </div>
                   <p class="sf-video-name">{{ notificacionSeleccionada.archivo_nombre }}</p>
                 </section>
@@ -467,6 +477,7 @@ const cargandoMas = ref(false)
 const error = ref('')
 const soloNoLeidas = ref(false) // CAMBIO: Cambiar a no leídas por defecto
 const notificacionesLeidas = ref(new Set()) // IDs de notificaciones leídas
+const videoFallo = ref(false) // el video del detalle no pudo reproducirse
 const conteoNoLeidas = ref(0) // NUEVO: Contador de no leídas
 const conteoAnterior = ref(0) // NUEVO: Para detectar cambios en el contador
 
@@ -898,6 +909,7 @@ const toggleFiltroNoLeidas = async () => {
 }
 
 const abrirDetalleNotificacion = (notificacion) => {
+  videoFallo.value = false
   notificacionSeleccionada.value = {
     ...notificacion,
     tiene_archivo: notificacionesService.tieneArchivo(notificacion)
@@ -918,6 +930,7 @@ const verNotificacionCompleta = (notificacion) => {
 
 const cerrarDetalleNotificacion = () => {
   notificacionSeleccionada.value = null
+  videoFallo.value = false
 }
 
 // Función para formatear enlace de manera más legible
@@ -6548,4 +6561,31 @@ video::-webkit-media-controls {
 @media (min-width: 640px) { .apple-scroll-container { padding-left: 20px !important; padding-right: 20px !important; } .nf-wrap { padding: 18px 20px 92px !important; } }
 @media (min-width: 1024px) { .apple-scroll-container { padding-left: 28px !important; padding-right: 28px !important; padding-bottom: 20px !important; } }
 @media (min-width: 1700px) { .nf-wrap { max-width: 1560px !important; } }
+</style>
+
+<style scoped>
+/* =====================================================================
+   Adjuntos: video como mosaico ligero en la lista (sin <video> dentro de la tarjeta)
+   y reproductor nativo en el detalle
+   ===================================================================== */
+.nf-item, .nf-item * { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+.nf-vtile {
+  display: flex; align-items: center; gap: 12px; margin-top: 10px; padding: 10px 12px; border-radius: 16px; cursor: pointer;
+  background: linear-gradient(135deg, #1f2a3a 0%, #334155 100%); color: #fff;
+  box-shadow: 0 10px 22px -14px rgba(15, 23, 42, 0.7);
+  transition: transform 0.15s, filter 0.2s;
+}
+.nf-vtile:active { transform: scale(0.985); filter: brightness(1.08); }
+.nf-vtile__play { flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, 0.18); border: 1px solid rgba(255, 255, 255, 0.3); }
+.nf-vtile__play svg { width: 22px; height: 22px; margin-left: 2px; }
+.nf-vtile__txt { min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.nf-vtile__txt b { font-size: 0.86rem; font-weight: 650; }
+.nf-vtile__txt em { font-style: normal; font-size: 0.76rem; color: #cbd5e1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.sf-video-section { padding: 0; }
+.nf-player { position: relative; border-radius: 18px; overflow: hidden; background: #000; box-shadow: 0 16px 34px -18px rgba(0, 0, 0, 0.65); }
+.nf-player__video { display: block; width: 100%; max-height: min(62vh, 520px); background: #000; outline: none; }
+.nf-player__fallo { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px; padding: 16px; text-align: center; color: #fff; background: rgba(15, 23, 42, 0.86); }
+.nf-player__fallo p { margin: 0; font-size: 0.9rem; }
+.nf-player__btn { padding: 9px 18px; border-radius: 999px; background: #fff; color: #0f172a; font-weight: 650; font-size: 0.86rem; text-decoration: none; }
 </style>

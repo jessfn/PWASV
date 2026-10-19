@@ -7459,115 +7459,115 @@ async def marcar_notificacion_leida(notificacion_id: int, data: NotificacionLeer
         print(f"❌ Error marcando notificación como leída: {e}")
         raise HTTPException(status_code=500, detail=f"Error al marcar como leída: {str(e)}")
 
-@app.get("/notificaciones/{notificacion_id}/archivo")
-async def descargar_archivo_notificacion(notificacion_id: int, safe: bool = False):
-    """Descargar o ver el archivo adjunto de una notificación con encoding mejorado"""
+_MIME_POR_EXT = {
+    ".mp4": "video/mp4", ".m4v": "video/mp4", ".mov": "video/quicktime", ".avi": "video/x-msvideo", ".wmv": "video/x-ms-wmv",
+    ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".gif": "image/gif", ".pdf": "application/pdf",
+}
+_MIME_POR_TIPO = {"imagen": "image/jpeg", "pdf": "application/pdf", "video": "video/mp4"}
+
+
+def _rango_bytes(cabecera, total):
+    """Interpreta 'Range: bytes=a-b' (un solo rango). Devuelve (inicio, fin) o None si no hay / es inválido."""
+    if not cabecera or not cabecera.lower().startswith("bytes=") or total <= 0:
+        return None
     try:
-        if not conn:
-            raise HTTPException(status_code=500, detail="No hay conexión a la base de datos")
-        
-        print(f"📎 Descargando archivo de notificación {notificacion_id} (safe={safe})")
-        
-        # Obtener archivo de la notificación
-        cursor.execute("""
-            SELECT archivo, archivo_tipo, archivo_nombre
-            FROM notificaciones
-            WHERE id = %s AND archivo IS NOT NULL
-        """, (notificacion_id,))
-        
-        resultado = cursor.fetchone()
-        
-        if not resultado:
+        parte = cabecera.split("=", 1)[1].split(",")[0].strip()
+        ini, fin = parte.split("-", 1)
+        if ini == "":                                   # últimos N bytes
+            n = int(fin)
+            if n <= 0:
+                return "invalido"
+            return max(0, total - n), total - 1
+        i = int(ini)
+        f = int(fin) if fin != "" else total - 1
+        if i >= total or i > f:
+            return "invalido"
+        return i, min(f, total - 1)
+    except Exception:
+        return None
+
+
+@app.get("/notificaciones/{notificacion_id}/archivo")
+@app.head("/notificaciones/{notificacion_id}/archivo")
+async def descargar_archivo_notificacion(notificacion_id: int, request: Request, safe: bool = False):
+    """Archivo adjunto de una notificación. Soporta solicitudes por rangos (206): imprescindible para que
+    los videos se reproduzcan en iPhone/Safari y para poder adelantar o retroceder en cualquier navegador."""
+    conexion = None
+    try:
+        conexion, cur = abrir_conexion_aislada()
+        cur.execute("SELECT octet_length(archivo), archivo_tipo, archivo_nombre FROM notificaciones WHERE id = %s AND archivo IS NOT NULL", (notificacion_id,))
+        fila = cur.fetchone()
+        if not fila:
             raise HTTPException(status_code=404, detail="Notificación no encontrada o sin archivo adjunto")
-        
-        archivo_bytes = resultado[0]
-        archivo_tipo = resultado[1]
-        archivo_nombre = resultado[2]
-        
-        # NUEVA LÓGICA DE MANEJO DE ENCODING DE NOMBRES DE ARCHIVO
-        try:
-            # Intentar usar el nombre original si no contiene caracteres problemáticos
-            nombre_seguro = archivo_nombre
-            # Verificar si el nombre es seguro para ASCII
-            nombre_seguro.encode('ascii')
-        except (UnicodeEncodeError, UnicodeDecodeError):
-            # Si el nombre tiene caracteres especiales, crear un nombre seguro
-            import hashlib
-            from datetime import datetime
-            
-            # Generar nombre seguro basado en el hash y timestamp
-            hash_nombre = hashlib.md5(archivo_nombre.encode('utf-8', errors='replace')).hexdigest()[:8]
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            
-            # Mantener la extensión si es posible
-            try:
-                ext = archivo_nombre.split('.')[-1] if '.' in archivo_nombre else 'bin'
-                # Limpiar la extensión de caracteres especiales
-                ext_segura = ''.join(c for c in ext if c.isalnum())[:10]
-                nombre_seguro = f"archivo_{timestamp}_{hash_nombre}.{ext_segura}"
-            except:
-                nombre_seguro = f"archivo_{timestamp}_{hash_nombre}.bin"
-            
-            print(f"⚠️ Nombre original problemático: '{archivo_nombre}' -> nombre seguro: '{nombre_seguro}'")
-        
-        # Definir Content-Type según el tipo de archivo
-        content_types = {
-            'imagen': 'image/jpeg',
-            'pdf': 'application/pdf',
-            'video': 'video/mp4'
-        }
-        
-        content_type = content_types.get(archivo_tipo, 'application/octet-stream')
-        
-        # Ajustar Content-Type para modo seguro (forzar descarga)
+        total, tipo, nombre = int(fila[0] or 0), fila[1], fila[2] or f"archivo_{notificacion_id}"
+
+        ext = os.path.splitext(nombre)[1].lower()
+        mime = _MIME_POR_EXT.get(ext) or _MIME_POR_TIPO.get(tipo, "application/octet-stream")
         if safe:
-            content_type = 'application/octet-stream'
-        
-        print(f"📎 Enviando archivo: {nombre_seguro} ({archivo_tipo}, {len(archivo_bytes)} bytes)")
-        
-        # Preparar headers seguros
-        headers = {
-            "Content-Length": str(len(archivo_bytes)),
-            "Cache-Control": "public, max-age=3600"  # Cache por 1 hora
+            mime = "application/octet-stream"
+        try:
+            nombre.encode("ascii")
+            nombre_seguro = nombre.replace('"', "")
+        except UnicodeEncodeError:
+            nombre_seguro = f"archivo_{notificacion_id}{ext or '.bin'}"
+        from urllib.parse import quote as _q
+        disp = "attachment" if safe else "inline"
+        cab = {
+            "Accept-Ranges": "bytes",
+            "Cache-Control": "public, max-age=3600",
+            "Content-Disposition": f"{disp}; filename=\"{nombre_seguro}\"; filename*=UTF-8''{_q(nombre)}",
+            "Content-Encoding": "identity",   # evita que la compresión del servidor altere los rangos
+            "ETag": f'"n{notificacion_id}-{total}"',
         }
-        
-        # NUEVA LÓGICA MEJORADA PARA CONTENT-DISPOSITION
-        try:
-            # Para modo seguro o nombres problemáticos, usar attachment
-            if safe:
-                headers["Content-Disposition"] = f"attachment; filename=\"{nombre_seguro}\""
-            else:
-                # Para visualización inline, usar el nombre seguro
-                headers["Content-Disposition"] = f"inline; filename=\"{nombre_seguro}\""
-            
-        except Exception as e:
-            print(f"⚠️ Error configurando Content-Disposition: {e}")
-            # Fallback ultra-seguro
-            headers["Content-Disposition"] = f"attachment; filename=\"archivo_{notificacion_id}.bin\""
-        
-        # Crear stream del archivo con manejo de memoria mejorado
-        try:
-            archivo_stream = io.BytesIO(archivo_bytes)
-            
-            return StreamingResponse(
-                archivo_stream,
-                media_type=content_type,
-                headers=headers
-            )
-            
-        except Exception as e:
-            print(f"❌ Error creando stream: {e}")
-            raise HTTPException(status_code=500, detail=f"Error procesando archivo: {str(e)}")
-        
+
+        rango = _rango_bytes(request.headers.get("range"), total)
+        if rango == "invalido":
+            return Response(status_code=416, headers={**cab, "Content-Range": f"bytes */{total}"})
+        if request.method == "HEAD":
+            return Response(status_code=200, media_type=mime, headers={**cab, "Content-Length": str(total)})
+
+        ini, fin = rango if rango else (0, total - 1)
+
+        def trozos():
+            """Lee el archivo de la base por pedazos de 512 KB (sin cargarlo completo en memoria)."""
+            c2 = None
+            try:
+                c2, k = abrir_conexion_aislada()
+                pos = ini
+                while pos <= fin:
+                    n = min(512 * 1024, fin - pos + 1)
+                    k.execute("SELECT substring(archivo FROM %s FOR %s) FROM notificaciones WHERE id = %s", (pos + 1, n, notificacion_id))
+                    dato = k.fetchone()
+                    if not dato or dato[0] is None:
+                        break
+                    yield bytes(dato[0])
+                    pos += n
+            finally:
+                try:
+                    if c2:
+                        c2.close()
+                except Exception:
+                    pass
+
+        largo = fin - ini + 1
+        cab["Content-Length"] = str(largo)
+        if rango:
+            cab["Content-Range"] = f"bytes {ini}-{fin}/{total}"
+            return StreamingResponse(trozos(), status_code=206, media_type=mime, headers=cab)
+        return StreamingResponse(trozos(), status_code=200, media_type=mime, headers=cab)
+
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error descargando archivo: {e}")
-        # Error más específico para debugging
-        error_msg = f"Error al descargar archivo: {str(e)}"
-        if "codec" in str(e).lower() or "encode" in str(e).lower():
-            error_msg = f"Error de codificación de caracteres: {str(e)}"
-        raise HTTPException(status_code=500, detail=error_msg)
+        print(f"❌ Error enviando archivo de notificación {notificacion_id}: {e}")
+        raise HTTPException(status_code=500, detail="No se pudo enviar el archivo")
+    finally:
+        try:
+            if conexion:
+                conexion.close()
+        except Exception:
+            pass
+
 
 @app.get("/notificaciones/{notificacion_id}/archivo/base64")
 async def obtener_archivo_base64(notificacion_id: int):
