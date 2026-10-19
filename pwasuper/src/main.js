@@ -3,6 +3,7 @@ import App from './App.vue'
 import router from './router'
 import { iniciarReporteErrores } from './utils/errorReporter.js'
 import { iniciarActualizador } from './utils/actualizador.js'
+import { iniciarMedidaEncabezados } from './utils/antiTraslape.js'
 import { notificarActualizacion } from './utils/serviceWorkerRegistration.js'
 
 // Importar estilos (Tailwind CSS y personalizados)
@@ -77,6 +78,7 @@ app.use(router)
 
 // Montar aplicación y notificar que está lista
 app.mount('#app')
+iniciarMedidaEncabezados()
 
 // Actualización reactiva: al publicar una versión nueva, la app abierta se actualiza sola con el aviso "Actualizando…"
 const actualizador = iniciarActualizador((version) => notificarActualizacion('version-' + version))

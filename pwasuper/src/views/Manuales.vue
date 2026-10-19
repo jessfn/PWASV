@@ -1821,12 +1821,16 @@ onMounted(() => {
 </style>
 
 <style scoped>
+/* Sin traslapes: el contenido arranca justo debajo del encabezado, sin importar su alto ni el zoom */
+.apple-scroll-container { padding-top: calc(var(--hdr-bottom, 11rem) + 14px) !important; }
+
 /* ESCRITORIO: cuadrícula de manuales a todo el ancho */
 @media (min-width: 1024px) {
   .apple-header-content { max-width: 1280px; }
   .apple-header-fixed { padding-left: 28px; padding-right: 28px; }
-  .apple-scroll-container { padding-top: 11.5rem; }
-  .sf-manuales-list { max-width: 1280px; padding: 0; }
+  .apple-scroll-container { padding-bottom: 0 !important; }
+  .sf-manuales-scroll { padding-bottom: 92px; }
+  .sf-manuales-list { max-width: 1336px; padding: 0 28px; }
   .sf-manuales-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 18px; align-items: start; }
   .apple-loading-card { max-width: 32rem; }
 }

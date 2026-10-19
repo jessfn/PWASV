@@ -6085,12 +6085,14 @@ const imgGridWidth = 55;
 </style>
 
 <style scoped>
+/* Sin traslapes: el contenido arranca justo debajo del encabezado, sin importar su alto ni el zoom */
+.apple-scroll-container { padding-top: calc(var(--hdr-bottom, 10rem) + 14px) !important; }
+
 /* ESCRITORIO: período y actividades a la izquierda, firma y generación a la derecha */
 @media (min-width: 1024px) {
   .apple-header-content { max-width: 1280px; }
   .apple-header-fixed { padding-left: 28px; padding-right: 28px; }
-  .apple-scroll-container { padding-top: 11rem; }
-  .apple-content-wrapper { max-width: 1280px; padding: 0 28px; }
+  .apple-content-wrapper { max-width: 1336px; padding: 0 28px; }
   .apple-sections-container {
     max-width: none; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
     column-gap: 22px; row-gap: 18px; align-items: start;

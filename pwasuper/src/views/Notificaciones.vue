@@ -6269,12 +6269,16 @@ video::-webkit-media-controls {
 </style>
 
 <style scoped>
+/* Sin traslapes: el contenido arranca justo debajo del encabezado, sin importar su alto ni el zoom */
+.apple-scroll-container { padding-top: calc(var(--hdr-bottom, 12rem) + 14px) !important; }
+
 /* ESCRITORIO: encabezado y tarjetas ocupan todo el ancho útil, en cuadrícula */
 @media (min-width: 1024px) {
   .apple-header-content { max-width: 1280px; }
   .apple-header-fixed { padding-left: 28px; padding-right: 28px; }
-  .apple-scroll-container { padding-top: 14rem; }
-  .sf-notifications-list { max-width: 1280px; padding: 0; }
+  .apple-scroll-container { padding-bottom: 0 !important; }
+  .sf-notifications-scroll { padding-bottom: 92px; }
+  .sf-notifications-list { max-width: 1336px; padding: 0 28px; }
   .sf-notification-stack { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 16px; align-items: start; }
   .apple-loading-card { max-width: 32rem; }
 }

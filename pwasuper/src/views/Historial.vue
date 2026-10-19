@@ -2806,7 +2806,7 @@ function verImagen(url) {
 <style scoped>
 /* ESCRITORIO: contenido centrado con ancho máximo y tarjetas del día en cuadrícula */
 @media (min-width: 1024px) {
-  .page-container { max-width: 1280px; margin-left: auto; margin-right: auto; padding-left: 28px; padding-right: 28px; }
+  .page-container { max-width: 1336px; margin-left: auto; margin-right: auto; padding-left: 28px; padding-right: 28px; }
   .apple-historial-registros {
     display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 14px; align-items: start;
   }

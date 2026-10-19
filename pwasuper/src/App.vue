@@ -960,6 +960,14 @@ const currentUserId = computed(() => {
   .app-top { max-width: 1560px; }
 }
 
+/* Escritorio: la burbuja de soporte vive en la esquina inferior y el contenido le deja su lugar (sin encimarse) */
+@media (min-width: 1024px) {
+  .support-bubble-container { top: auto !important; left: auto !important; bottom: 14px !important; right: 14px !important; transform: scale(0.8); transform-origin: bottom right; opacity: 0.6; transition: opacity 0.2s; }
+  .support-bubble-container:hover { opacity: 1; }
+  .absolute.inset-0.overflow-y-auto { padding-bottom: 92px !important; }
+  .apple-scroll-container { padding-bottom: 92px !important; }
+}
+
 /* Escritorio: el menú es un panel flotante a la derecha, no una barra de lado a lado */
 @media (min-width: 1024px) {
   .app-top.is-open .app-header { border-radius: 24px; }

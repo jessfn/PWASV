@@ -8212,3 +8212,39 @@ watch([entradaMarcada, salidaMarcada], () => {
   .hm-side__state { display: flex; align-items: center; justify-content: space-between; padding-top: 14px; border-top: 1px solid #a9e2bf; font-size: 0.85rem; color: #3f6b55; }
 }
 </style>
+
+<style scoped>
+/* =====================================================================
+   ESCRITORIO con poca altura (zoom alto o ventana baja): todo se compacta
+   para que quepa y nada se encime. La burbuja de soporte tiene su lugar.
+   ===================================================================== */
+@media (min-width: 1024px) {
+  .hm-scroll { padding-bottom: 92px; }
+}
+@media (min-width: 1024px) and (max-height: 820px) {
+  .hm-scroll { padding-top: calc(env(safe-area-inset-top, 0px) + 104px); }
+  .hm-container > .hm-panel { padding: 16px 18px 14px; }
+  .hm-container > .hm-panel .hm-title { font-size: 1.3rem; }
+  .hm-container > .hm-panel .hm-sub { font-size: 0.8rem; }
+  .hm-side { gap: 10px; padding: 14px 16px; }
+  .hm-side__avatar { width: 46px; height: 46px; }
+  .hm-side__date { padding: 8px 12px; }
+  .hm-side__day { font-size: 1.8rem; }
+  .hm-side__tile { padding: 8px 10px; }
+  .hm-side__ticon { display: none; }
+  .hm-container > div { padding: 16px 18px 14px; }
+  .hm-container > div .hm-h2 { font-size: 1.25rem; }
+  .hm-container > div .hm-hint { font-size: 0.82rem; }
+  .hm-container > div .hm-actions { gap: 14px; margin-top: 10px; }
+  .hm-container > div .hm-action { padding: 14px 12px; border-radius: 20px; }
+  .hm-container > div .hm-action__icon { transform: none; margin-bottom: 2px; }
+  .hm-container > div .hm-action__title { font-size: 1.15rem; }
+  .hm-container > div .hm-action__sub { font-size: 0.85rem; }
+  .hm-container > div .hm-action__cta { font-size: 0.85rem; padding: 7px 18px; margin-top: 4px; }
+  .hm-container > div .hm-alert { margin-top: 20px; }
+}
+@media (min-width: 1024px) and (max-height: 640px) {
+  .hm-side__date, .hm-side__progress { display: none; }
+  .hm-container > div .hm-action__icon { display: none; }
+}
+</style>
