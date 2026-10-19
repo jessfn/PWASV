@@ -81,7 +81,7 @@
         <!-- Bandeja de notificaciones: filtros, búsqueda y grupos por día -->
         <div v-if="!cargando && !error" class="nf-wrap">
 
-          <PushOptIn />
+          <PushOptIn ocultar-activo />
 
           <div v-if="gruposNotificaciones.length" class="nf-list">
             <section v-for="g in gruposNotificaciones" :key="g.clave" class="nf-group">

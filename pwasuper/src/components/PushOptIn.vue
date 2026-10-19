@@ -1,5 +1,5 @@
 <template>
-  <section v-if="estado !== 'no-soportado' && estado !== 'cargando'" class="po" :class="'po--' + estado" aria-live="polite">
+  <section v-if="visible" class="po" :class="'po--' + estado" aria-live="polite">
     <span class="po__ico" aria-hidden="true">
       <svg v-if="estado === 'activo'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 01-3.4 0" /><path d="M9 11l2 2 4-4" /></svg>
       <svg v-else-if="estado === 'denegado'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.7 21a2 2 0 01-3.4 0" /><path d="M18.6 13A17 17 0 0118 8a6 6 0 00-9.3-5" /><path d="M6.3 6.3A6 6 0 006 8c0 7-3 9-3 9h14" /><path d="M3 3l18 18" /></svg>
@@ -38,10 +38,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { estadoPush, activarPush, desactivarPush } from '../utils/push.js'
 
+// En Notificaciones solo se muestra mientras falta activarlos; ya activos, se administran en Configuración
+const props = defineProps({ ocultarActivo: { type: Boolean, default: false } })
 const emit = defineEmits(['cambio'])
+const exitoReciente = ref(false)
 const estado = ref('cargando')
 const ocupado = ref(false)
 const mensaje = ref('')
@@ -49,6 +52,12 @@ const mensajeError = ref(false)
 
 const usuarioId = () => { try { return (JSON.parse(localStorage.getItem('user') || 'null') || {}).id || null } catch { return null } }
 const avisar = (txt, error = false) => { mensaje.value = txt; mensajeError.value = error; if (txt) setTimeout(() => { if (mensaje.value === txt) mensaje.value = '' }, 6000) }
+
+const visible = computed(() => {
+  if (estado.value === 'no-soportado' || estado.value === 'cargando') return false
+  if (props.ocultarActivo && estado.value === 'activo' && !exitoReciente.value) return false
+  return true
+})
 
 const refrescar = async () => {
   estado.value = (await estadoPush()).estado
@@ -62,7 +71,11 @@ const activar = async () => {
   mensaje.value = ''
   const r = await activarPush(id)
   ocupado.value = false
-  if (r.ok) avisar('Listo: ya recibirás tus avisos en el teléfono.')
+  if (r.ok) {
+    avisar('Listo: ya recibirás tus avisos en el teléfono. Podrás administrarlos en Configuración.')
+    exitoReciente.value = true
+    setTimeout(() => { exitoReciente.value = false }, 5000)
+  }
   else if (r.motivo === 'denegado') avisar('El permiso fue rechazado. Puedes cambiarlo en los ajustes del navegador.', true)
   else if (r.motivo === 'sin-servidor') avisar('El servicio de avisos no está disponible por ahora.', true)
   else if (r.motivo !== 'cerrado') avisar('No se pudo activar. Revisa tu conexión e inténtalo de nuevo.', true)
