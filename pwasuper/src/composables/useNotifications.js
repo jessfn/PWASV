@@ -305,7 +305,7 @@ export const useNotifications = () => {
     
     // NUEVO: Inicializar audio global y solicitar permisos
     initializeGlobalAudio()
-    requestNotificationPermission()
+    // (el permiso de avisos se pide solo desde la tarjeta "Activar avisos", nunca por sorpresa)
     
     // Obtener conteo inicial
     fetchUnreadCount(userId)

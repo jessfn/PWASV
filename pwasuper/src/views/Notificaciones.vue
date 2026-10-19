@@ -1725,16 +1725,8 @@ onMounted(async () => {
   // Inicializar audio de notificaciones
   inicializarAudio()
   
-  // Solicitar permisos de notificación si no están otorgados
-  if ('Notification' in window && Notification.permission === 'default') {
-    try {
-      const permission = await Notification.requestPermission()
-      console.log(`🔔 Permisos de notificación: ${permission}`)
-    } catch (error) {
-      console.warn('⚠️ Error solicitando permisos de notificación:', error)
-    }
-  }
-  
+  // El permiso de avisos del teléfono se pide solo desde la tarjeta "Activar avisos" (con un toque del usuario);
+  // pedirlo aquí bloqueaba la carga de la lista mientras el aviso del navegador seguía abierto.
   cargarConfiguracion()
   
   // Cargar notificaciones inicial (sin detección de cambios)
