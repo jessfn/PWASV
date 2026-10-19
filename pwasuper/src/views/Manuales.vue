@@ -9,6 +9,7 @@
 
     <div class="apple-manuales-container">
       <!-- Header fijo estilo Apple -->
+      <Teleport to="#app-top-slot" defer>
       <div class="apple-header-fixed">
         <div class="apple-header-content">
           <div class="apple-header-card">
@@ -49,6 +50,7 @@
           </div>
         </div>
       </div>
+      </Teleport>
 
       <!-- Contenido con scroll -->
       <div class="apple-scroll-container">

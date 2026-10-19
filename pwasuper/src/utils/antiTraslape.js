@@ -11,12 +11,13 @@ export function iniciarMedidaEncabezados() {
 
   const medir = () => {
     pendiente = false
+    // El título vive dentro del bloque superior: su borde inferior es el del propio bloque
     const barra = document.querySelector('.app-top')
-    const encabezado = document.querySelector('.apple-header-fixed, .vt-strip')
-    raiz.classList.toggle('has-vt', !!encabezado)
-    raiz.style.setProperty('--app-top-h', (barra ? Math.ceil(barra.getBoundingClientRect().bottom) : 0) + 'px')
-    if (encabezado) raiz.style.setProperty('--hdr-bottom', Math.ceil(encabezado.getBoundingClientRect().bottom) + 'px')
+    const abajo = barra ? Math.ceil(barra.getBoundingClientRect().bottom) + 'px' : '0px'
+    raiz.style.setProperty('--app-top-h', abajo)
+    if (raiz.classList.contains('has-vt')) raiz.style.setProperty('--hdr-bottom', abajo)
     else raiz.style.removeProperty('--hdr-bottom')
+    const encabezado = barra
 
     // Si cambió el encabezado o la barra (otra vista), se vuelven a observar
     const actuales = [barra, encabezado, ...(encabezado ? Array.from(encabezado.children) : [])].filter(Boolean)

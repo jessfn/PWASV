@@ -132,6 +132,7 @@
     </Teleport>
 
     <!-- Header Fijo Apple Style -->
+    <Teleport to="#app-top-slot" defer>
     <div class="apple-header-fixed">
       <div class="apple-header-content">
         <div class="apple-compact-header">
@@ -161,6 +162,7 @@
         </div>
       </div>
     </div>
+    </Teleport>
 
     <div class="apple-scroll-container">
       <div class="apple-content-wrapper">

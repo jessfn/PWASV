@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, onMounted, onUnmounted, watch } from 'vue';
+import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import ConnectivityStatus from './components/ConnectivityStatus.vue';
 import UpdateNotification from './components/UpdateNotification.vue';
@@ -24,6 +24,7 @@ const isLoggingOut = ref(false);
 const showWelcome = ref(false);
 const userData = ref(null);
 const showMobileMenu = ref(false);
+
 // Pantallas que se pueden abrir sin sesión (incluye la liga del correo de recuperación)
 const RUTAS_PUBLICAS = ['Login', 'Register', 'ForgotPassword', 'ResetPassword'];
 
@@ -350,7 +351,35 @@ const stopUserDataCheck = () => {
   }
 };
 
+// La barra cambia de forma (esquinas inferiores) exactamente cuando el título entra o sale del bloque superior.
+// Un MutationObserver corre antes de pintar: nunca hay un cuadro con la barra "abierta" y sin título debajo.
+let observadorTitulo = null;
+let temporizadorTitulo = null;
+const sincronizarTitulo = () => {
+  const slot = document.getElementById('app-top-slot');
+  const hay = !!slot && slot.children.length > 0;
+  clearTimeout(temporizadorTitulo);
+  if (hay) {
+    document.documentElement.classList.add('has-vt');           // entra el título: la barra se "abre" al instante
+  } else {
+    // Al pasar de una vista con título a otra, el hueco dura unas décimas: la barra conserva su forma
+    // y solo se redondea si de verdad no llega otro título.
+    temporizadorTitulo = setTimeout(() => {
+      const s2 = document.getElementById('app-top-slot');
+      if (!s2 || s2.children.length === 0) document.documentElement.classList.remove('has-vt');
+    }, 280);
+  }
+};
+const vigilarTitulo = () => {
+  const slot = document.getElementById('app-top-slot');
+  if (!slot || observadorTitulo) return;
+  observadorTitulo = new MutationObserver(sincronizarTitulo);
+  observadorTitulo.observe(slot, { childList: true });
+  sincronizarTitulo();
+};
+
 onMounted(() => {
+  vigilarTitulo();
   // Verificar el estado de autenticación al cargar la app
   const storedUser = localStorage.getItem('user');
   
@@ -455,6 +484,9 @@ const isLoggedIn = computed(() => {
   // Verificar tanto el ref como el localStorage para mayor seguridad
   return userData.value !== null && localStorage.getItem('user') !== null;
 });
+
+// En cuanto existe el bloque superior (sesión iniciada) se empieza a vigilar la entrada y salida del título
+watch(isLoggedIn, (si) => { if (si) nextTick(vigilarTitulo); }, { immediate: true });
 
 const userName = computed(() => {
   if (userData.value && userData.value.nombre_completo) {
@@ -656,6 +688,7 @@ const currentUserId = computed(() => {
       conexión pegada debajo + menú desplegable anclado a su borde.
     -->
     <div v-if="isLoggedIn" class="app-top" :class="{ 'is-open': showMobileMenu }">
+    <div class="app-top__main">
     <header class="app-header header-decorative">
       <div class="app-header__bar px-3 py-2">
         <div class="flex items-center justify-between">
@@ -868,6 +901,9 @@ const currentUserId = computed(() => {
       </div>
     </transition>
     </div>
+    <!-- Título de la vista: cada pantalla lo coloca aquí (queda pegado a la barra, como parte de ella) -->
+    <div id="app-top-slot" class="app-top__slot"></div>
+    </div>
 
     <!-- Overlay para cerrar el menú (sin backdrop-blur: pantalla completa = costoso) -->
     <div
@@ -996,24 +1032,23 @@ const currentUserId = computed(() => {
    pero el título se distingue. Sirve para .vt-strip (ViewTitle) y para
    los encabezados fijos de Notificaciones, Manuales y Reportes.
    ===================================================================== */
-html.has-vt .app-top:not(.is-open) .app-header { border-radius: 24px 24px 0 0; box-shadow: none; }
-/* con franja de título, el degradado blanco superior se quita: era la línea clara entre la barra y el título */
+html.has-vt .app-top:not(.is-open) .app-header { border-radius: 24px 24px 0 0; box-shadow: none; transition: none; }
+/* con franja de título, el degradado blanco superior se quita */
 html.has-vt .top-fade { display: none; }
 
-.vt-strip,
-html .apple-header-fixed {
-  position: fixed !important;
-  top: calc(var(--app-top-h, 60px) - 2px) !important; /* se mete 2px bajo la barra: sin rendija de fondo entre ambas */
-  left: 8px !important;
-  right: 8px !important;
-  max-width: 32rem;
-  margin-inline: auto;
-  padding: 0 !important;
-  z-index: 39 !important;
+/* Bloque superior: la barra y el título forman UNA sola pieza (el título vive dentro del bloque, debajo de la barra) */
+.app-top__main { position: relative; z-index: 2; }
+.app-top__slot { display: block; position: relative; z-index: 1; }
+.app-top__slot:empty { display: none; }
+.app-top__slot > .vt-strip,
+.app-top__slot > .apple-header-fixed {
+  position: static !important; top: auto !important; left: auto !important; right: auto !important;
+  width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important; z-index: auto !important;
+  overflow: hidden;
+  animation: vt-abrir 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;   /* el título "sale" de la barra hacia abajo */
 }
-@media (min-width: 768px) { .vt-strip, html .apple-header-fixed { max-width: 36rem; } }
-@media (min-width: 1024px) { .vt-strip, html .apple-header-fixed { left: 28px !important; right: 28px !important; max-width: 1280px; } }
-@media (min-width: 1700px) { .vt-strip, html .apple-header-fixed { max-width: 1560px; } }
+@keyframes vt-abrir { from { max-height: 0; opacity: 0.4; } to { max-height: 220px; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .app-top__slot > .vt-strip, .app-top__slot > .apple-header-fixed { animation: none; } }
 html .apple-header-fixed .apple-header-content { max-width: none !important; }
 
 /* la pieza visible: franja verde clara con brillo superior, esquinas redondeadas abajo */

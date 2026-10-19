@@ -1,5 +1,6 @@
 <template>
-  <!-- Título de la vista unido a la barra verde superior (mismo bloque, distinguible por su franja más clara) -->
+  <!-- Título de la vista unido a la barra verde superior: se coloca dentro del bloque superior (#app-top-slot) -->
+  <Teleport to="#app-top-slot" defer>
   <div class="vt-strip" role="banner">
     <div class="vt-inner">
       <div class="vt-text">
@@ -9,6 +10,7 @@
       <div v-if="$slots.default" class="vt-actions"><slot /></div>
     </div>
   </div>
+  </Teleport>
 </template>
 
 <script setup>
