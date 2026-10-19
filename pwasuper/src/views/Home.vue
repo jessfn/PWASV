@@ -81,6 +81,60 @@
         </div>
       </section>
 
+      <!-- Resumen de hoy (solo en pantallas grandes: llena la columna izquierda) -->
+      <aside v-if="!modoAsistencia" class="hm-side" aria-label="Resumen de hoy">
+        <span class="hm-side__glow hm-side__glow--a" aria-hidden="true"></span>
+        <span class="hm-side__glow hm-side__glow--b" aria-hidden="true"></span>
+
+        <div class="hm-side__who">
+          <span class="hm-side__avatar"><i>{{ getUserInitials }}</i></span>
+          <div class="hm-side__id">
+            <strong>{{ user.nombre_completo }}</strong>
+            <span>{{ user.cargo }}</span>
+          </div>
+        </div>
+
+        <div v-if="user.territorio" class="hm-side__terr">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z" /><circle cx="12" cy="10" r="3" /></svg>
+          {{ user.territorio }}
+        </div>
+
+        <div class="hm-side__date">
+          <span class="hm-side__day">{{ new Date().getDate() }}</span>
+          <span class="hm-side__dm">
+            <b>{{ new Date().toLocaleDateString('es-MX', { weekday: 'long' }) }}</b>
+            <em>{{ new Date().toLocaleDateString('es-MX', { month: 'long', year: 'numeric' }) }}</em>
+          </span>
+        </div>
+
+        <div class="hm-side__tiles">
+          <div class="hm-side__tile" :class="{ 'is-on': entradaMarcada }">
+            <span class="hm-side__ticon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+            </span>
+            <small>Inicio</small>
+            <strong>{{ horaEntradaTexto }}</strong>
+          </div>
+          <div class="hm-side__tile" :class="{ 'is-on': salidaMarcada }">
+            <span class="hm-side__ticon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+            </span>
+            <small>Término</small>
+            <strong>{{ horaSalidaTexto }}</strong>
+          </div>
+        </div>
+
+        <div class="hm-side__progress">
+          <div class="hm-side__ptop"><span>Jornada de hoy</span><b>{{ salidaMarcada ? 100 : (entradaMarcada ? 50 : 0) }}%</b></div>
+          <div class="hm-side__bar"><i :style="{ width: (salidaMarcada ? 100 : (entradaMarcada ? 50 : 4)) + '%' }"></i></div>
+        </div>
+
+        <div class="hm-side__state">
+          <span>Estado</span>
+          <span class="hm-chip" :class="'hm-chip--' + estadoJornada.key"><i class="hm-chip__dot"></i>{{ estadoJornada.texto }}</span>
+        </div>
+      </aside>
+
       <!-- Sistema de Asistencia Integrado -->
       <div v-if="seccionActiva === 'asistencia' || modoAsistencia" :class="modoAsistencia ? (tipoAsistencia === 'entrada' ? 'glass-card-blue relative px-0 py-2' : 'glass-card-red relative px-0 py-2') : 'relative px-0 py-2'">
         <!-- Icono de regresar (solo visible en modo asistencia) -->
@@ -8013,4 +8067,148 @@ watch([entradaMarcada, salidaMarcada], () => {
 
 <style scoped>
 .hm-root .hm-actions { margin-top: 0; }
+</style>
+
+<style scoped>
+/* =====================================================================
+   ESCRITORIO (≥1024px): el inicio aprovecha toda la pantalla.
+   Panel de registro a la izquierda y control de jornada a la derecha,
+   ocupando el alto disponible. En celulares no cambia nada.
+   ===================================================================== */
+@media (min-width: 1024px) {
+  .hm-scroll {
+    display: grid;
+    grid-template-columns: minmax(340px, 400px) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    column-gap: 28px;
+    align-content: stretch;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 112px);
+    padding-bottom: 28px;
+    padding-left: max(28px, calc((100% - 1280px) / 2));
+    padding-right: max(28px, calc((100% - 1280px) / 2));
+  }
+  /* los hijos del contenedor pasan a ser celdas de la cuadrícula */
+  .hm-container { display: contents; }
+
+  .hm-container > .hm-panel { grid-column: 1; grid-row: 1; align-self: start; position: sticky; top: 0; padding: 24px 22px 20px; }
+  .hm-container > .hm-panel .hm-title { font-size: 1.6rem; }
+  .hm-container > .hm-panel .hm-sub { font-size: 0.9rem; }
+  .hm-container > .hm-panel .hm-step__name { font-size: 0.85rem; }
+
+  /* control de jornada: columna derecha a todo el alto */
+  .hm-container > div {
+    grid-column: 2; grid-row: 1;
+    display: flex; flex-direction: column; min-height: 0;
+    padding: 24px 26px 22px;
+    background: rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    border-radius: 28px;
+    box-shadow: 0 18px 44px -22px rgba(15, 90, 50, 0.35);
+  }
+  .hm-container > div .hm-h2 { font-size: 1.6rem; }
+  .hm-container > div .hm-hint { font-size: 0.95rem; }
+  .hm-container > div .hm-actions { flex: 1; gap: 22px; margin-top: 18px; min-height: 0; }
+  .hm-container > div .hm-action { min-height: 0; padding: 28px 18px; gap: 8px; border-radius: 26px; }
+  .hm-container > div .hm-action__icon { transform: scale(1.35); margin-bottom: 8px; }
+  .hm-container > div .hm-action__title { font-size: 1.5rem; }
+  .hm-container > div .hm-action__sub { font-size: 1rem; }
+  .hm-container > div .hm-action__cta { font-size: 1rem; padding: 10px 24px; margin-top: 10px; }
+  .hm-container > div .hm-action:hover:not(:disabled) { transform: translateY(-4px); filter: brightness(1.04); }
+  .hm-container > div .hm-alert { margin-top: 30px; padding-bottom: 14px; }
+  .hm-container > div .hm-alert__text { font-size: 0.92rem; }
+
+  /* sin panel (formulario de registro abierto): centrado y cómodo de leer */
+  .hm-scroll:not(:has(.hm-panel)) { grid-template-columns: minmax(0, 1fr); }
+  .hm-scroll:not(:has(.hm-panel)) > .hm-container > div { grid-column: 1; width: 100%; max-width: 820px; justify-self: center; }
+
+  /* actividades: ocupa la columna derecha junto al panel */
+  .hm-scroll > .apple-activities-container {
+    grid-column: 2; grid-row: 1; max-width: none; width: 100%; margin: 0 !important;
+    align-self: start;
+  }
+}
+
+/* pantallas muy grandes: se escala un poco todo para que no se vea vacío */
+@media (min-width: 1700px) {
+  .hm-scroll {
+    grid-template-columns: minmax(380px, 460px) minmax(0, 1fr);
+    padding-left: max(40px, calc((100% - 1560px) / 2));
+    padding-right: max(40px, calc((100% - 1560px) / 2));
+  }
+  .hm-container > .hm-panel .hm-title { font-size: 1.9rem; }
+  .hm-container > div .hm-action__title { font-size: 1.85rem; }
+}
+</style>
+
+<style scoped>
+/* Resumen de hoy: solo existe en escritorio */
+.hm-side { display: none; }
+@media (min-width: 1024px) {
+  .hm-scroll { grid-template-rows: auto minmax(min-content, 1fr); row-gap: 20px; }
+  .hm-container > .hm-panel { position: static; }
+  .hm-container > div { grid-row: 1 / span 2; }
+  .hm-scroll > .apple-activities-container { grid-row: 1 / span 2; }
+
+  .hm-side {
+    grid-column: 1; grid-row: 2; position: relative; overflow: hidden; isolation: isolate;
+    display: flex; flex-direction: column; gap: 18px; min-height: 0;
+    padding: 26px 24px 24px; border-radius: 26px; color: #064e3b;
+    background: linear-gradient(180deg, #ffffff 0%, #eefaf2 28%, #bfeacf 72%, #8fdcaa 100%);
+    border: 1px solid #c8eed6;
+    box-shadow: 0 18px 40px -20px rgba(15, 90, 50, 0.4), 0 1px 0 #fff inset;
+  }
+  .hm-side__glow { position: absolute; border-radius: 50%; pointer-events: none; z-index: -1; filter: blur(34px); }
+  .hm-side__glow--a { width: 230px; height: 230px; top: -70px; right: -60px; background: radial-gradient(circle, rgba(52, 211, 153, 0.45), transparent 70%); }
+  .hm-side__glow--b { width: 260px; height: 260px; bottom: -90px; left: -80px; background: radial-gradient(circle, rgba(16, 185, 129, 0.40), transparent 70%); }
+
+  .hm-side__who { display: flex; align-items: center; gap: 14px; }
+  .hm-side__avatar {
+    flex: none; width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center; padding: 3px;
+    background: conic-gradient(from 210deg, #6ee7b7, #fbbf24, #34d399, #6ee7b7);
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.10), 0 8px 18px -8px rgba(6, 78, 59, 0.45);
+  }
+  .hm-side__avatar i { width: 100%; height: 100%; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-weight: 800; font-size: 1.1rem; color: #fff; background: #065f46; }
+  .hm-side__id { display: flex; flex-direction: column; min-width: 0; }
+  .hm-side__id strong { color: #064e3b; font-size: 1rem; line-height: 1.25; letter-spacing: 0.01em; }
+  .hm-side__id span { color: #6b7280; font-size: 0.8rem; margin-top: 2px; }
+
+  .hm-side__terr {
+    align-self: flex-start; display: inline-flex; align-items: center; gap: 7px; padding: 6px 13px 6px 10px;
+    border-radius: 999px; font-size: 0.82rem; font-weight: 700; color: #92400e;
+    background: #fffbeb; border: 1px solid #fcd34d;
+  }
+  .hm-side__terr svg { width: 15px; height: 15px; }
+
+  .hm-side__date { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 18px; background: linear-gradient(135deg, #e6f9ed, #cdf0da); border: 1px solid #a9e2bf; }
+  .hm-side__day { font-size: 2.6rem; font-weight: 800; line-height: 1; color: #047857; }
+  .hm-side__dm { display: flex; flex-direction: column; line-height: 1.2; }
+  .hm-side__dm b { font-size: 1rem; color: #064e3b; text-transform: capitalize; }
+  .hm-side__dm em { font-style: normal; font-size: 0.85rem; color: #6b7280; display: inline-block; }
+  .hm-side__dm em::first-letter { text-transform: uppercase; }
+
+  .hm-side__tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .hm-side__tile { display: flex; flex-direction: column; gap: 3px; padding: 14px; border-radius: 18px; background: rgba(255, 255, 255, 0.72); border: 1px solid #bfe6cd; transition: background 0.25s, transform 0.25s; }
+  .hm-side__tile.is-on { background: #e0f8ea; border-color: #34d399; box-shadow: 0 8px 18px -12px rgba(16, 185, 129, 0.7); }
+  .hm-side__ticon { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; margin-bottom: 6px; color: #3f6b55; background: #d3eede; }
+  .hm-side__tile.is-on .hm-side__ticon { color: #fff; background: linear-gradient(140deg, #34d399, #059669); }
+  .hm-side__ticon svg { width: 18px; height: 18px; }
+  .hm-side__tile small { font-size: 0.74rem; color: #6b7f74; letter-spacing: 0.04em; text-transform: uppercase; font-weight: 700; }
+  .hm-side__tile strong { font-size: 1.05rem; color: #064e3b; }
+
+  .hm-side__progress { margin-top: auto; display: flex; flex-direction: column; gap: 9px; }
+  .hm-side__ptop { display: flex; justify-content: space-between; font-size: 0.82rem; color: #6b7f74; }
+  .hm-side__ptop b { color: #047857; }
+  .hm-side__bar { height: 9px; border-radius: 999px; background: rgba(255, 255, 255, 0.65); overflow: hidden; }
+  .hm-side__bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #34d399, #059669); transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1); }
+
+  @media (max-height: 960px) {
+    .hm-side { gap: 12px; padding: 18px 20px 18px; }
+    .hm-side__date { padding: 9px 14px; }
+    .hm-side__day { font-size: 2.1rem; }
+    .hm-side__tile { padding: 10px 12px; }
+    .hm-side__ticon { width: 28px; height: 28px; margin-bottom: 2px; }
+    .hm-side__state { padding-top: 10px; }
+  }
+  .hm-side__state { display: flex; align-items: center; justify-content: space-between; padding-top: 14px; border-top: 1px solid #a9e2bf; font-size: 0.85rem; color: #3f6b55; }
+}
 </style>

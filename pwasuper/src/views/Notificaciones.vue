@@ -6267,3 +6267,15 @@ video::-webkit-media-controls {
   animation: modalSlideIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 </style>
+
+<style scoped>
+/* ESCRITORIO: encabezado y tarjetas ocupan todo el ancho útil, en cuadrícula */
+@media (min-width: 1024px) {
+  .apple-header-content { max-width: 1280px; }
+  .apple-header-fixed { padding-left: 28px; padding-right: 28px; }
+  .apple-scroll-container { padding-top: 14rem; }
+  .sf-notifications-list { max-width: 1280px; padding: 0; }
+  .sf-notification-stack { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 16px; align-items: start; }
+  .apple-loading-card { max-width: 32rem; }
+}
+</style>

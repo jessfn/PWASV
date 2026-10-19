@@ -3864,3 +3864,17 @@ const validatePhoneEdit = () => {
   to { transform: translateY(-50%) rotate(360deg); }
 }
 </style>
+
+<style scoped>
+/* ESCRITORIO: tarjeta de perfil a la izquierda, información a la derecha */
+@media (min-width: 1024px) {
+  .page-container.max-w-sm {
+    max-width: 1100px;
+    display: grid; grid-template-columns: 360px minmax(0, 1fr); column-gap: 22px; row-gap: 16px; align-items: start; align-content: start; grid-template-rows: auto 1fr;
+  }
+  .page-container.max-w-sm > .glass-card { margin-bottom: 0 !important; }
+  .page-container.max-w-sm > :nth-child(1) { grid-column: 1; grid-row: 1; }
+  .page-container.max-w-sm > :nth-child(2) { grid-column: 2; grid-row: 1 / span 2; }
+  .page-container.max-w-sm > :nth-child(3) { grid-column: 1; grid-row: 2; }
+}
+</style>

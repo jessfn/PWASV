@@ -6083,3 +6083,21 @@ const imgGridWidth = 55;
   }
 }
 </style>
+
+<style scoped>
+/* ESCRITORIO: período y actividades a la izquierda, firma y generación a la derecha */
+@media (min-width: 1024px) {
+  .apple-header-content { max-width: 1280px; }
+  .apple-header-fixed { padding-left: 28px; padding-right: 28px; }
+  .apple-scroll-container { padding-top: 11rem; }
+  .apple-content-wrapper { max-width: 1280px; padding: 0 28px; }
+  .apple-sections-container {
+    max-width: none; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    column-gap: 22px; row-gap: 18px; align-items: start;
+  }
+  .apple-sections-container > :nth-child(1),
+  .apple-sections-container > :nth-child(2),
+  .apple-sections-container > :nth-child(4) { grid-column: 1; }
+  .apple-sections-container > :nth-child(3) { grid-column: 2; grid-row: 1 / span 3; }
+}
+</style>

@@ -1819,3 +1819,15 @@ onMounted(() => {
   }
 }
 </style>
+
+<style scoped>
+/* ESCRITORIO: cuadrícula de manuales a todo el ancho */
+@media (min-width: 1024px) {
+  .apple-header-content { max-width: 1280px; }
+  .apple-header-fixed { padding-left: 28px; padding-right: 28px; }
+  .apple-scroll-container { padding-top: 11.5rem; }
+  .sf-manuales-list { max-width: 1280px; padding: 0; }
+  .sf-manuales-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 18px; align-items: start; }
+  .apple-loading-card { max-width: 32rem; }
+}
+</style>

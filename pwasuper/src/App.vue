@@ -951,6 +951,25 @@ const currentUserId = computed(() => {
   .app-top { max-width: 36rem; }
 }
 
+/* Escritorio: la barra superior ocupa todo el ancho útil, alineada con el contenido */
+@media (min-width: 1024px) {
+  .app-top { max-width: 1280px; left: 28px; right: 28px; }
+  .app-header__bar { padding-top: 0.7rem; padding-bottom: 0.7rem; padding-left: 1.4rem; padding-right: 1.4rem; }
+}
+@media (min-width: 1700px) {
+  .app-top { max-width: 1560px; }
+}
+
+/* Escritorio: el menú es un panel flotante a la derecha, no una barra de lado a lado */
+@media (min-width: 1024px) {
+  .app-top.is-open .app-header { border-radius: 24px; }
+  .app-top .app-menu {
+    left: auto; right: 0; width: 360px; top: calc(100% + 10px);
+    border-radius: 20px; padding-bottom: 4px;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.32), 0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+  }
+}
+
 .app-header {
   border-radius: 24px;
   background: linear-gradient(135deg, #006400 0%, #0a7413 100%);

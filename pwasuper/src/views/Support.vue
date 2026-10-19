@@ -241,3 +241,17 @@ const handleContactClick = (type) => {
   }
 }
 </style>
+
+<style scoped>
+/* ESCRITORIO: tarjetas en dos columnas, con la portada y el cierre a todo el ancho */
+@media (min-width: 1024px) {
+  .page-container > .max-w-lg {
+    max-width: 1100px;
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; row-gap: 16px; align-items: stretch; align-content: start;
+  }
+  .page-container > .max-w-lg > :first-child,
+  .page-container > .max-w-lg > :nth-child(4),
+  .page-container > .max-w-lg > :last-child { grid-column: 1 / -1; }
+  .page-container > .max-w-lg > .glass-card { margin-bottom: 0 !important; }
+}
+</style>

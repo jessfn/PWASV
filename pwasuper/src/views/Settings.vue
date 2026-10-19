@@ -892,3 +892,16 @@ onMounted(() => {
   }
 }
 </style>
+
+<style scoped>
+/* ESCRITORIO: tarjetas en dos columnas */
+@media (min-width: 1024px) {
+  .page-container > .max-w-lg {
+    max-width: 1100px;
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; row-gap: 16px; align-items: start; align-content: start;
+  }
+  .page-container > .max-w-lg > :first-child { grid-column: 1 / -1; }
+  .page-container > .max-w-lg > .glass-card { margin-bottom: 0 !important; }
+  .page-container > .max-w-lg > .h-4 { display: none; }
+}
+</style>

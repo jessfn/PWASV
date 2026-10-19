@@ -2802,3 +2802,18 @@ function verImagen(url) {
   will-change: transform, opacity;
 }
 </style>
+
+<style scoped>
+/* ESCRITORIO: contenido centrado con ancho máximo y tarjetas del día en cuadrícula */
+@media (min-width: 1024px) {
+  .page-container { max-width: 1280px; margin-left: auto; margin-right: auto; padding-left: 28px; padding-right: 28px; }
+  .apple-historial-registros {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 14px; align-items: start;
+  }
+  /* asistencias: un día por celda, dos columnas */
+  .space-y-2:has(> div > .space-y-2) {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; row-gap: 4px; align-items: start;
+  }
+  .space-y-2:has(> div > .space-y-2) > * { margin: 0 !important; }
+}
+</style>
