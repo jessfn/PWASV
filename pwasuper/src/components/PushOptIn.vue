@@ -31,7 +31,6 @@
         {{ ocupado ? 'Activando…' : 'Activar avisos' }}
       </button>
       <template v-else-if="estado === 'activo'">
-        <button type="button" class="po__btn" :disabled="ocupado" @click="probar">{{ ocupado ? 'Enviando…' : 'Probar' }}</button>
         <button type="button" class="po__btn po__btn--quiet" :disabled="ocupado" @click="apagar">Desactivar</button>
       </template>
     </div>
@@ -40,7 +39,7 @@
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { estadoPush, activarPush, desactivarPush, probarPush } from '../utils/push.js'
+import { estadoPush, activarPush, desactivarPush } from '../utils/push.js'
 
 const emit = defineEmits(['cambio'])
 const estado = ref('cargando')
@@ -76,15 +75,6 @@ const apagar = async () => {
   ocupado.value = false
   avisar('Avisos del teléfono desactivados.')
   await refrescar()
-}
-
-const probar = async () => {
-  const id = usuarioId()
-  if (!id || ocupado.value) return
-  ocupado.value = true
-  const r = await probarPush(id)
-  ocupado.value = false
-  avisar(r.ok ? 'Enviamos un aviso de prueba a tu teléfono.' : (r.detalle || 'No se pudo enviar la prueba.'), !r.ok)
 }
 
 const alVolver = () => { if (document.visibilityState === 'visible') refrescar() }

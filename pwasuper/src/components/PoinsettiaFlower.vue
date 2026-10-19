@@ -108,18 +108,19 @@
 }
 
 .stem-shine {
-  animation: stem-shine 5s ease-in-out infinite;
+  animation: none;
 }
 
 .leaf-left-shine {
-  animation: leaf-left-shine 5s ease-in-out infinite;
+  animation: none;
 }
 
 .leaf-right-shine {
-  animation: leaf-right-shine 5s ease-in-out infinite;
+  animation: none;
 }
 
 .plant-glow-pulse {
-  animation: glow-pulse 5s ease-in-out infinite;
+  animation: none;
+  display: none; /* sin brillo pulsante */
 }
 </style>

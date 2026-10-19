@@ -994,6 +994,8 @@ const currentUserId = computed(() => {
    los encabezados fijos de Notificaciones, Manuales y Reportes.
    ===================================================================== */
 html.has-vt .app-top:not(.is-open) .app-header { border-radius: 24px 24px 0 0; box-shadow: none; }
+/* con franja de título, el degradado blanco superior se quita: era la línea clara entre la barra y el título */
+html.has-vt .top-fade { display: none; }
 
 .vt-strip,
 html .apple-header-fixed {
@@ -1023,7 +1025,7 @@ html .apple-header-fixed .apple-compact-header {
   box-shadow: 0 14px 22px -16px rgba(0, 70, 12, 0.65) !important;
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
-  animation: vt-bajar 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: none !important;
 }
 @keyframes vt-bajar { from { opacity: 0; } to { opacity: 1; } }
 
