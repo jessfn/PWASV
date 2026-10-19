@@ -367,7 +367,7 @@ const sincronizarTitulo = () => {
     temporizadorTitulo = setTimeout(() => {
       const s2 = document.getElementById('app-top-slot');
       if (!s2 || s2.children.length === 0) document.documentElement.classList.remove('has-vt');
-    }, 280);
+    }, 450);
   }
 };
 const vigilarTitulo = () => {
