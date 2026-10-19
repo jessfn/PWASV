@@ -11289,6 +11289,7 @@ async def obtener_manual(manual_id: int):
         raise HTTPException(status_code=500, detail=f"Error al obtener manual: {str(e)}")
 
 @app.get("/manuales/{manual_id}/archivo")
+@app.head("/manuales/{manual_id}/archivo")
 async def descargar_archivo_manual(manual_id: int, descargar: bool = False):
     """Descargar archivo de un manual"""
     try:
