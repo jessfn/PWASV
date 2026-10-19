@@ -29,6 +29,7 @@ export default defineConfig({
       workbox: {
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         globIgnores: ['**/version.json'],
+        importScripts: ['sw-push.js'], // avisos push (se reciben con la app cerrada)
         clientsClaim: true,
         skipWaiting: true,
         cleanupOutdatedCaches: true,

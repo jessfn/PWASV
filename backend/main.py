@@ -449,6 +449,39 @@ try:
     """, fetch_type='none')
     ejecutar_consulta_segura("CREATE INDEX IF NOT EXISTS idx_password_resets_usuario ON password_resets(usuario_id, created_at)", fetch_type='none')
 
+    # Notificaciones push (un registro por dispositivo) y bitácora de envíos
+    ejecutar_consulta_segura("""
+        CREATE TABLE IF NOT EXISTS push_suscripciones (
+            id SERIAL PRIMARY KEY,
+            usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+            endpoint TEXT UNIQUE NOT NULL,
+            p256dh TEXT NOT NULL,
+            auth TEXT NOT NULL,
+            ua VARCHAR(300),
+            plataforma VARCHAR(20),
+            activa BOOLEAN DEFAULT TRUE,
+            fallos INTEGER DEFAULT 0,
+            ultimo_error VARCHAR(300),
+            creada_at TIMESTAMPTZ DEFAULT NOW(),
+            ultima_vez TIMESTAMPTZ DEFAULT NOW(),
+            ultimo_envio TIMESTAMPTZ
+        )
+    """, fetch_type='none')
+    ejecutar_consulta_segura("CREATE INDEX IF NOT EXISTS idx_push_susc_usuario ON push_suscripciones(usuario_id) WHERE activa", fetch_type='none')
+    ejecutar_consulta_segura("""
+        CREATE TABLE IF NOT EXISTS push_envios (
+            id BIGSERIAL PRIMARY KEY,
+            notificacion_id INTEGER REFERENCES notificaciones(id) ON DELETE CASCADE,
+            usuario_id INTEGER,
+            suscripcion_id INTEGER REFERENCES push_suscripciones(id) ON DELETE SET NULL,
+            estado VARCHAR(12) NOT NULL,
+            codigo INTEGER,
+            error VARCHAR(300),
+            creado_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    """, fetch_type='none')
+    ejecutar_consulta_segura("CREATE INDEX IF NOT EXISTS idx_push_envios_notif ON push_envios(notificacion_id, estado)", fetch_type='none')
+
     # Un técnico solo puede tener UN facilitador activo (si ya hay duplicados, se avisa y no se crea)
     try:
         ejecutar_consulta_segura(
@@ -6991,11 +7024,16 @@ async def crear_notificacion(
         conn.commit()
         
         print(f"✅ Notificación creada exitosamente con ID: {notificacion_id}")
+
+        # Push al teléfono de los destinatarios (en segundo plano, aunque no tengan la app abierta)
+        push_info = _push_conteo_destino(notificacion_id)
+        _push_lanzar(notificacion_id)
         
         return {
             "id": notificacion_id,
             "status": "success",
             "message": "Notificación creada exitosamente",
+            "push": {"disponible": _push_disponible(), **push_info},
             "titulo": titulo,
             "enviada_a_todos": enviada_a_todos,
             "usuarios_destinatarios": len(usuarios_seleccionados) if not enviada_a_todos else "todos",
@@ -12660,6 +12698,407 @@ async def descargar_exportacion_base(job_id: str, t: str = ""):
                          headers={"Content-Encoding": "identity"})
 
 # ==================== FIN EXPORTAR BASE COMPLETA A EXCEL ====================
+
+
+# ==================== NOTIFICACIONES PUSH (Web Push / VAPID) ====================
+# Los avisos llegan al teléfono aunque la app esté cerrada (solo necesita estar instalada).
+# Tablas: push_suscripciones (un registro por dispositivo) y push_envios (bitácora de cada envío).
+from concurrent.futures import ThreadPoolExecutor as _PushPool
+
+VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "").strip()
+VAPID_PRIVATE_KEY_FILE = os.environ.get("VAPID_PRIVATE_KEY_FILE", os.path.join(os.path.dirname(os.path.abspath(__file__)), "vapid_private.pem"))
+VAPID_SUBJECT = os.environ.get("VAPID_SUBJECT", "mailto:notificaciones@sembrandodatos.com")
+_push_prueba_hits = {}
+
+
+def _push_disponible():
+    return bool(VAPID_PUBLIC_KEY) and os.path.exists(VAPID_PRIVATE_KEY_FILE)
+
+
+def _push_plataforma(ua):
+    u = (ua or "").lower()
+    if "iphone" in u or "ipad" in u or "ipod" in u:
+        return "ios"
+    if "android" in u:
+        return "android"
+    if "windows" in u:
+        return "windows"
+    if "mac os" in u or "macintosh" in u:
+        return "mac"
+    if "linux" in u:
+        return "linux"
+    return "otro"
+
+
+class PushKeysIn(BaseModel):
+    p256dh: str
+    auth: str
+
+
+class PushSuscripcionIn(BaseModel):
+    usuario_id: int
+    endpoint: str
+    keys: PushKeysIn
+    ua: Optional[str] = None
+
+
+class PushBajaIn(BaseModel):
+    endpoint: str
+
+
+class PushUsuarioIn(BaseModel):
+    usuario_id: int
+
+
+def _push_payload(titulo, cuerpo, notificacion_id=None, url="/notificaciones"):
+    return json.dumps({
+        "titulo": str(titulo or "Sembrando Vida")[:100],
+        "cuerpo": str(cuerpo or "")[:180],
+        "url": url,
+        "id": notificacion_id,
+        "tag": f"notif-{notificacion_id}" if notificacion_id else "aviso",
+        "ts": int(_tm.time()),
+    }, ensure_ascii=False)
+
+
+def _push_suscripciones_de(conexion, usuario_ids=None):
+    """Dispositivos activos de usuarios activos. usuario_ids=None -> todos."""
+    cur = conexion.cursor()
+    sql = ("SELECT s.id, s.usuario_id, s.endpoint, s.p256dh, s.auth FROM push_suscripciones s "
+           "JOIN usuarios u ON u.id = s.usuario_id WHERE s.activa = TRUE AND COALESCE(u.activo, TRUE) = TRUE")
+    prm = []
+    if usuario_ids is not None:
+        if not usuario_ids:
+            return []
+        sql += " AND s.usuario_id = ANY(%s)"
+        prm.append(list(usuario_ids))
+    cur.execute(sql, tuple(prm))
+    return cur.fetchall()
+
+
+def _push_enviar(subs, payload, notificacion_id=None):
+    """Envía el payload a cada dispositivo (en paralelo), actualiza su estado y deja bitácora.
+    Devuelve {'enviados': n, 'fallidos': n, 'expirados': n}."""
+    resumen = {"enviados": 0, "fallidos": 0, "expirados": 0}
+    if not subs or not _push_disponible():
+        return resumen
+    try:
+        from pywebpush import webpush, WebPushException
+    except Exception as e:
+        print(f"⚠️ [PUSH] pywebpush no disponible: {e}")
+        return resumen
+
+    def uno(s):
+        sid, uid, ep, p256, au = s
+        try:
+            webpush(subscription_info={"endpoint": ep, "keys": {"p256dh": p256, "auth": au}}, data=payload,
+                    vapid_private_key=VAPID_PRIVATE_KEY_FILE, vapid_claims={"sub": VAPID_SUBJECT}, ttl=86400, timeout=12)
+            return (sid, uid, "enviado", 201, None)
+        except WebPushException as e:
+            code = getattr(getattr(e, "response", None), "status_code", None)
+            return (sid, uid, "expirado" if code in (404, 410) else "fallido", code, str(e)[:250])
+        except Exception as e:
+            return (sid, uid, "fallido", None, str(e)[:250])
+
+    with _PushPool(max_workers=8) as ex:
+        resultados = list(ex.map(uno, subs))
+
+    conexion = None
+    try:
+        conexion, cur = abrir_conexion_aislada()
+        for sid, uid, estado, codigo, error in resultados:
+            resumen[{"enviado": "enviados", "fallido": "fallidos", "expirado": "expirados"}[estado]] += 1
+            cur.execute("INSERT INTO push_envios (notificacion_id, usuario_id, suscripcion_id, estado, codigo, error) VALUES (%s,%s,%s,%s,%s,%s)",
+                        (notificacion_id, uid, sid, estado, codigo, error))
+            if estado == "enviado":
+                cur.execute("UPDATE push_suscripciones SET ultimo_envio = NOW(), fallos = 0, ultimo_error = NULL WHERE id = %s", (sid,))
+            elif estado == "expirado":
+                cur.execute("UPDATE push_suscripciones SET activa = FALSE, ultimo_error = %s WHERE id = %s", ("Suscripción vencida o desinstalada", sid))
+            else:
+                cur.execute("UPDATE push_suscripciones SET fallos = fallos + 1, ultimo_error = %s, activa = (fallos + 1 < 5) WHERE id = %s", (error, sid))
+        conexion.commit()
+    except Exception as e:
+        print(f"⚠️ [PUSH] no se pudo guardar la bitácora: {e}")
+    finally:
+        try:
+            if conexion:
+                conexion.close()
+        except Exception:
+            pass
+    print(f"📲 [PUSH] notif={notificacion_id} enviados={resumen['enviados']} fallidos={resumen['fallidos']} expirados={resumen['expirados']}")
+    return resumen
+
+
+def _push_destinatarios_notificacion(conexion, notificacion_id):
+    """(titulo, cuerpo, ids de usuarios destino o None si es para todos)."""
+    cur = conexion.cursor()
+    cur.execute("SELECT titulo, subtitulo, descripcion, enviada_a_todos FROM notificaciones WHERE id = %s", (notificacion_id,))
+    fila = cur.fetchone()
+    if not fila:
+        return None
+    titulo, subtitulo, descripcion, a_todos = fila
+    cuerpo = (subtitulo or "").strip() or (descripcion or "").strip()
+    if a_todos:
+        return titulo, cuerpo, None
+    cur.execute("SELECT usuario_id FROM notificacion_usuarios WHERE notificacion_id = %s", (notificacion_id,))
+    return titulo, cuerpo, [r[0] for r in cur.fetchall()]
+
+
+def _push_para_notificacion(notificacion_id, solo_no_leidos=False):
+    """Hilo: envía el push de una notificación a los dispositivos de sus destinatarios."""
+    conexion = None
+    try:
+        conexion, _c = abrir_conexion_aislada()
+        datos = _push_destinatarios_notificacion(conexion, notificacion_id)
+        if not datos:
+            return {"enviados": 0, "fallidos": 0, "expirados": 0}
+        titulo, cuerpo, ids = datos
+        subs = _push_suscripciones_de(conexion, ids)
+        if solo_no_leidos and subs:
+            cur = conexion.cursor()
+            cur.execute("SELECT usuario_id FROM notificacion_leidos WHERE notificacion_id = %s", (notificacion_id,))
+            leyeron = {r[0] for r in cur.fetchall()}
+            subs = [s for s in subs if s[1] not in leyeron]
+        conexion.close()
+        conexion = None
+        return _push_enviar(subs, _push_payload(titulo, cuerpo, notificacion_id), notificacion_id)
+    except Exception as e:
+        print(f"❌ [PUSH] error enviando notificación {notificacion_id}: {e}")
+        return {"enviados": 0, "fallidos": 0, "expirados": 0}
+    finally:
+        try:
+            if conexion:
+                conexion.close()
+        except Exception:
+            pass
+
+
+def _push_lanzar(notificacion_id):
+    """Dispara el envío en segundo plano para no hacer esperar a quien crea la notificación."""
+    if _push_disponible():
+        _th.Thread(target=_push_para_notificacion, args=(notificacion_id,), daemon=True).start()
+
+
+def _push_conteo_destino(notificacion_id):
+    """Cuántos usuarios y dispositivos recibirán el push de una notificación."""
+    conexion = None
+    try:
+        conexion, cur = abrir_conexion_aislada()
+        datos = _push_destinatarios_notificacion(conexion, notificacion_id)
+        if not datos:
+            return {"dispositivos": 0, "usuarios": 0}
+        subs = _push_suscripciones_de(conexion, datos[2])
+        return {"dispositivos": len(subs), "usuarios": len({s[1] for s in subs})}
+    except Exception:
+        return {"dispositivos": 0, "usuarios": 0}
+    finally:
+        try:
+            if conexion:
+                conexion.close()
+        except Exception:
+            pass
+
+
+@app.get("/push/clave-publica")
+async def push_clave_publica():
+    return {"disponible": _push_disponible(), "clave": VAPID_PUBLIC_KEY if _push_disponible() else ""}
+
+
+@app.post("/push/suscribir")
+async def push_suscribir(datos: PushSuscripcionIn):
+    """Registra (o reasigna) el dispositivo del usuario para recibir avisos push."""
+    if not _push_disponible():
+        raise HTTPException(status_code=503, detail="Las notificaciones push no están configuradas")
+    ep = (datos.endpoint or "").strip()
+    if not ep.startswith("https://") or len(ep) > 1000 or len(datos.keys.p256dh) > 200 or len(datos.keys.auth) > 100:
+        raise HTTPException(status_code=400, detail="Suscripción inválida")
+    conexion = None
+    try:
+        conexion, cur = abrir_conexion_aislada()
+        cur.execute("SELECT 1 FROM usuarios WHERE id = %s", (datos.usuario_id,))
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        ua = (datos.ua or "")[:300]
+        cur.execute("""
+            INSERT INTO push_suscripciones (usuario_id, endpoint, p256dh, auth, ua, plataforma)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (endpoint) DO UPDATE SET usuario_id = EXCLUDED.usuario_id, p256dh = EXCLUDED.p256dh,
+                auth = EXCLUDED.auth, ua = EXCLUDED.ua, plataforma = EXCLUDED.plataforma,
+                activa = TRUE, fallos = 0, ultimo_error = NULL, ultima_vez = NOW()
+        """, (datos.usuario_id, ep, datos.keys.p256dh, datos.keys.auth, ua, _push_plataforma(ua)))
+        cur.execute("SELECT COUNT(*) FROM push_suscripciones WHERE usuario_id = %s AND activa = TRUE", (datos.usuario_id,))
+        n = cur.fetchone()[0]
+        conexion.commit()
+        return {"ok": True, "dispositivos": n}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ [PUSH] suscribir: {e}")
+        raise HTTPException(status_code=500, detail="No se pudo registrar el dispositivo")
+    finally:
+        try:
+            if conexion:
+                conexion.close()
+        except Exception:
+            pass
+
+
+@app.post("/push/baja")
+async def push_baja(datos: PushBajaIn):
+    conexion = None
+    try:
+        conexion, cur = abrir_conexion_aislada()
+        cur.execute("UPDATE push_suscripciones SET activa = FALSE, ultimo_error = 'Desactivada por el usuario' WHERE endpoint = %s", (datos.endpoint,))
+        conexion.commit()
+        return {"ok": True}
+    finally:
+        try:
+            if conexion:
+                conexion.close()
+        except Exception:
+            pass
+
+
+@app.get("/push/estado")
+async def push_estado(usuario_id: int, endpoint: str = ""):
+    """¿Este dispositivo (endpoint) está activo? ¿Cuántos dispositivos tiene el usuario?"""
+    conexion = None
+    try:
+        conexion, cur = abrir_conexion_aislada()
+        cur.execute("SELECT COUNT(*) FROM push_suscripciones WHERE usuario_id = %s AND activa = TRUE", (usuario_id,))
+        n = cur.fetchone()[0]
+        este = False
+        if endpoint:
+            cur.execute("SELECT 1 FROM push_suscripciones WHERE usuario_id = %s AND endpoint = %s AND activa = TRUE", (usuario_id, endpoint))
+            este = cur.fetchone() is not None
+        return {"disponible": _push_disponible(), "dispositivos": n, "este_dispositivo": este}
+    finally:
+        try:
+            if conexion:
+                conexion.close()
+        except Exception:
+            pass
+
+
+@app.post("/push/probar")
+async def push_probar(datos: PushUsuarioIn):
+    """El propio usuario manda una prueba a sus dispositivos (máx. 1 cada 15 s)."""
+    ahora = _tm.time()
+    if ahora - _push_prueba_hits.get(datos.usuario_id, 0) < 15:
+        raise HTTPException(status_code=429, detail="Espera unos segundos antes de otra prueba")
+    _push_prueba_hits[datos.usuario_id] = ahora
+    return await _push_probar_usuario(datos.usuario_id, "Aviso de prueba", "Así llegarán tus notificaciones, aunque la app esté cerrada.")
+
+
+async def _push_probar_usuario(usuario_id, titulo, cuerpo):
+    conexion = None
+    try:
+        conexion, cur = abrir_conexion_aislada()
+        subs = _push_suscripciones_de(conexion, [usuario_id])
+    finally:
+        try:
+            if conexion:
+                conexion.close()
+        except Exception:
+            pass
+    if not subs:
+        raise HTTPException(status_code=404, detail="Este usuario no tiene dispositivos con avisos activados")
+    res = await _aio.get_event_loop().run_in_executor(None, _push_enviar, subs, _push_payload(titulo, cuerpo, None), None)
+    return {"ok": res["enviados"] > 0, **res}
+
+
+# ---------- Panel administrador ----------
+@app.get("/admin/push/resumen")
+async def admin_push_resumen(request: Request):
+    _jwt_admin(request)
+    conexion = None
+    try:
+        conexion, cur = abrir_conexion_aislada()
+        cur.execute("""SELECT COUNT(*) FILTER (WHERE s.activa), COUNT(DISTINCT s.usuario_id) FILTER (WHERE s.activa),
+                              COUNT(*) FILTER (WHERE s.activa AND s.plataforma = 'ios'),
+                              COUNT(*) FILTER (WHERE s.activa AND s.plataforma = 'android')
+                       FROM push_suscripciones s""")
+        d, u, ios, andr = cur.fetchone()
+        cur.execute("SELECT COUNT(*) FROM usuarios WHERE COALESCE(activo, TRUE) = TRUE")
+        total = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FILTER (WHERE estado = 'enviado'), COUNT(*) FILTER (WHERE estado <> 'enviado') FROM push_envios WHERE creado_at > NOW() - INTERVAL '7 days'")
+        ok7, mal7 = cur.fetchone()
+        return {"disponible": _push_disponible(), "dispositivos": d, "usuarios_con_push": u, "usuarios_total": total,
+                "ios": ios, "android": andr, "enviados_7d": ok7, "fallidos_7d": mal7}
+    finally:
+        try:
+            if conexion:
+                conexion.close()
+        except Exception:
+            pass
+
+
+@app.get("/admin/push/usuarios")
+async def admin_push_usuarios(request: Request):
+    """Dispositivos activos por usuario: {usuario_id: {dispositivos, ultima_vez, plataformas}}."""
+    _jwt_admin(request)
+    conexion = None
+    try:
+        conexion, cur = abrir_conexion_aislada()
+        cur.execute("""SELECT usuario_id, COUNT(*), MAX(ultima_vez), ARRAY_AGG(DISTINCT plataforma)
+                       FROM push_suscripciones WHERE activa = TRUE GROUP BY usuario_id""")
+        return {str(r[0]): {"dispositivos": r[1], "ultima_vez": r[2].isoformat() if r[2] else None,
+                            "plataformas": [p for p in (r[3] or []) if p]} for r in cur.fetchall()}
+    finally:
+        try:
+            if conexion:
+                conexion.close()
+        except Exception:
+            pass
+
+
+@app.get("/admin/push/notificacion/{notificacion_id}")
+async def admin_push_notificacion(notificacion_id: int, request: Request):
+    """Cómo salió el push de una notificación: llegada por dispositivo y usuarios sin push."""
+    _jwt_admin(request)
+    conexion = None
+    try:
+        conexion, cur = abrir_conexion_aislada()
+        datos = _push_destinatarios_notificacion(conexion, notificacion_id)
+        if not datos:
+            raise HTTPException(status_code=404, detail="Notificación no encontrada")
+        ids = datos[2]
+        cur.execute("""SELECT COUNT(*) FILTER (WHERE estado = 'enviado'), COUNT(*) FILTER (WHERE estado = 'fallido'),
+                              COUNT(*) FILTER (WHERE estado = 'expirado'), COUNT(DISTINCT usuario_id) FILTER (WHERE estado = 'enviado')
+                       FROM push_envios WHERE notificacion_id = %s""", (notificacion_id,))
+        enviados, fallidos, expirados, usuarios_ok = cur.fetchone()
+        if ids is None:
+            cur.execute("SELECT COUNT(*) FROM usuarios WHERE COALESCE(activo, TRUE) = TRUE")
+        else:
+            cur.execute("SELECT COUNT(*) FROM usuarios WHERE id = ANY(%s)", (ids,))
+        destinatarios = cur.fetchone()[0]
+        subs = _push_suscripciones_de(conexion, ids)
+        con_push = len({s[1] for s in subs})
+        return {"destinatarios": destinatarios, "usuarios_con_push": con_push, "usuarios_sin_push": max(0, destinatarios - con_push),
+                "dispositivos_activos": len(subs), "enviados": enviados, "fallidos": fallidos, "expirados": expirados,
+                "usuarios_entregados": usuarios_ok, "push_disponible": _push_disponible()}
+    finally:
+        try:
+            if conexion:
+                conexion.close()
+        except Exception:
+            pass
+
+
+@app.post("/admin/push/reenviar/{notificacion_id}")
+async def admin_push_reenviar(notificacion_id: int, request: Request):
+    """Vuelve a mandar el push solo a quienes aún no han leído la notificación."""
+    _jwt_admin(request)
+    res = await _aio.get_event_loop().run_in_executor(None, _push_para_notificacion, notificacion_id, True)
+    return {"ok": True, **res}
+
+
+@app.post("/admin/push/prueba/{usuario_id}")
+async def admin_push_prueba(usuario_id: int, request: Request):
+    _jwt_admin(request)
+    return await _push_probar_usuario(usuario_id, "Aviso de prueba", "Tu administrador comprobó que tus avisos llegan correctamente.")
+
+# ==================== FIN NOTIFICACIONES PUSH ====================
 
 
 if __name__ == "__main__":

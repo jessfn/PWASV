@@ -71,12 +71,14 @@
             <div class="apple-stat-card">
               <div class="apple-stat-icon purple">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <polyline points="20 6 9 17 4 12" stroke-width="2"/>
+                  <rect x="6" y="2" width="12" height="20" rx="3" stroke-width="2"/>
+                  <path d="M10 18h4" stroke-width="2" stroke-linecap="round"/>
                 </svg>
               </div>
               <div class="apple-stat-content">
-                <div class="apple-stat-value">Enviadas</div>
-                <div class="apple-stat-label">Estado</div>
+                <div class="apple-stat-value">{{ pushResumen ? pushResumen.usuarios_con_push + ' / ' + pushResumen.usuarios_total : '—' }}</div>
+                <div class="apple-stat-label">Con avisos en el teléfono</div>
+                <div v-if="pushResumen" class="push-mini">{{ pushResumen.dispositivos }} dispositivo(s) · {{ pushResumen.fallidos_7d }} fallido(s) en 7 días</div>
               </div>
             </div>
           </div>
@@ -520,6 +522,12 @@
                     <span class="user-name-column">{{ usuario.nombre_completo || usuario.nombre || 'Sin nombre' }}</span>
                     <span class="user-email-column">{{ usuario.correo || usuario.email || 'Sin email' }}</span>
                     <span v-if="usuario.curp" class="user-curp-column">CURP: {{ usuario.curp }}</span>
+                    <span class="push-badge" :class="pushUsuarios[usuario.id] ? 'is-on' : 'is-off'">
+                      {{ pushUsuarios[usuario.id] ? 'Push activo · ' + pushUsuarios[usuario.id].dispositivos + (pushUsuarios[usuario.id].dispositivos === 1 ? ' dispositivo' : ' dispositivos') : 'Sin avisos en el teléfono' }}
+                      <button v-if="pushUsuarios[usuario.id]" type="button" class="push-test" :disabled="probandoPushId === usuario.id" title="Enviar aviso de prueba" @click.prevent.stop="probarPushUsuario(usuario)">
+                        {{ probandoPushId === usuario.id ? '…' : 'Probar' }}
+                      </button>
+                    </span>
                   </div>
                 </label>
               </div>
@@ -720,6 +728,12 @@
                     <span class="user-name-column">{{ usuario.nombre_completo || usuario.nombre || 'Sin nombre' }}</span>
                     <span class="user-email-column">{{ usuario.correo || usuario.email || 'Sin email' }}</span>
                     <span v-if="usuario.curp" class="user-curp-column">CURP: {{ usuario.curp }}</span>
+                    <span class="push-badge" :class="pushUsuarios[usuario.id] ? 'is-on' : 'is-off'">
+                      {{ pushUsuarios[usuario.id] ? 'Push activo · ' + pushUsuarios[usuario.id].dispositivos + (pushUsuarios[usuario.id].dispositivos === 1 ? ' dispositivo' : ' dispositivos') : 'Sin avisos en el teléfono' }}
+                      <button v-if="pushUsuarios[usuario.id]" type="button" class="push-test" :disabled="probandoPushId === usuario.id" title="Enviar aviso de prueba" @click.prevent.stop="probarPushUsuario(usuario)">
+                        {{ probandoPushId === usuario.id ? '…' : 'Probar' }}
+                      </button>
+                    </span>
                   </div>
                 </label>
               </div>
@@ -965,6 +979,27 @@
             </div>
           </div>
 
+          <!-- Entrega por push (avisos en el teléfono) -->
+          <div v-if="pushNotif" class="push-entrega">
+            <div class="push-entrega__titulo">Avisos en el teléfono (push)</div>
+            <div v-if="!pushNotif.push_disponible" class="push-entrega__nota">El servicio push no está configurado en el servidor.</div>
+            <template v-else>
+              <div class="push-entrega__chips">
+                <span class="push-chip ok"><b>{{ pushNotif.usuarios_entregados }}</b> usuarios entregados</span>
+                <span class="push-chip"><b>{{ pushNotif.enviados }}</b> envíos a dispositivos</span>
+                <span class="push-chip mal" v-if="pushNotif.fallidos || pushNotif.expirados"><b>{{ pushNotif.fallidos + pushNotif.expirados }}</b> fallidos o vencidos</span>
+                <span class="push-chip sin"><b>{{ pushNotif.usuarios_sin_push }}</b> sin avisos activados</span>
+              </div>
+              <p class="push-entrega__nota">
+                {{ pushNotif.usuarios_con_push }} de {{ pushNotif.destinatarios }} destinatarios tienen avisos activados en su teléfono.
+                Quienes no los tienen la verán al abrir la app.
+              </p>
+              <button type="button" class="push-reenviar" :disabled="reenviandoPush || !pushNotif.usuarios_con_push" @click="reenviarPush">
+                {{ reenviandoPush ? 'Reenviando…' : 'Reenviar aviso a quienes no han leído' }}
+              </button>
+            </template>
+          </div>
+
           <!-- Pestañas para usuarios -->
           <div class="stats-tabs">
             <div class="tabs-header">
@@ -1115,6 +1150,7 @@ import Sidebar from '../components/Sidebar.vue'
 import notificacionesService from '../services/notificacionesService.js'
 import usuariosService from '../services/usuariosService.js'
 import authService from '../services/authService.js'
+import pushService from '../services/pushService.js'
 
 export default {
   name: 'NotificacionesView',
@@ -1139,6 +1175,13 @@ export default {
       totalNotificaciones: 0,
       
       // Modal crear notificación
+      // Avisos push (dispositivos de los usuarios y entrega de cada notificación)
+      pushResumen: null,
+      pushUsuarios: {},
+      pushNotif: null,
+      reenviandoPush: false,
+      probandoPushId: null,
+
       mostrarModalCrear: false,
       enviandoNotificacion: false,
       archivoSeleccionado: null,
@@ -1303,6 +1346,7 @@ export default {
     this.configurarEventosConexion()
     this.configurarEventosPermisos()
     this.cargarNotificaciones()
+    this.cargarPush()
   },
   
   beforeUnmount() {
@@ -1496,7 +1540,11 @@ export default {
         )
         
         console.log('✅ Notificación creada:', respuesta)
-        this.mostrarToast('Notificación enviada exitosamente', 'success')
+        const p = respuesta && respuesta.push
+        this.mostrarToast(p && p.disponible
+          ? `Notificación enviada · aviso push a ${p.dispositivos} dispositivo(s) de ${p.usuarios} usuario(s)`
+          : 'Notificación enviada exitosamente', 'success')
+        this.cargarPush()
         
         // Recargar lista y cerrar modal
         this.cargarNotificaciones()
@@ -1785,6 +1833,53 @@ export default {
 
     // ==================== ESTADÍSTICAS ====================
     
+    // ==================== AVISOS PUSH ====================
+
+    async cargarPush() {
+      try {
+        const [resumen, usuarios] = await Promise.all([pushService.resumen(), pushService.usuarios()])
+        this.pushResumen = resumen
+        this.pushUsuarios = usuarios || {}
+      } catch (error) {
+        console.warn('Push: no se pudo cargar el estado', error)
+      }
+    },
+
+    async cargarPushNotificacion(id) {
+      this.pushNotif = null
+      try {
+        this.pushNotif = await pushService.deNotificacion(id)
+      } catch (error) {
+        console.warn('Push: no se pudo cargar la entrega', error)
+      }
+    },
+
+    async reenviarPush() {
+      if (!this.notificacionActualId || this.reenviandoPush) return
+      this.reenviandoPush = true
+      try {
+        const r = await pushService.reenviar(this.notificacionActualId)
+        this.mostrarToast(r.enviados > 0 ? `Aviso reenviado a ${r.enviados} dispositivo(s)` : 'No había dispositivos pendientes por avisar', r.enviados > 0 ? 'success' : 'info')
+        await this.cargarPushNotificacion(this.notificacionActualId)
+      } catch (error) {
+        this.mostrarToast(error.message, 'error')
+      } finally {
+        this.reenviandoPush = false
+      }
+    },
+
+    async probarPushUsuario(usuario) {
+      this.probandoPushId = usuario.id
+      try {
+        const r = await pushService.probar(usuario.id)
+        this.mostrarToast(r.ok ? `Aviso de prueba enviado a ${usuario.nombre_completo || 'el usuario'}` : 'No se pudo entregar la prueba', r.ok ? 'success' : 'error')
+      } catch (error) {
+        this.mostrarToast(error.message, 'error')
+      } finally {
+        this.probandoPushId = null
+      }
+    },
+
     async verEstadisticas(notificacion) {
       try {
         this.cargandoEstadisticas = true
@@ -1794,6 +1889,7 @@ export default {
         
         console.log('📊 Cargando estadísticas para notificación:', notificacion.id)
         
+        this.cargarPushNotificacion(notificacion.id)
         const estadisticas = await notificacionesService.obtenerEstadisticasNotificacion(notificacion.id)
         this.estadisticasNotificacion = estadisticas
         
@@ -1811,6 +1907,7 @@ export default {
     cerrarModalEstadisticas() {
       this.mostrarModalEstadisticas = false
       this.estadisticasNotificacion = null
+      this.pushNotif = null
       this.notificacionActualId = null
       this.cargandoEstadisticas = false
       this.tabActiva = 'leidos'
@@ -1824,6 +1921,7 @@ export default {
         
         console.log('🔄 Recargando estadísticas para notificación:', this.notificacionActualId)
         
+        this.cargarPushNotificacion(this.notificacionActualId)
         const estadisticas = await notificacionesService.obtenerEstadisticasNotificacion(this.notificacionActualId)
         this.estadisticasNotificacion = estadisticas
         
@@ -5770,4 +5868,28 @@ export default {
   color: white;
   box-shadow: 0 2px 6px rgba(102, 187, 106, 0.4);
 }
+</style>
+
+<style scoped>
+/* Avisos push: tarjeta de resumen, insignia por usuario y bloque de entrega */
+.push-mini { margin-top: 2px; font-size: 11px; color: #5b6676; line-height: 1.3; }
+.push-badge { display: inline-flex; align-items: center; gap: 8px; margin-top: 4px; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; width: fit-content; }
+.push-badge.is-on { background: #dcf5e5; color: #14532d; }
+.push-badge.is-off { background: #eef0f3; color: #4b5563; }
+.push-test { padding: 1px 8px; border: 1px solid #86d4a2; border-radius: 999px; background: #fff; color: #14532d; font-size: 11px; font-weight: 700; cursor: pointer; }
+.push-test:hover:not(:disabled) { background: #effaf3; }
+.push-test:disabled { opacity: 0.6; cursor: default; }
+
+.push-entrega { margin: 18px 0 6px; padding: 16px 18px; border-radius: 16px; background: linear-gradient(135deg, #f1f7ff 0%, #ffffff 80%); border: 1px solid #c9ddf7; }
+.push-entrega__titulo { font-size: 13px; font-weight: 700; color: #0b3f8f; letter-spacing: 0.02em; text-transform: uppercase; margin-bottom: 10px; }
+.push-entrega__chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.push-chip { padding: 5px 12px; border-radius: 999px; font-size: 12.5px; background: #e3eefc; color: #0b3f8f; }
+.push-chip b { font-weight: 800; margin-right: 3px; }
+.push-chip.ok { background: #dcf5e5; color: #14532d; }
+.push-chip.mal { background: #fde4e1; color: #912018; }
+.push-chip.sin { background: #eef0f3; color: #374151; }
+.push-entrega__nota { margin: 10px 0 0; font-size: 12.5px; line-height: 1.45; color: #475467; }
+.push-reenviar { margin-top: 12px; padding: 9px 16px; border: 0; border-radius: 10px; background: #1d5fc4; color: #fff; font-weight: 600; font-size: 13px; cursor: pointer; }
+.push-reenviar:hover:not(:disabled) { background: #174fa6; }
+.push-reenviar:disabled { opacity: 0.5; cursor: default; }
 </style>

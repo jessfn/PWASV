@@ -15,6 +15,9 @@
     <div class="absolute inset-0 overflow-y-auto pt-16 sm:pt-20 pb-4">
       <div class="page-container relative z-10 px-2 sm:px-3 md:px-4 lg:px-6 xl:px-8 py-3 sm:py-4 lg:py-5 min-h-full max-w-full">
         <div class="w-full max-w-lg mx-auto space-y-4">
+        <!-- Avisos en el teléfono (push) -->
+        <div class="st-push"><PushOptIn /></div>
+
         <!-- Sección: Almacenamiento en Caché -->
         <div class="glass-card">
           <div class="flex items-center gap-2 mb-4">
@@ -362,6 +365,7 @@ import { ref, computed, onMounted, onActivated } from 'vue';
 import { useRouter } from 'vue-router';
 import ViewTitle from '../components/ViewTitle.vue'
 import offlineService from '../services/offlineService.js';
+import PushOptIn from '../components/PushOptIn.vue';
 
 const router = useRouter();
 
@@ -880,6 +884,7 @@ onMounted(() => {
 <style scoped>
 /* ESCRITORIO: tarjetas en dos columnas */
 @media (min-width: 1024px) {
+  .st-push { grid-column: 1 / -1; }
   .page-container > .max-w-lg {
     max-width: 1100px;
     display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20px; row-gap: 16px; align-items: start; align-content: start;

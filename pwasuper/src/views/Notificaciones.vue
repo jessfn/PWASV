@@ -15,7 +15,7 @@
             <div class="apple-header-row">
               <div class="apple-header-title-group">
                 <h1 class="apple-page-title">Notificaciones</h1>
-                <p class="apple-page-subtitle">Mantente al día con tus avisos</p>
+                <p class="apple-page-subtitle">{{ conteoNoLeidas > 0 ? (conteoNoLeidas === 1 ? '1 sin leer' : conteoNoLeidas + ' sin leer') : 'Estás al día' }}</p>
               </div>
               <button 
                 @click="refrescarNotificaciones"
@@ -44,7 +44,7 @@
               <svg class="apple-badge-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
               </svg>
-              <span class="apple-badge-count">{{ notificacionesFiltradas.length }} avisos</span>
+              <span class="apple-badge-count">{{ notificacionesFiltradas.length }} {{ notificacionesFiltradas.length === 1 ? 'aviso' : 'avisos' }}</span>
             </div>
           </div>
         </div>
@@ -73,148 +73,100 @@
           </div>
         </div>
 
-        <!-- Contenedor de scroll para notificaciones -->
-        <div v-if="!cargando && !error" class="sf-notifications-list">
-          <!-- Lista de notificaciones -->
-          <div class="sf-notifications-scroll">
-            <div v-if="notificacionesFiltradas.length > 0" class="sf-notification-stack">
-              
-              <!-- NUEVA CARD APPLE STYLE -->
-              <article 
-                v-for="(notificacion, index) in notificacionesFiltradas" 
-                :key="notificacion.id"
-                :class="[
-                  'sf-card',
-                  notificacion.leida ? 'sf-card--read' : 'sf-card--unread'
-                ]"
-                :style="{ animationDelay: `${index * 0.06}s` }"
-                @click="abrirDetalleNotificacion(notificacion)"
-              >
-                <!-- Punto de notificación no leída -->
-                <span v-if="!notificacion.leida" class="sf-unread-dot"></span>
-                
-                <!-- Contenido de la card -->
-                <div class="sf-card-inner">
-                  
-                  <!-- Icono circular -->
-                  <div :class="['sf-icon-circle', notificacion.leida ? 'sf-icon--read' : 'sf-icon--unread']">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                      <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                    </svg>
-                  </div>
-                  
-                  <!-- Bloque de texto -->
-                  <div class="sf-text-block">
-                    
-                    <!-- Fila superior: título + tiempo/badge -->
-                    <div class="sf-top-row">
-                      <h3 :class="['sf-title', notificacion.leida ? 'sf-title--read' : 'sf-title--unread']">
-                        {{ notificacion.titulo }}
-                      </h3>
-                      <div class="sf-meta-group">
-                        <time :class="['sf-time', notificacion.leida ? 'sf-time--read' : 'sf-time--unread']">
-                          {{ formatearFecha(notificacion.fecha_creacion) }}
-                        </time>
-                        <span :class="['sf-status-pill', notificacion.leida ? 'sf-pill--read' : 'sf-pill--unread']">
-                          {{ notificacion.leida ? 'Leída' : 'Nueva' }}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <!-- Subtítulo opcional -->
-                    <p v-if="notificacion.subtitulo" :class="['sf-subtitle', notificacion.leida ? 'sf-subtitle--read' : 'sf-subtitle--unread']">
-                      {{ notificacion.subtitulo }}
-                    </p>
-                    
-                    <!-- Descripción -->
-                    <p v-if="notificacion.descripcion && notificacion.descripcion.trim()" 
-                       :class="['sf-description', notificacion.leida ? 'sf-desc--read' : 'sf-desc--unread']">
-                      {{ notificacion.descripcion }}
-                    </p>
-                    
-                    <!-- Vista previa de imagen -->
-                    <div v-if="notificacion.tiene_archivo && esImagen(notificacion.archivo_tipo)" 
-                         class="sf-media-preview" 
-                         @click.stop="verNotificacionCompleta(notificacion)">
-                      <img :src="obtenerUrlArchivo(notificacion.id)" 
-                           :alt="notificacion.archivo_nombre"
-                           @error="onImageError"
-                           @load="onImageLoad"
-                           loading="lazy"/>
-                    </div>
-                    
-                    <!-- Vista previa de video -->
-                    <div v-else-if="notificacion.tiene_archivo && esVideo(notificacion.archivo_tipo)" 
-                         class="sf-media-preview sf-video-preview" 
-                         @click.stop="verNotificacionCompleta(notificacion)">
-                      <video :src="obtenerUrlArchivo(notificacion.id)"
-                             muted
-                             preload="metadata"
-                             @loadedmetadata="onVideoLoaded"
-                             @canplay="onVideoLoaded"
-                             @error="onVideoError"/>
-                      <div class="sf-play-btn">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
-                          <polygon points="9.5,7.5 16.5,12 9.5,16.5"/>
-                        </svg>
-                      </div>
-                    </div>
-                    
-                    <!-- Archivo adjunto otro tipo -->
-                    <div v-else-if="notificacion.tiene_archivo" class="sf-attachment">
-                      <span class="sf-attachment-icon">📎</span>
-                      <span class="sf-attachment-name">Archivo adjunto</span>
-                      <span class="sf-attachment-type">{{ notificacion.archivo_tipo }}</span>
-                    </div>
+        <!-- Bandeja de notificaciones: filtros, búsqueda y grupos por día -->
+        <div v-if="!cargando && !error" class="nf-wrap">
 
-                  </div>
-                  
-                  <!-- Chevron derecho -->
-                  <div class="sf-chevron">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="9 18 15 12 9 6"/>
-                    </svg>
-                  </div>
-                  
-                </div>
-                
-              </article>
-              <!-- FIN CARD APPLE STYLE -->
-              
-            </div>
-            <!-- Fin sf-notification-stack -->
+          <PushOptIn />
 
-            <!-- Estado vacío Apple -->
-            <div v-else class="sf-empty-state">
-              <div class="sf-empty-icon">📭</div>
-              <h3 class="sf-empty-title">Sin notificaciones</h3>
-              <p class="sf-empty-message">
-                {{ soloRecientes ? 'No hay notificaciones recientes' : 'No tienes notificaciones por el momento' }}
-              </p>
-              <button 
-                v-if="soloRecientes"
-                @click="toggleSoloRecientes"
-                class="sf-empty-btn"
-              >
-                Ver todas las notificaciones
+          <div class="nf-toolbar">
+            <div class="nf-seg" role="tablist" aria-label="Filtro">
+              <button type="button" role="tab" :aria-selected="!soloNoLeidas" :class="{ 'is-on': !soloNoLeidas }" @click="soloNoLeidas && toggleFiltroNoLeidas()">Todas</button>
+              <button type="button" role="tab" :aria-selected="soloNoLeidas" :class="{ 'is-on': soloNoLeidas }" @click="!soloNoLeidas && toggleFiltroNoLeidas()">
+                Sin leer<b v-if="conteoNoLeidas > 0">{{ conteoNoLeidas }}</b>
               </button>
             </div>
-          </div>
-          <!-- Fin del sf-notifications-scroll -->
 
-          <!-- Botón cargar más Apple -->
-          <div v-if="puedeCargarMas" class="sf-load-more">
-            <button 
-              @click="cargarMasNotificaciones"
-              :disabled="cargandoMas"
-              class="sf-load-more-btn"
-            >
-              {{ cargandoMas ? 'Cargando...' : 'Cargar más' }}
+            <label class="nf-search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
+              <input v-model.trim="busqueda" type="search" placeholder="Buscar en tus avisos" aria-label="Buscar notificaciones" />
+            </label>
+
+            <button type="button" class="nf-markall" :disabled="!hayNoLeidasCargadas || marcandoTodas" @click="marcarTodasLeidas">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 13l4 4L16 7" /><path d="M10 15l2 2L22 7" /></svg>
+              <span>{{ marcandoTodas ? 'Marcando…' : 'Marcar todo como leído' }}</span>
+            </button>
+          </div>
+
+          <div v-if="gruposNotificaciones.length" class="nf-list">
+            <section v-for="g in gruposNotificaciones" :key="g.clave" class="nf-group">
+              <h2 class="nf-group__title">{{ g.titulo }}<span>{{ g.items.length }}</span></h2>
+              <ul class="nf-items">
+                <li
+                  v-for="(n, i) in g.items"
+                  :key="n.id"
+                  class="nf-item"
+                  :class="[{ 'is-unread': !n.leida }, 'nf-tipo--' + tipoNotif(n)]"
+                  :style="{ '--i': i }"
+                  tabindex="0"
+                  role="button"
+                  :aria-label="(n.leida ? '' : 'Sin leer: ') + n.titulo"
+                  @click="abrirDetalleNotificacion(n)"
+                  @keydown.enter.prevent="abrirDetalleNotificacion(n)"
+                  @keydown.space.prevent="abrirDetalleNotificacion(n)"
+                >
+                  <span class="nf-ico" aria-hidden="true">
+                    <svg v-if="tipoNotif(n) === 'archivo'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.1l-9.2 9.2a6 6 0 01-8.5-8.5l9.2-9.2a4 4 0 015.7 5.7l-9.2 9.2a2 2 0 01-2.8-2.8l8.5-8.5" /></svg>
+                    <svg v-else-if="tipoNotif(n) === 'actividad'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" /><path d="M9 5a2 2 0 012-2h2a2 2 0 012 2v0a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /><path d="M9 12h6M9 16h4" /></svg>
+                    <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 01-3.4 0" /></svg>
+                  </span>
+
+                  <div class="nf-body">
+                    <div class="nf-top">
+                      <h3 class="nf-title">{{ n.titulo }}</h3>
+                      <time class="nf-time" :datetime="n.fecha_creacion">{{ horaCorta(n.fecha_creacion) }}</time>
+                    </div>
+                    <p v-if="n.subtitulo" class="nf-sub">{{ n.subtitulo }}</p>
+                    <p v-if="n.descripcion && n.descripcion.trim()" class="nf-desc">{{ n.descripcion }}</p>
+
+                    <div v-if="n.tiene_archivo && esImagen(n.archivo_tipo)" class="nf-media" @click.stop="verNotificacionCompleta(n)">
+                      <img :src="obtenerUrlArchivo(n.id)" :alt="n.archivo_nombre" @error="onImageError" @load="onImageLoad" loading="lazy" />
+                    </div>
+                    <div v-else-if="n.tiene_archivo && esVideo(n.archivo_tipo)" class="nf-media nf-media--video" @click.stop="verNotificacionCompleta(n)">
+                      <video :src="obtenerUrlArchivo(n.id)" muted preload="metadata" @loadedmetadata="onVideoLoaded" @canplay="onVideoLoaded" @error="onVideoError" />
+                      <span class="nf-play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 7.5v9l7-4.5z" /></svg></span>
+                    </div>
+                    <span v-else-if="n.tiene_archivo" class="nf-chip">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.4 11.1l-9.2 9.2a6 6 0 01-8.5-8.5l9.2-9.2a4 4 0 015.7 5.7l-9.2 9.2a2 2 0 01-2.8-2.8l8.5-8.5" /></svg>
+                      {{ n.archivo_nombre || 'Archivo adjunto' }}
+                    </span>
+                  </div>
+
+                  <span v-if="!n.leida" class="nf-dot" aria-hidden="true"></span>
+                </li>
+              </ul>
+            </section>
+          </div>
+
+          <div v-else class="nf-empty">
+            <div class="nf-empty__art" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 01-3.4 0" /></svg>
+            </div>
+            <h3 v-if="busqueda">Sin resultados</h3>
+            <h3 v-else-if="soloNoLeidas">Todo al día</h3>
+            <h3 v-else>Sin notificaciones</h3>
+            <p v-if="busqueda">No encontramos avisos que coincidan con “{{ busqueda }}”.</p>
+            <p v-else-if="soloNoLeidas">No tienes avisos sin leer.</p>
+            <p v-else>Cuando haya novedades aparecerán aquí.</p>
+            <button v-if="busqueda" type="button" class="nf-link" @click="busqueda = ''">Limpiar búsqueda</button>
+            <button v-else-if="soloNoLeidas" type="button" class="nf-link" @click="toggleFiltroNoLeidas()">Ver todas</button>
+          </div>
+
+          <div v-if="puedeCargarMas" class="nf-more">
+            <button type="button" class="nf-more__btn" :disabled="cargandoMas" @click="cargarMasNotificaciones">
+              {{ cargandoMas ? 'Cargando…' : 'Cargar más' }}
             </button>
           </div>
         </div>
-        <!-- Fin del sf-notifications-list -->
       </div>
       <!-- Fin del apple-scroll-container -->
     </div>
@@ -519,6 +471,7 @@ import notificacionesService from '../services/notificacionesService.js'
 import { apiService } from '../services/apiService.js'
 import { useNotifications } from '../composables/useNotifications.js'
 import { API_URL } from '../utils/network.js'
+import PushOptIn from '../components/PushOptIn.vue'
 
 // Estados reactivos
 const notificaciones = ref([])
@@ -686,6 +639,75 @@ const notificacionesTotales = computed(() => {
 
 // Variables para interval
 let autoUpdateInterval = null
+
+// ===== Bandeja moderna: búsqueda, grupos por día y "marcar todo como leído" =====
+const busqueda = ref('')
+const marcandoTodas = ref(false)
+
+const hayNoLeidasCargadas = computed(() => notificaciones.value.some(n => !n.leida))
+
+const inicioDeDia = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x }
+const grupoDeFecha = (fechaISO) => {
+  const f = fechaISO ? new Date(fechaISO) : null
+  if (!f || isNaN(f)) return { clave: 'otros', titulo: 'Anteriores', orden: 9 }
+  const dias = Math.round((inicioDeDia(new Date()) - inicioDeDia(f)) / 86400000)
+  if (dias <= 0) return { clave: 'hoy', titulo: 'Hoy', orden: 0 }
+  if (dias === 1) return { clave: 'ayer', titulo: 'Ayer', orden: 1 }
+  if (dias <= 7) return { clave: 'semana', titulo: 'Esta semana', orden: 2 }
+  if (dias <= 31) return { clave: 'mes', titulo: 'Este mes', orden: 3 }
+  return { clave: 'antes', titulo: 'Anteriores', orden: 4 }
+}
+
+const gruposNotificaciones = computed(() => {
+  const q = busqueda.value.toLowerCase()
+  const lista = notificacionesFiltradas.value.filter(n => {
+    if (!q) return true
+    return [n.titulo, n.subtitulo, n.descripcion, n.archivo_nombre].some(t => t && String(t).toLowerCase().includes(q))
+  })
+  const mapa = new Map()
+  for (const n of lista) {
+    const g = grupoDeFecha(n.fecha_creacion)
+    if (!mapa.has(g.clave)) mapa.set(g.clave, { ...g, items: [] })
+    mapa.get(g.clave).items.push(n)
+  }
+  return [...mapa.values()].sort((x, y) => x.orden - y.orden)
+})
+
+const tipoNotif = (n) => {
+  if (n.actividad || n.actividad_id) return 'actividad'
+  if (notificacionesService.tieneArchivo(n)) return 'archivo'
+  return 'general'
+}
+
+const horaCorta = (fechaISO) => {
+  if (!fechaISO) return ''
+  const f = new Date(fechaISO)
+  if (isNaN(f)) return ''
+  const g = grupoDeFecha(fechaISO)
+  if (g.clave === 'hoy' || g.clave === 'ayer') return f.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+  return f.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+}
+
+const marcarTodasLeidas = async () => {
+  if (marcandoTodas.value) return
+  const pendientes = notificaciones.value.filter(n => !n.leida)
+  const usuarioId = obtenerUsuarioId()
+  if (!pendientes.length || !usuarioId) return
+  marcandoTodas.value = true
+  const deviceId = `browser_${Date.now()}`
+  pendientes.forEach(n => { n.leida = true })            // respuesta inmediata en pantalla
+  let fallidas = 0
+  for (let i = 0; i < pendientes.length; i += 4) {          // de 4 en 4 para no saturar al servidor
+    const lote = pendientes.slice(i, i + 4)
+    const res = await Promise.allSettled(lote.map(n => notificacionesService.marcarComoLeida(n.id, usuarioId, deviceId)))
+    res.forEach((r, j) => { if (r.status === 'rejected') { lote[j].leida = false; fallidas++ } })
+  }
+  try { await fetchUnreadCount(usuarioId); await obtenerConteoNoLeidas(usuarioId, false) } catch (e) { /* el conteo se corrige solo en el siguiente sondeo */ }
+  if (soloNoLeidas.value) await cargarNotificaciones(true)
+  marcandoTodas.value = false
+  if (fallidas) mostrarNotificacionError(`No se pudieron marcar ${fallidas} aviso(s). Inténtalo de nuevo.`)
+  else mostrarNotificacionExito('Todo marcado como leído')
+}
 
 // Funciones MEJORADAS con nuevos endpoints
 const obtenerUsuarioId = () => {
@@ -900,6 +922,7 @@ const abrirDetalleNotificacion = (notificacion) => {
   if (!notificacion.leida) {
     console.log(`📖 Abriendo notificación ${notificacion.id} - marcando como leída inmediatamente`)
     marcarComoLeidaRemoto(notificacion.id)
+    notificacionSeleccionada.value.leida = true // el detalle ya la muestra como leída
   }
 }
 
@@ -1743,7 +1766,12 @@ onMounted(async () => {
   }, 30000) // 30 segundos para reducir el spam de sonidos
 })
 
+// Aviso push recibido con la app abierta: la lista se actualiza al instante
+const alLlegarPush = () => { if (!cargando.value) cargarNotificaciones(true) }
+onMounted(() => window.addEventListener('notificaciones:nueva', alLlegarPush))
+
 onBeforeUnmount(() => {
+  window.removeEventListener('notificaciones:nueva', alLlegarPush)
   if (autoUpdateInterval) {
     clearInterval(autoUpdateInterval)
   }
@@ -6281,4 +6309,160 @@ video::-webkit-media-controls {
   .sf-notification-stack { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 16px; align-items: start; }
   .apple-loading-card { max-width: 32rem; }
 }
+</style>
+
+<style scoped>
+/* =====================================================================
+   NOTIFICACIONES · bandeja moderna (estilo iOS / Linear / Gmail)
+   - Toda la pantalla desplaza (sin recortes ni franjas encima)
+   - Grupos por día, tarjetas limpias, punto azul de "sin leer"
+   - Detalle: hoja inferior en celular, panel lateral en escritorio
+   ===================================================================== */
+/* el contenedor ocupa toda la pantalla: así el foco del buscador no lo desplaza por dentro */
+.apple-notifications-page, .apple-notifications-container { overflow: clip !important; } /* 'clip' no se puede desplazar por código: el foco no mueve la pantalla */
+.apple-scroll-container {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 96px) !important;
+  scroll-behavior: smooth;
+}
+
+.nf-wrap { width: 100%; max-width: 760px; margin: 0 auto; padding: 0 14px; }
+
+/* ---------- barra de herramientas ---------- */
+.nf-toolbar {
+  position: sticky; top: 4px; z-index: 5; /* el borde de referencia es el contenido del scroll (ya queda bajo la franja) */
+  display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center;
+  padding: 10px; margin: 0 0 14px; border-radius: 20px;
+  background: rgba(255, 255, 255, 0.86);
+  -webkit-backdrop-filter: saturate(180%) blur(18px); backdrop-filter: saturate(180%) blur(18px);
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  box-shadow: 0 10px 28px -16px rgba(15, 23, 42, 0.35);
+}
+.nf-seg {
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 3px; border-radius: 12px; background: #e8edf1;
+}
+.nf-seg button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  height: 34px; padding: 0 14px; border: 0; border-radius: 9px; background: transparent;
+  font: 600 0.84rem -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', system-ui, sans-serif;
+  color: #475569; cursor: pointer; transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.nf-seg button.is-on { background: #fff; color: #0f172a; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.18), 0 0 0 0.5px rgba(15, 23, 42, 0.06); }
+.nf-seg b { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; display: inline-grid; place-items: center; font-size: 0.72rem; font-weight: 700; color: #fff; background: #1d6fe0; }
+
+.nf-search {
+  grid-column: 1 / -1; order: 3; display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px;
+  border-radius: 12px; background: #eef2f5; border: 1px solid transparent; color: #475569; transition: border-color 0.2s, background 0.2s;
+}
+.nf-search:focus-within { background: #fff; border-color: #1d6fe0; box-shadow: 0 0 0 3px rgba(29, 111, 224, 0.15); }
+.nf-search svg { width: 17px; height: 17px; flex: none; }
+.nf-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-size: 0.9rem; color: #0f172a; }
+.nf-search input::placeholder { color: #64748b; }
+
+.nf-markall {
+  display: inline-flex; align-items: center; gap: 7px; height: 40px; padding: 0 14px; border: 0; border-radius: 12px;
+  font: 600 0.82rem -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', system-ui, sans-serif;
+  color: #0b4fb3; background: #e3eefc; cursor: pointer; transition: background 0.2s, transform 0.15s, opacity 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.nf-markall svg { width: 18px; height: 18px; flex: none; }
+.nf-markall:hover:not(:disabled) { background: #d3e5fb; }
+.nf-markall:active:not(:disabled) { transform: scale(0.96); }
+.nf-markall:disabled { opacity: 0.45; cursor: default; }
+@media (max-width: 560px) { .nf-markall span { display: none; } .nf-markall { width: 40px; padding: 0; justify-content: center; } }
+@media (min-width: 900px) {
+  .nf-toolbar { grid-template-columns: auto 1fr auto; }
+  .nf-search { grid-column: auto; order: 0; }
+}
+
+/* ---------- grupos y tarjetas ---------- */
+.nf-group { margin-bottom: 18px; }
+.nf-group__title {
+  display: flex; align-items: center; gap: 8px; margin: 0 4px 8px;
+  font: 700 0.72rem -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', system-ui, sans-serif;
+  letter-spacing: 0.08em; text-transform: uppercase; color: #475569;
+}
+.nf-group__title span { padding: 1px 8px; border-radius: 999px; background: #e2e8f0; color: #334155; font-size: 0.7rem; letter-spacing: 0; }
+.nf-items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+
+.nf-item {
+  position: relative; display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 12px; align-items: start;
+  padding: 14px 16px 14px 14px; border-radius: 18px; cursor: pointer; outline: none;
+  background: #ffffff; border: 1px solid #e3e9ee; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s, border-color 0.2s, background 0.2s;
+  animation: nf-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: calc(var(--i, 0) * 45ms);
+  -webkit-tap-highlight-color: transparent;
+}
+@keyframes nf-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .nf-item { animation: none; } }
+.nf-item:hover { transform: translateY(-2px); box-shadow: 0 14px 28px -16px rgba(15, 23, 42, 0.35); border-color: #cfd9e1; }
+.nf-item:active { transform: scale(0.988); }
+.nf-item:focus-visible { box-shadow: 0 0 0 3px rgba(29, 111, 224, 0.35); }
+.nf-item.is-unread { background: linear-gradient(180deg, #f5f9ff 0%, #ffffff 100%); border-color: #c9ddf7; }
+.nf-item.is-unread::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 4px; border-radius: 0 4px 4px 0; background: #1d6fe0; }
+
+.nf-ico { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; background: #e7effb; color: #1d5fc4; }
+.nf-ico svg { width: 21px; height: 21px; }
+.nf-tipo--archivo .nf-ico { background: #fdf1d6; color: #8a4b00; }
+.nf-tipo--actividad .nf-ico { background: #def4e6; color: #146b35; }
+
+.nf-body { min-width: 0; }
+.nf-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.nf-title { margin: 0; font: 500 0.98rem/1.3 -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', system-ui, sans-serif; letter-spacing: -0.01em; color: #1e293b; }
+.is-unread .nf-title { font-weight: 650; color: #0b1220; }
+.nf-time { flex: none; font-size: 0.76rem; color: #5b6676; white-space: nowrap; }
+.is-unread .nf-time { color: #1d5fc4; font-weight: 600; }
+.nf-sub { margin: 2px 0 0; font-size: 0.84rem; font-weight: 500; color: #3f4a5a; }
+.nf-desc {
+  margin: 4px 0 0; font-size: 0.87rem; line-height: 1.45; color: #475467;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.nf-dot { position: absolute; right: 14px; bottom: 14px; width: 9px; height: 9px; border-radius: 50%; background: #1d6fe0; box-shadow: 0 0 0 4px rgba(29, 111, 224, 0.16); }
+
+.nf-media { position: relative; margin-top: 10px; border-radius: 14px; overflow: hidden; background: #e8edf1; max-height: 200px; cursor: zoom-in; }
+.nf-media img, .nf-media video { display: block; width: 100%; max-height: 200px; object-fit: cover; }
+.nf-play { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; background: rgba(0, 0, 0, 0.18); }
+.nf-play svg { width: 46px; height: 46px; padding: 10px; border-radius: 50%; background: rgba(0, 0, 0, 0.5); }
+.nf-chip {
+  display: inline-flex; align-items: center; gap: 7px; max-width: 100%; margin-top: 10px; padding: 6px 11px; border-radius: 999px;
+  background: #eef2f6; color: #334155; font-size: 0.78rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.nf-chip svg { width: 14px; height: 14px; flex: none; }
+
+/* ---------- vacío y "cargar más" ---------- */
+.nf-empty { text-align: center; padding: 56px 20px 40px; color: #475467; }
+.nf-empty__art { width: 76px; height: 76px; margin: 0 auto 16px; border-radius: 26px; display: grid; place-items: center; color: #1d5fc4; background: linear-gradient(145deg, #e3eefc, #f3f8ff); box-shadow: 0 16px 30px -18px rgba(29, 111, 224, 0.5); }
+.nf-empty__art svg { width: 36px; height: 36px; }
+.nf-empty h3 { margin: 0 0 4px; font-size: 1.1rem; font-weight: 650; color: #0f172a; }
+.nf-empty p { margin: 0; font-size: 0.9rem; }
+.nf-link { margin-top: 14px; padding: 8px 16px; border: 0; border-radius: 999px; background: #e3eefc; color: #0b4fb3; font-weight: 600; font-size: 0.86rem; cursor: pointer; }
+.nf-more { display: grid; place-items: center; padding: 6px 0 10px; }
+.nf-more__btn { padding: 10px 22px; border: 1px solid #cfd9e1; border-radius: 999px; background: #fff; color: #1e293b; font-weight: 600; font-size: 0.88rem; cursor: pointer; transition: background 0.2s, transform 0.15s; }
+.nf-more__btn:hover:not(:disabled) { background: #f3f6f9; }
+.nf-more__btn:active:not(:disabled) { transform: scale(0.97); }
+.nf-more__btn:disabled { opacity: 0.55; cursor: default; }
+
+/* ---------- detalle: hoja inferior (celular) / panel lateral (escritorio) ---------- */
+.sf-modal-overlay { align-items: flex-end !important; justify-content: center; padding: 0 !important; background: rgba(15, 23, 42, 0.42) !important; -webkit-backdrop-filter: blur(6px) !important; backdrop-filter: blur(6px) !important; }
+.sf-modal {
+  max-width: 640px !important; width: 100% !important; max-height: 92dvh !important; border-radius: 26px 26px 0 0 !important;
+  animation: nf-sheet 0.42s cubic-bezier(0.2, 0.9, 0.25, 1) both !important;
+}
+.sf-modal::before { content: ''; position: absolute; top: 8px; left: 50%; width: 38px; height: 5px; margin-left: -19px; border-radius: 3px; background: rgba(60, 60, 67, 0.3); z-index: 61; }
+.sf-modal-header { padding-top: 1.5rem !important; }
+@keyframes nf-sheet { from { transform: translateY(100%); opacity: 0.6; } to { transform: none; opacity: 1; } }
+.sf-modal-content-enter-active, .sf-modal-content-leave-active { transition: opacity 0.22s ease !important; }
+.sf-modal-content-enter-from, .sf-modal-content-leave-to { opacity: 0 !important; transform: none !important; }
+@media (min-width: 1024px) {
+  .sf-modal-overlay { align-items: stretch !important; justify-content: flex-end !important; padding: 12px !important; background: rgba(15, 23, 42, 0.26) !important; }
+  .sf-modal { max-width: 540px !important; width: 540px !important; max-height: none !important; height: 100% !important; border-radius: 24px !important; animation: nf-drawer 0.42s cubic-bezier(0.2, 0.9, 0.25, 1) both !important; }
+  .sf-modal::before { display: none; }
+  .sf-modal-header { padding-top: 1.25rem !important; }
+}
+@keyframes nf-drawer { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.sf-modal-time, .sf-modal-label { color: #475467 !important; }
+.sf-modal-badge--read { color: #14532d !important; }
+.sf-modal-badge--unread { color: #fff !important; background: #1d6fe0 !important; }
 </style>

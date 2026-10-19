@@ -13,6 +13,7 @@ import { useNotifications } from './composables/useNotifications.js';
 import { API_URL } from './utils/network.js';
 import { reportarError, recuperarApp, diagnostico } from './utils/errorReporter.js';
 import { apiService } from './services/apiService.js';
+import { sincronizarPush } from './utils/push.js';
 import { manualesService } from './services/manualesService.js';
 import { registrarDispositivoActual, iniciarTrackingPeriodico, detenerTrackingPeriodico } from './services/dispositivoTrackingService.js';
 
@@ -74,7 +75,27 @@ const toggleMobileMenu = () => {
 
 
 // Sistema de notificaciones en tiempo real
-const { unreadCount, startPolling, stopPolling } = useNotifications();
+const { unreadCount, startPolling, stopPolling, fetchUnreadCount } = useNotifications();
+
+// Aviso push recibido: si la app está abierta se actualiza al instante (contador y lista)
+const alMensajeServiceWorker = (e) => {
+  const d = e && e.data;
+  if (!d) return;
+  if (d.type === 'PUSH_RECIBIDO') {
+    try { fetchUnreadCount(); } catch { /* el sondeo lo corrige */ }
+    window.dispatchEvent(new CustomEvent('notificaciones:nueva', { detail: d }));
+  } else if (d.type === 'ABRIR_RUTA' && d.url) {
+    try { router.push(new URL(d.url, location.origin).pathname); } catch { /* ruta inválida */ }
+  }
+};
+
+// Número de avisos sin leer en el icono de la app (donde el sistema lo permite)
+watch(unreadCount, (n) => {
+  try {
+    if (!('setAppBadge' in navigator)) return;
+    if (n > 0) navigator.setAppBadge(n); else navigator.clearAppBadge();
+  } catch { /* sin soporte */ }
+});
 let notificationPollingId = null;
 
 // Contador de manuales no leídos
@@ -336,6 +357,10 @@ onMounted(() => {
       
       // Inicializar sistema de notificaciones una vez que el usuario está identificado
       notificationPollingId = startPolling();
+
+      // Avisos push: mantiene este teléfono registrado (en silencio, solo si ya dio permiso)
+      sincronizarPush(userData.value && userData.value.id);
+      if (navigator.serviceWorker) navigator.serviceWorker.addEventListener('message', alMensajeServiceWorker);
       
       // 📱 Registrar dispositivo del usuario (tracking en tiempo real)
       // Se ejecuta cada vez que abren la app, no solo en login
@@ -1056,6 +1081,48 @@ html .apple-header-fixed .apple-counter-badge * { color: #fff !important; stroke
 /* el Inicio y las vistas empiezan según la altura real de la barra */
 .hm-scroll { padding-top: calc(var(--app-top-h, 84px) + 12px) !important; }
 @media (min-width: 1024px) and (max-height: 820px) { .hm-scroll { padding-top: calc(var(--app-top-h, 84px) + 10px) !important; } }
+
+/* =====================================================================
+   CONTRASTE (WCAG AA): textos secundarios más oscuros, píldoras legibles
+   sobre el verde y botones con fondo suficientemente oscuro.
+   ===================================================================== */
+.vt-sub, html .apple-header-fixed .apple-page-subtitle, html .apple-header-fixed .apple-compact-subtitle { color: rgba(255, 255, 255, 0.97) !important; }
+html .apple-header-fixed .apple-counter-badge { background: rgba(0, 45, 8, 0.32) !important; border-color: rgba(255, 255, 255, 0.28) !important; }
+.vt-chip { background: rgba(0, 45, 8, 0.32) !important; }
+.vt-back { background: rgba(0, 45, 8, 0.28) !important; }
+html .apple-header-fixed .apple-refresh-btn { background: rgba(0, 45, 8, 0.28) !important; }
+
+/* Reportes: píldoras y contador del encabezado, en cristal oscuro con texto blanco */
+html .apple-header-fixed .apple-status-pill, html .apple-header-fixed .apple-stat-badge {
+  background: rgba(0, 45, 8, 0.32) !important; border: 1px solid rgba(255, 255, 255, 0.3) !important; color: #fff !important;
+}
+html .apple-header-fixed .apple-status-pill *, html .apple-header-fixed .apple-stat-badge * { color: #fff !important; }
+html .apple-header-fixed .apple-pill-dot { background: #bbf7d0 !important; }
+html .apple-header-fixed .apple-badge-value { font-weight: 700 !important; }
+html .apple-header-fixed .apple-badge-label { opacity: 1 !important; }
+
+/* Textos secundarios (gris muy claro -> gris legible) */
+.apple-section-subtitle, .apple-select-label, .apple-firma-hint, .apple-signer-meta, .apple-status-text,
+.label-info, .sf-manual-subtitle, .sf-manual-desc, .sf-manual-date, .hm-hint { color: #4b5563 !important; }
+.hm-step.is-locked .hm-step__name, .hm-segment__btn:not(.is-active) { color: #566170 !important; }
+.apple-segment-btn:not(.apple-segment-active) { color: #4b5563 !important; }
+html body [class*="entrada-text"][class*="text"] { color: #0b57c9 !important; }
+html body [class*="salida-text"][class*="text"] { color: #b42318 !important; }
+[class*="apple-type-badge"] { color: #047857 !important; }
+.apple-date-time { color: #566170 !important; }
+.apple-step-badge.apple-badge-pending { color: #92400e !important; }
+.apple-generate-card button:disabled { background: #5b6877 !important; color: #fff !important; }
+.sf-new-badge { background: #d92d20 !important; }
+.hm-action--out.is-locked .hm-action__title, .hm-action--out.is-locked .hm-action__sub { color: #4b5563 !important; }
+.cs-strip { --cs-bg-a: #1c7428; --cs-bg-b: #2b8825; }
+.text-orange-600 { color: #c2410c !important; }
+.sf-badge-pdf { color: #b91c1c !important; }
+.apple-clear-btn, .apple-firma-clear { color: #b91c1c !important; }
+
+/* Botones con degradado: se oscurecen para que el texto blanco se lea */
+.from-orange-500.via-orange-600.to-red-600 { --tw-gradient-from: #c2410c !important; --tw-gradient-via: #b91c1c !important; --tw-gradient-to: #991b1b !important; }
+a.from-green-500.to-green-600 { --tw-gradient-from: #15803d !important; --tw-gradient-to: #166534 !important; }
+a.from-green-500.to-green-600 .opacity-80, a.from-green-500.to-green-600 .opacity-90 { opacity: 1 !important; color: #ecfdf3 !important; }
 
 /* el contenido de las vistas con franja arranca justo debajo (medida en vivo, sin encimarse) */
 html.has-vt .absolute.inset-0.overflow-y-auto { padding-top: calc(var(--hdr-bottom, 60px) + 12px) !important; }
