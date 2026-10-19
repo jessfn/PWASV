@@ -7,72 +7,20 @@
       <div class="absolute bottom-1/4 left-1/3 w-72 h-72 bg-teal-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-pulse-slow" style="animation-delay: 4s;"></div>
     </div>
     
-    <ViewTitle title="Historial" subtitle="Tus registros y actividades" />
-
-    <div class="absolute inset-0 overflow-y-auto pt-16 sm:pt-20 pb-4">
-      <div class="page-container relative z-10 px-2 sm:px-3 md:px-4 lg:px-6 xl:px-8 py-3 sm:py-4 lg:py-5 min-h-full max-w-full">
-    <!-- Tabs para alternar entre registros normales y asistencias -->
-    <div class="apple-header-section">
-      <!-- Segmented Control estilo Apple -->
-      <div class="apple-segmented-control">
-        <div 
-          class="apple-segment-bg" 
-          :class="[
-            tabActiva === 'asistencias' ? 'apple-segment-left apple-segment-bg-blue' : 'apple-segment-right apple-segment-bg-purple'
-          ]"
-        ></div>
-        <button 
-          @click="cambiarTab('asistencias')" 
-          :class="['apple-segment-btn', tabActiva === 'asistencias' ? 'apple-segment-active apple-segment-active-blue' : '']"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="apple-segment-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span>Registros</span>
-        </button>
-        <button 
-          @click="cambiarTab('registros')" 
-          :class="['apple-segment-btn', tabActiva === 'registros' ? 'apple-segment-active apple-segment-active-purple' : '']"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="apple-segment-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-          <span>Actividades</span>
-        </button>
+    <ViewTitle title="Historial" :subtitle="tabActiva === 'registros' ? 'Tus actividades' : 'Entradas y salidas'">
+      <div class="hs-tabs" role="tablist" aria-label="Sección del historial">
+        <button type="button" role="tab" :aria-selected="tabActiva === 'asistencias'" :class="{ 'is-on': tabActiva === 'asistencias' }" @click="cambiarTab('asistencias')">Registros</button>
+        <button type="button" role="tab" :aria-selected="tabActiva === 'registros'" :class="{ 'is-on': tabActiva === 'registros' }" @click="cambiarTab('registros')">Actividades</button>
       </div>
+      <button type="button" class="vt-back" aria-label="Actualizar" title="Actualizar" :disabled="cargando || cargandoAsistencias" @click="tabActiva === 'registros' ? cargarRegistros() : cargarAsistencias()">
+        <svg :class="{ 'hs-spin': cargando || cargandoAsistencias }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v5h.6m15.4 2A8 8 0 004.6 9M4.6 9H9m11 11v-5h-.6m0 0a8 8 0 01-15.4-2m15.4 2H15" /></svg>
+      </button>
+    </ViewTitle>
 
-      <!-- Tab de Registros Normales -->
-      <div v-show="tabActiva === 'registros'" class="apple-tab-content">
-        <div class="apple-title-row">
-          <div class="apple-title-group">
-            <h2 class="apple-section-title apple-title-purple">Actividades</h2>
-            <p class="apple-section-subtitle">Historial de trabajo registrado</p>
-          </div>
-          <button @click="cargarRegistros" class="apple-refresh-btn apple-refresh-purple">
-            <svg :class="['apple-refresh-icon', cargando ? 'apple-spinning' : '']" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      <!-- Tab de Asistencias -->
-      <div v-show="tabActiva === 'asistencias'" class="apple-tab-content">
-        <div class="apple-title-row">
-          <div class="apple-title-group">
-            <h2 class="apple-section-title apple-title-blue">Registros</h2>
-            <p class="apple-section-subtitle">Entradas y salidas del día</p>
-          </div>
-          <button @click="cargarAsistencias" class="apple-refresh-btn apple-refresh-blue">
-            <svg :class="['apple-refresh-icon', cargandoAsistencias ? 'apple-spinning' : '']" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div class="glass-card mb-2">
+    <div class="hs-root">
+      <div class="hs-page">
+    <div class="glass-card hs-panel">
+      <div class="hs-scroll" ref="scrollEl">
       <div v-if="error" class="mb-3 bg-red-100 border-l-4 border-red-500 text-red-700 p-3" role="alert">
         <p class="text-xs">{{ error }}</p>
         <p class="text-xs mt-1">
@@ -493,6 +441,7 @@
         <div class="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary mx-auto"></div>
         <p class="mt-3 text-gray-500 text-sm">Cargando asistencias...</p>
       </div>
+      </div>
     </div>
   </div>
 </div>
@@ -570,6 +519,8 @@ const detailMap = ref(null);
 const isOnline = ref(true);
 const userInfo = ref(null);
 const tabActiva = ref('asistencias');
+const scrollEl = ref(null);
+watch(tabActiva, () => { if (scrollEl.value) scrollEl.value.scrollTop = 0; });
 const imagenModalVisible = ref(false);
 const imagenSeleccionada = ref('');
 
@@ -2819,4 +2770,42 @@ function verImagen(url) {
   }
   .space-y-2:has(> div > .space-y-2) > * { margin: 0 !important; }
 }
+</style>
+
+<style scoped>
+/* =====================================================================
+   HISTORIAL: pestañas dentro de la franja verde y un recuadro con scroll propio
+   (nada de bajar toda la página: se desplaza solo la lista, en Registros y en Actividades)
+   ===================================================================== */
+.hs-root {
+  position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column;
+  padding: calc(var(--hdr-bottom, 110px) + 12px) 12px calc(env(safe-area-inset-bottom, 0px) + 12px);
+}
+.hs-page { flex: 1; min-height: 0; width: 100%; max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; }
+.hs-panel {
+  flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
+  padding: 0 !important; margin: 0 !important; transform: none !important;
+}
+.hs-panel::before { display: none !important; }
+.hs-scroll {
+  flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  padding: 12px 12px calc(env(safe-area-inset-bottom, 0px) + 78px);
+}
+@media (min-width: 640px) { .hs-scroll { padding: 16px 18px 92px; } .hs-root { padding-left: 20px; padding-right: 20px; } }
+@media (min-width: 1024px) { .hs-root { padding-left: 28px; padding-right: 28px; padding-bottom: 20px; } }
+
+.hs-tabs { display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 3px; border-radius: 999px; background: rgba(0, 45, 8, 0.32); border: 1px solid rgba(255, 255, 255, 0.22); }
+.hs-tabs button {
+  height: 28px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: #fff; white-space: nowrap;
+  font: 600 0.78rem -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', system-ui, sans-serif;
+  cursor: pointer; transition: background 0.2s, color 0.2s; -webkit-tap-highlight-color: transparent;
+}
+.hs-tabs button.is-on { background: #ffffff; color: #0b5a18; box-shadow: 0 1px 4px rgba(0, 40, 6, 0.28); }
+@media (max-width: 380px) { .hs-tabs button { padding: 0 10px; font-size: 0.74rem; } }
+.hs-spin { animation: hs-giro 0.9s linear infinite; }
+@keyframes hs-giro { to { transform: rotate(360deg); } }
+</style>
+
+<style scoped>
+@media (min-width: 1700px) { .hs-page { max-width: 1560px; } }
 </style>
