@@ -196,7 +196,6 @@
                   <th>Destinatarios</th>
                   <th>Fecha de Envío</th>
                   <th>Enterados</th>
-                  <th>Estado</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
@@ -244,9 +243,6 @@
                       <i><em :style="{ width: (notificacion.destinatarios_total ? Math.min(100, Math.round((notificacion.enterados || 0) * 100 / notificacion.destinatarios_total)) : 0) + '%' }"></em></i>
                       <span v-if="notificacion.requiere_enterado" class="ent-req">La pidieron</span>
                     </div>
-                  </td>
-                  <td>
-                    <span class="apple-status-badge enviada">Enviada</span>
                   </td>
                   <td>
                     <div class="apple-actions">
@@ -6081,4 +6077,22 @@ export default {
 .ent-cuando.sin { color: #7a4300; font-weight: 600; }
 .ent-vacio { padding: 18px; text-align: center; color: #5b6676; font-size: 13px; }
 .ent-mas { display: block; margin: 10px auto 0; padding: 8px 18px; border: 1px solid #b6e3c6; border-radius: 999px; background: #fff; color: #14532d; font-weight: 600; font-size: 12.5px; cursor: pointer; }
+</style>
+
+<style scoped>
+/* Tabla de notificaciones: anchos por columna para que SIEMPRE se vean las Acciones y no haya scroll lateral */
+.apple-table th:nth-child(1) { width: 25%; }
+.apple-table th:nth-child(2) { width: 19%; }
+.apple-table th:nth-child(3) { width: 22%; }
+.apple-table th:nth-child(4) { width: 150px; }
+.apple-table th:nth-child(5) { width: 120px; }
+.apple-table th:nth-child(6) { width: 168px; }
+.apple-table th, .apple-table td { padding-left: 12px; padding-right: 12px; }
+.apple-table-wrapper { overflow-x: hidden; }
+.ent-col { min-width: 0; width: 100%; }
+.apple-actions { flex-wrap: nowrap; }
+@media (max-width: 1100px) {
+  .apple-table-wrapper { overflow-x: auto; }
+  .apple-table { min-width: 940px; }
+}
 </style>

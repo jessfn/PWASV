@@ -6,8 +6,8 @@
     </div>
 
     <div class="doc__info">
-      <strong>{{ tipo.etiqueta }}</strong>
-      <span>{{ detalle }}</span>
+      <strong class="doc__nombre">{{ nombre || tipo.etiqueta }}</strong>
+      <span>{{ tipo.etiqueta }}<template v-if="tamano"> · {{ tamano }}</template></span>
     </div>
 
     <div class="doc__acc">
@@ -44,7 +44,7 @@ const accion = ref('')
 const avance = ref(0)
 const mensaje = ref('')
 const error = ref(false)
-const detalle = computed(() => tamanoLegible(bytes.value) || 'Toca Abrir para verlo')
+const tamano = computed(() => tamanoLegible(bytes.value))
 
 const avisar = (txt, esError = false) => { mensaje.value = txt; error.value = esError }
 const nombreFinal = () => nombreDescarga(props.nombre || props.titulo, tipo.value, 'documento')
@@ -104,6 +104,7 @@ onMounted(async () => { bytes.value = await tamanoRemoto(props.url) })
 .doc__ico svg { width: 38px; height: 38px; opacity: 0.35; }
 .doc__ico b { position: absolute; bottom: 9px; font-size: 0.66rem; font-weight: 800; letter-spacing: 0.04em; }
 .doc__info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.doc__nombre { overflow-wrap: anywhere; line-height: 1.25; }
 .doc__info strong { font-size: 0.95rem; font-weight: 650; color: #0f172a; letter-spacing: -0.01em; }
 .doc__info span { font-size: 0.8rem; color: #5b6676; }
 .doc__acc { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }

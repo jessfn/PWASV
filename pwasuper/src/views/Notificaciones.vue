@@ -125,19 +125,12 @@
                     </div>
                     <span v-else-if="n.tiene_archivo" class="nf-dochip">
                       <span class="nf-dochip__ico" :style="{ background: tipoDoc(n).fondo, color: tipoDoc(n).color }">{{ tipoDoc(n).corto }}</span>
-                      <span class="nf-chip__t">{{ tipoDoc(n).etiqueta }}</span>
+                      <span class="nf-chip__t">{{ n.archivo_nombre || tipoDoc(n).etiqueta }}</span>
                     </span>
 
-                    <!-- Enterado: botón tipo "me gusta" en la esquina de la tarjeta -->
-                    <div class="nf-acts">
-                      <button type="button" class="nf-like" :class="{ 'is-on': n.enterado, 'is-req': n.requiere_enterado && !n.enterado }"
-                              :disabled="enterandoId === n.id" :aria-pressed="!!n.enterado"
-                              :aria-label="n.enterado ? 'Enterado' : 'Marcar como enterado'"
-                              :title="n.enterado ? 'Ya te diste por enterado' : 'Toca para confirmar que leíste este aviso'"
-                              @click.stop="darEnterado(n)">
-                        <template v-if="n.enterado"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg></template><template v-else><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 11v8a1 1 0 01-1 1H4a1 1 0 01-1-1v-7a1 1 0 011-1h3a4 4 0 004-4V5a2 2 0 014 0v5h3a2 2 0 012 2l-1 5a3 3 0 01-3 3h-7a3 3 0 01-3-3" /></svg></template>
-                        <span>{{ enterandoId === n.id ? 'Guardando…' : 'Enterado' }}</span>
-                      </button>
+                    <!-- Enterado: solo se muestra (se marca únicamente dentro de la notificación) -->
+                    <div v-if="n.enterado" class="nf-acts">
+                      <span class="nf-like-mini" title="Ya te diste por enterado" aria-label="Enterado"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 11v8a1 1 0 01-1 1H4a1 1 0 01-1-1v-7a1 1 0 011-1h3a4 4 0 004-4V5a2 2 0 014 0v5h3a2 2 0 012 2l-1 5a3 3 0 01-3 3h-7a3 3 0 01-3-3" /></svg><span>Enterado</span></span>
                     </div>
                   </div>
 
@@ -6675,4 +6668,13 @@ video::-webkit-media-controls {
 .nf-enterar__txt { font-weight: 500 !important; color: #475467 !important; }
 .nf-enterar.is-req .nf-enterar__txt { color: #7a4300 !important; font-weight: 650 !important; }
 .nf-enterar__btn svg { width: 22px; height: 22px; }
+</style>
+
+<style scoped>
+/* Indicador pequeño (no pulsable) de "Enterado" en la lista */
+.nf-acts { margin-top: 8px; }
+.nf-like-mini { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px 2px 7px; border-radius: 999px; background: #dcf5e5; color: #14532d; font-size: 0.7rem; font-weight: 700; pointer-events: none; user-select: none; }
+.nf-like-mini svg { width: 13px; height: 13px; }
+.nf-dochip { max-width: 100%; }
+.nf-dochip .nf-chip__t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>
