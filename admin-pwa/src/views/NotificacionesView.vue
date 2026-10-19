@@ -6091,8 +6091,13 @@ export default {
 .apple-table-wrapper { overflow-x: hidden; }
 .ent-col { min-width: 0; width: 100%; }
 .apple-actions { flex-wrap: nowrap; }
-@media (max-width: 1100px) {
-  .apple-table-wrapper { overflow-x: auto; }
-  .apple-table { min-width: 940px; }
+/* pantallas medianas: se oculta el subtítulo (ya se ve en el detalle) para que quepan Enterados y Acciones */
+@media (max-width: 1240px) {
+  .apple-table th:nth-child(2), .apple-table td:nth-child(2) { display: none; }
+  .apple-table th:nth-child(1) { width: 32%; }
+  .apple-table th:nth-child(3) { width: 28%; }
+  .apple-table th:nth-child(4) { width: 130px; }
+  .apple-table th:nth-child(5) { width: 100px; }
+  .apple-table th:nth-child(6) { width: 160px; }
 }
 </style>
