@@ -1582,7 +1582,13 @@ const formatearDescripcion = (texto) => {
   
   // PASO 6: Detectar URLs y convertirlas en enlaces
   const urlRegex = /(https?:\/\/[^\s<]+)/g
-  textoFormateado = textoFormateado.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-orange-600 hover:text-orange-800 underline break-all">$1</a>')
+  textoFormateado = textoFormateado.replace(urlRegex, (m) => {
+    const fin = (m.match(/[.,;:!?)\]]+$/) || [''])[0]
+    const url = fin ? m.slice(0, -fin.length) : m
+    let host = url
+    try { host = new URL(url.replace(/&amp;/g, '&')).hostname.replace(/^www\./, '') } catch (e) { /* se muestra la direccion tal cual */ }
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="nf-link"><span class="nf-link__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.07 0l3-3a5 5 0 00-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 00-7.07 0l-3 3a5 5 0 007.07 7.07l1.5-1.5"/></svg></span><span class="nf-link__tx"><b>${host}</b><small>Abrir enlace</small></span><svg class="nf-link__go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>${fin}`
+  })
   
   // PASO 7: Detectar texto entre asteriscos como negrita/itálica
   textoFormateado = textoFormateado.replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-gray-900">$1</strong>')
@@ -6562,4 +6568,16 @@ video::-webkit-media-controls {
 .nf-like-mini svg { width: 13px; height: 13px; }
 .nf-dochip { max-width: 100%; }
 .nf-dochip .nf-chip__t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Enlaces dentro del mensaje: tarjeta tocable en vez de URL larga */
+.sf-message-content :deep(a.nf-link) { display: flex; align-items: center; gap: 10px; margin: 10px 0; padding: 10px 12px; max-width: 100%; text-decoration: none; color: #14532d;
+  background: rgba(22,163,74,.08); border: 1px solid rgba(22,163,74,.22); border-radius: 14px; transition: background .15s ease, transform .15s ease; -webkit-tap-highlight-color: transparent; }
+.sf-message-content :deep(a.nf-link:hover) { background: rgba(22,163,74,.14); }
+.sf-message-content :deep(a.nf-link:active) { transform: scale(.98); }
+.sf-message-content :deep(.nf-link__ic) { flex: none; width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: #16a34a; color: #fff; }
+.sf-message-content :deep(.nf-link__ic) svg { width: 18px; height: 18px; }
+.sf-message-content :deep(.nf-link__tx) { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.sf-message-content :deep(.nf-link__tx) b { font-weight: 600; font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sf-message-content :deep(.nf-link__tx) small { font-size: .72rem; color: #4b7a5c; }
+.sf-message-content :deep(.nf-link__go) { flex: none; width: 16px; height: 16px; color: #16a34a; }
 </style>

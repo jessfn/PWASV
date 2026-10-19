@@ -281,7 +281,6 @@
                   
                   <!-- Description -->
                   <section v-if="manualSeleccionado?.descripcion" class="apple-section">
-                    <h3 class="apple-section-title">Descripción</h3>
                     <p class="apple-description">{{ manualSeleccionado.descripcion }}</p>
                   </section>
                   
@@ -300,39 +299,8 @@
                     </div>
                   </section>
                   
-                  <!-- Info list -->
-                  <section class="apple-section">
-                    <h3 class="apple-section-title">Información</h3>
-                    <div class="apple-info-list">
-                      <div class="apple-info-item">
-                        <div class="apple-info-icon">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                            <line x1="16" y1="2" x2="16" y2="6"/>
-                            <line x1="8" y1="2" x2="8" y2="6"/>
-                            <line x1="3" y1="10" x2="21" y2="10"/>
-                          </svg>
-                        </div>
-                        <div class="apple-info-content">
-                          <span class="apple-info-label">Publicación</span>
-                          <span class="apple-info-value">{{ formatearFecha(manualSeleccionado?.fecha_creacion) }}</span>
-                        </div>
-                      </div>
-                      
-                      <div v-if="manualSeleccionado?.leido" class="apple-info-item apple-info-success">
-                        <div class="apple-info-icon">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                            <polyline points="22 4 12 14.01 9 11.01"/>
-                          </svg>
-                        </div>
-                        <div class="apple-info-content">
-                          <span class="apple-info-label">Lectura</span>
-                          <span class="apple-info-value">{{ formatearFecha(manualSeleccionado?.fecha_lectura) }}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </section>
+                  <!-- Fecha de publicación -->
+                  <p v-if="manualSeleccionado?.fecha_creacion" class="mn-fecha">Publicado el {{ formatearFecha(manualSeleccionado.fecha_creacion) }}</p>
                   
                 </div>
                 
@@ -1863,4 +1831,6 @@ onMounted(() => {
 <style scoped>
 .man-doc { width: 100%; }
 .apple-quick-actions { display: flex; flex-direction: column; gap: 10px; }
+
+.mn-fecha { margin: 22px 0 4px; text-align: center; font-size: 0.75rem; color: #6b7280; letter-spacing: 0.01em; }
 </style>
