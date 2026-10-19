@@ -343,19 +343,16 @@
                      rel="noopener noreferrer"
                      class="sf-link-card">
                     <div class="sf-link-icon">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                        <polyline points="15,3 21,3 21,9"/>
-                        <line x1="10" y1="14" x2="21" y2="3"/>
-                      </svg>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.7 2.6 15.3 0 18M12 3c-2.6 2.7-2.6 15.3 0 18"/></svg>
                     </div>
                     <div class="sf-link-info">
-                      <span class="sf-link-label">Abrir enlace externo</span>
-                      <span class="sf-link-url">{{ formatearEnlaceLegible(notificacionSeleccionada.enlace_url) }}</span>
+                      <span class="sf-link-label">Sitio web</span>
+                      <span class="sf-link-host">{{ hostEnlace(notificacionSeleccionada.enlace_url) }}</span>
+                      <span class="sf-link-url">{{ rutaEnlace(notificacionSeleccionada.enlace_url) }}</span>
                     </div>
-                    <svg class="sf-link-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <polyline points="9,18 15,12 9,6"/>
-                    </svg>
+                    <span class="sf-link-go">Visitar
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg>
+                    </span>
                   </a>
                 </section>
                 
@@ -876,6 +873,8 @@ const formatearEnlaceCorto = (url) => {
 }
 
 // Función para formatear enlace de manera más legible y atractiva
+const hostEnlace = (url) => { try { return new URL(url).hostname.replace(/^www\./, '') } catch (e) { return url } }
+const rutaEnlace = (url) => { try { const u = new URL(url); const r = (u.pathname + u.search).replace(/^\/$/, ''); return r || u.protocol.replace(':', '') } catch (e) { return '' } }
 const formatearEnlaceLegible = (url) => {
   if (!url) return ''
   
@@ -6580,4 +6579,16 @@ video::-webkit-media-controls {
 .sf-message-content :deep(.nf-link__tx) b { font-weight: 600; font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sf-message-content :deep(.nf-link__tx) small { font-size: .72rem; color: #4b7a5c; }
 .sf-message-content :deep(.nf-link__go) { flex: none; width: 16px; height: 16px; color: #16a34a; }
+
+/* Enlace externo: estilo "vista previa de sitio" (distinto de la tarjeta de archivo) */
+.sf-link-section .sf-link-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: #fff; border: 1px dashed #c3d3e8; border-radius: 16px; box-shadow: none; text-decoration: none; }
+.sf-link-section .sf-link-card:active { transform: scale(.985); }
+.sf-link-section .sf-link-icon { flex: none; width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #eef3fa; color: #3b6fb6; box-shadow: none; }
+.sf-link-section .sf-link-icon svg { width: 20px; height: 20px; }
+.sf-link-section .sf-link-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.sf-link-section .sf-link-label { font-size: .66rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #7a8aa0; }
+.sf-link-section .sf-link-host { font-size: .95rem; font-weight: 600; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sf-link-section .sf-link-url { font-size: .76rem; color: #8a97a8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sf-link-section .sf-link-go { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 7px 12px; border-radius: 999px; font-size: .8rem; font-weight: 600; color: #3b6fb6; background: #eef3fa; }
+.sf-link-section .sf-link-go svg { width: 13px; height: 13px; }
 </style>
