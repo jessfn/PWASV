@@ -14,6 +14,7 @@ import { API_URL } from './utils/network.js';
 import { reportarError, recuperarApp, diagnostico } from './utils/errorReporter.js';
 import { apiService } from './services/apiService.js';
 import { sincronizarPush } from './utils/push.js';
+import { anunciarNuevas } from './utils/sonidoNotificacion.js';
 import { manualesService } from './services/manualesService.js';
 import { registrarDispositivoActual, iniciarTrackingPeriodico, detenerTrackingPeriodico } from './services/dispositivoTrackingService.js';
 
@@ -82,6 +83,8 @@ const alMensajeServiceWorker = (e) => {
   const d = e && e.data;
   if (!d) return;
   if (d.type === 'PUSH_RECIBIDO') {
+    // Ding una sola vez por esta notificación (si el sondeo la detecta después, ya no vuelve a sonar)
+    try { anunciarNuevas(userData.value && userData.value.id, d.id ? [d.id] : []); } catch { /* sin audio */ }
     try { fetchUnreadCount(); } catch { /* el sondeo lo corrige */ }
     window.dispatchEvent(new CustomEvent('notificaciones:nueva', { detail: d }));
   } else if (d.type === 'ABRIR_RUTA' && d.url) {

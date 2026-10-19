@@ -22,10 +22,12 @@ self.addEventListener('push', (event) => {
   };
 
   event.waitUntil((async () => {
-    await self.registration.showNotification(titulo, opciones);
+    const ventanas = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const aLaVista = ventanas.some((c) => c.visibilityState === 'visible');
+    // Con la app a la vista suena el ding de la propia app; si no, aparece el aviso del teléfono (con su sonido)
+    if (!aLaVista) await self.registration.showNotification(titulo, opciones);
     try {
       // Reactivo: las ventanas abiertas refrescan su lista y su contador de inmediato
-      const ventanas = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       ventanas.forEach((c) => c.postMessage({ type: 'PUSH_RECIBIDO', id: d.id || null }));
       // Punto en el icono de la app mientras haya algo nuevo (la app lo pone en número al abrirse)
       if (self.navigator && self.navigator.setAppBadge) await self.navigator.setAppBadge();

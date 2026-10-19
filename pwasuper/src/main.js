@@ -3,6 +3,7 @@ import App from './App.vue'
 import router from './router'
 import { iniciarReporteErrores } from './utils/errorReporter.js'
 import { iniciarActualizador } from './utils/actualizador.js'
+import { prepararSonido } from './utils/sonidoNotificacion.js'
 import { iniciarMedidaEncabezados } from './utils/antiTraslape.js'
 import { notificarActualizacion } from './utils/serviceWorkerRegistration.js'
 
@@ -46,16 +47,8 @@ window.addEventListener('load', async () => {
     
     console.log('✅ Aplicación lista con soporte offline');
     
-    // Inicializar sistema de notificaciones global con sonido
-    const { initializeGlobalAudio, requestNotificationPermission } = useNotifications();
-    
-    // Solicitar permisos de notificación al usuario
-    await requestNotificationPermission();
-    
-    // Inicializar audio global (después de interacción del usuario)
-    document.addEventListener('click', () => {
-      initializeGlobalAudio();
-    }, { once: true });
+    // Sonido de avisos: se prepara en el primer toque (los navegadores no permiten sonar antes)
+    prepararSonido();
     
     console.log('🔔 Sistema de notificaciones con sonido inicializado');
     

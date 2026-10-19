@@ -17,6 +17,7 @@
         <div class="w-full max-w-lg mx-auto space-y-4">
         <!-- Avisos en el teléfono (push) -->
         <div class="st-push"><PushOptIn /></div>
+        <div class="st-push"><SonidoAvisos /></div>
 
         <!-- Sección: Almacenamiento en Caché -->
         <div class="glass-card">
@@ -366,6 +367,7 @@ import { useRouter } from 'vue-router';
 import ViewTitle from '../components/ViewTitle.vue'
 import offlineService from '../services/offlineService.js';
 import PushOptIn from '../components/PushOptIn.vue';
+import SonidoAvisos from '../components/SonidoAvisos.vue';
 
 const router = useRouter();
 

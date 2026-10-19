@@ -452,124 +452,8 @@ const imagenSeleccionada = ref('')
 // Variable para la URL de la API (para construir URLs de fotos)
 const currentApiUrl = ref('')
 
-// NUEVO: Audio para notificaciones
-let audioNotificacion = null
+// El sonido de los avisos lo maneja un solo módulo (utils/sonidoNotificacion.js): un ding por notificación nueva.
 
-// Inicializar audio en el navegador
-const inicializarAudio = () => {
-  try {
-    // Crear un beep utilizando Web Audio API
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)()
-    
-    // Función para crear un sonido de notificación suave tipo "ding" moderno
-    const crearSonidoNotificacion = () => {
-      const oscillator1 = audioContext.createOscillator()
-      const oscillator2 = audioContext.createOscillator()
-      const gainNode = audioContext.createGain()
-      
-      // Conectar los nodos
-      oscillator1.connect(gainNode)
-      oscillator2.connect(gainNode)
-      gainNode.connect(audioContext.destination)
-      
-      // Configurar el primer oscilador - tono principal
-      oscillator1.type = 'sine' // Onda sinusoidal suave
-      oscillator1.frequency.setValueAtTime(1000, audioContext.currentTime)
-      oscillator1.frequency.exponentialRampToValueAtTime(800, audioContext.currentTime + 0.1)
-      
-      // Configurar el segundo oscilador - armonía sutil
-      oscillator2.type = 'sine'
-      oscillator2.frequency.setValueAtTime(1200, audioContext.currentTime)
-      oscillator2.frequency.exponentialRampToValueAtTime(960, audioContext.currentTime + 0.1)
-      
-      // Configurar el volumen - envolvente muy suave tipo "ding"
-      gainNode.gain.setValueAtTime(0, audioContext.currentTime)
-      gainNode.gain.linearRampToValueAtTime(0.08, audioContext.currentTime + 0.02) // Ataque rápido
-      gainNode.gain.exponentialRampToValueAtTime(0.05, audioContext.currentTime + 0.1) // Sustain suave
-      gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.6) // Decay largo y suave
-      
-      // Reproducir ambos osciladores
-      oscillator1.start(audioContext.currentTime)
-      oscillator1.stop(audioContext.currentTime + 0.6)
-      
-      oscillator2.start(audioContext.currentTime)
-      oscillator2.stop(audioContext.currentTime + 0.6)
-    }
-    
-    audioNotificacion = crearSonidoNotificacion
-    console.log('🔊 Audio de notificaciones inicializado correctamente')
-    
-  } catch (error) {
-    console.warn('⚠️ No se pudo inicializar el audio de notificaciones:', error)
-    
-    // Fallback: usar un beep del sistema si está disponible
-    audioNotificacion = () => {
-      try {
-        // Intentar usar el beep del sistema
-        if (navigator.vibrate) {
-          navigator.vibrate([100, 50, 100]) // Patrón de vibración suave
-        }
-        console.log('📳 Usando vibración como alternativa al sonido')
-      } catch (e) {
-        console.log('🔇 No hay alternativas de audio/vibración disponibles')
-      }
-    }
-  }
-}
-
-// NUEVO: Función para reproducir sonido de notificación
-const reproducirSonidoNotificacion = () => {
-  try {
-    if (audioNotificacion && typeof audioNotificacion === 'function') {
-      audioNotificacion()
-      console.log('🔊 Sonido de notificación reproducido')
-    } else {
-      console.log('🔇 Audio de notificaciones no disponible')
-    }
-  } catch (error) {
-    console.warn('⚠️ Error reproduciendo sonido de notificación:', error)
-  }
-}
-
-// NUEVO: Detectar nuevas notificaciones y reproducir sonido (MEJORADO - menos frecuente)
-const detectarNuevasNotificaciones = (nuevoConteo) => {
-  // Solo reproducir sonido si:
-  // 1. No estamos cargando por primera vez
-  // 2. El nuevo conteo es mayor al anterior
-  // 3. El conteo anterior no es 0 (evitar sonido al cargar inicial)
-  // 4. Ha pasado al menos 10 segundos desde el último sonido
-  const ahora = Date.now()
-  const tiempoUltimoSonido = localStorage.getItem('ultimoSonidoNotificacion')
-  const INTERVALO_MINIMO = 10000 // 10 segundos entre sonidos
-  
-  if (!cargando.value && 
-      nuevoConteo > conteoAnterior.value && 
-      conteoAnterior.value >= 0 &&
-      (!tiempoUltimoSonido || (ahora - parseInt(tiempoUltimoSonido)) > INTERVALO_MINIMO)) {
-    
-    const nuevasNotificaciones = nuevoConteo - conteoAnterior.value
-    console.log(`🔔 ${nuevasNotificaciones} nueva(s) notificación(es) detectada(s)`)
-    
-    // Reproducir sonido para nuevas notificaciones
-    reproducirSonidoNotificacion()
-    
-    // Guardar timestamp del último sonido
-    localStorage.setItem('ultimoSonidoNotificacion', ahora.toString())
-    
-    // Mostrar notificación del navegador si está permitido
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('Nueva notificación', {
-        body: `Tienes ${nuevasNotificaciones} nueva(s) notificación(es)`,
-        icon: '/pwa-192x192.png',
-        tag: 'new-notification',
-        silent: false // Permitir que el navegador también haga sonido
-      })
-    }
-  }
-  
-  // Actualizar contador anterior para la próxima comparación
-  conteoAnterior.value = nuevoConteo
-}
 
 // Sistema global de notificaciones para actualización inmediata del badge
 const { fetchUnreadCount, markAsRead } = useNotifications()
@@ -780,11 +664,6 @@ const obtenerConteoNoLeidas = async (usuarioId, detectarCambios = true) => {
     console.log(`📊 Obteniendo conteo de no leídas para usuario ${usuarioId}`)
     
     const conteo = await notificacionesService.obtenerConteoNoLeidas(usuarioId)
-    
-    // Detectar cambios y reproducir sonido si corresponde
-    if (detectarCambios) {
-      detectarNuevasNotificaciones(conteo)
-    }
     
     conteoNoLeidas.value = conteo
     
@@ -1740,8 +1619,6 @@ onMounted(async () => {
   currentApiUrl.value = apiService.getCurrentApiUrl() || ''
   console.log(`🌐 API URL inicializada: ${currentApiUrl.value}`)
   
-  // Inicializar audio de notificaciones
-  inicializarAudio()
   
   // El permiso de avisos del teléfono se pide solo desde la tarjeta "Activar avisos" (con un toque del usuario);
   // pedirlo aquí bloqueaba la carga de la lista mientras el aviso del navegador seguía abierto.

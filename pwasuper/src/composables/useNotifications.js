@@ -1,5 +1,6 @@
 import { ref, reactive } from 'vue'
 import notificacionesService from '../services/notificacionesService.js'
+import { prepararSonido, ding, anunciarNuevas, registrarConocidas, hayLineaBase, activarSonido, sonidoActivado } from '../utils/sonidoNotificacion.js'
 
 // Estado global de notificaciones
 const globalNotificationState = reactive({
@@ -16,131 +17,35 @@ const globalNotificationState = reactive({
 const unreadCount = ref(0)
 const isUpdating = ref(false)
 
-// NUEVO: Audio global para notificaciones
+// ===== Sonido: un "ding" por cada notificación NUEVA (por id), nunca por cambios del contador =====
 let globalAudioNotification = null
+const initializeGlobalAudio = () => { prepararSonido() }
 
-// NUEVO: Inicializar audio global
-const initializeGlobalAudio = () => {
+// Cuando el contador sube se pregunta cuáles ids son nuevos; solo suena si alguno no se conocía antes
+let revisandoNuevas = false
+const revisarNuevas = async (userId) => {
+  if (revisandoNuevas || !userId) return
+  revisandoNuevas = true
   try {
-    // Crear un beep utilizando Web Audio API
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)()
-    
-    // Función para crear un sonido de notificación suave tipo "ding" moderno
-    const createNotificationSound = () => {
-      const oscillator1 = audioContext.createOscillator()
-      const oscillator2 = audioContext.createOscillator()
-      const gainNode = audioContext.createGain()
-      
-      // Conectar los nodos
-      oscillator1.connect(gainNode)
-      oscillator2.connect(gainNode)
-      gainNode.connect(audioContext.destination)
-      
-      // Configurar el primer oscilador - tono principal
-      oscillator1.type = 'sine' // Onda sinusoidal suave
-      oscillator1.frequency.setValueAtTime(1000, audioContext.currentTime)
-      oscillator1.frequency.exponentialRampToValueAtTime(800, audioContext.currentTime + 0.1)
-      
-      // Configurar el segundo oscilador - armonía sutil
-      oscillator2.type = 'sine'
-      oscillator2.frequency.setValueAtTime(1200, audioContext.currentTime)
-      oscillator2.frequency.exponentialRampToValueAtTime(960, audioContext.currentTime + 0.1)
-      
-      // Configurar el volumen - envolvente muy suave tipo "ding"
-      gainNode.gain.setValueAtTime(0, audioContext.currentTime)
-      gainNode.gain.linearRampToValueAtTime(1.0, audioContext.currentTime + 0.02) // Ataque rápido al 100%
-      gainNode.gain.exponentialRampToValueAtTime(0.8, audioContext.currentTime + 0.1) // Sustain fuerte
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.6) // Decay largo y suave
-      
-      // Reproducir ambos osciladores
-      oscillator1.start(audioContext.currentTime)
-      oscillator1.stop(audioContext.currentTime + 0.6)
-      
-      oscillator2.start(audioContext.currentTime)
-      oscillator2.stop(audioContext.currentTime + 0.6)
-    }
-    
-    globalAudioNotification = createNotificationSound
-    console.log('🔊 Audio global de notificaciones inicializado correctamente')
-    
-  } catch (error) {
-    console.warn('⚠️ No se pudo inicializar el audio global de notificaciones:', error)
-    
-    // Fallback: usar vibración si está disponible
-    globalAudioNotification = () => {
-      try {
-        if (navigator.vibrate) {
-          navigator.vibrate([100, 50, 100]) // Patrón de vibración suave
-        }
-        console.log('📳 Usando vibración como alternativa al sonido')
-      } catch (e) {
-        console.log('🔇 No hay alternativas de audio/vibración disponibles')
-      }
-    }
+    const r = await notificacionesService.obtenerListaNotificaciones(userId, 'all', 15, 0)
+    const ids = ((r && r.notificaciones) || []).map((n) => n.id)
+    if (!hayLineaBase(userId)) registrarConocidas(userId, ids)   // primera vez en este dispositivo: solo aprende
+    else anunciarNuevas(userId, ids)
+  } catch { /* el siguiente sondeo lo reintenta */ } finally {
+    revisandoNuevas = false
   }
 }
 
-// NUEVO: Reproducir sonido de notificación global
-const playGlobalNotificationSound = () => {
-  try {
-    if (globalNotificationState.soundEnabled && globalAudioNotification && typeof globalAudioNotification === 'function') {
-      globalAudioNotification()
-      console.log('🔊 Sonido global de notificación reproducido')
-      
-      // Mostrar notificación del navegador si está permitido
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('Nueva notificación', {
-          body: `Tienes ${globalNotificationState.unreadCount} notificación(es) no leída(s)`,
-          icon: '/pwa-192x192.png',
-          tag: 'new-notification',
-          silent: false,
-          requireInteraction: false,
-          timestamp: Date.now()
-        })
-      }
-    } else {
-      console.log('🔇 Sonido deshabilitado o no disponible')
-    }
-  } catch (error) {
-    console.warn('⚠️ Error reproduciendo sonido global de notificación:', error)
-  }
-}
+const playGlobalNotificationSound = () => { ding() }
 
-// NUEVO: Detectar nuevas notificaciones y reproducir sonido globalmente
-const detectNewNotifications = (newCount) => {
-  // Solo reproducir sonido si:
-  // 1. La aplicación ya está inicializada
-  // 2. El nuevo conteo es mayor al anterior
-  // 3. El sonido está habilitado
-  if (globalNotificationState.isInitialized && 
-      newCount > globalNotificationState.previousCount && 
-      globalNotificationState.soundEnabled) {
-    
-    const newNotifications = newCount - globalNotificationState.previousCount
-    console.log(`🔔 ${newNotifications} nueva(s) notificación(es) detectada(s) globalmente`)
-    
-    // Reproducir sonido
-    playGlobalNotificationSound()
-  }
-  
-  // Actualizar contador anterior para la próxima comparación
+const detectNewNotifications = (newCount, userId) => {
+  if (newCount > globalNotificationState.previousCount) revisarNuevas(userId)
   globalNotificationState.previousCount = newCount
 }
 
 // NUEVO: Solicitar permisos de notificación
-const requestNotificationPermission = async () => {
-  if ('Notification' in window && Notification.permission === 'default') {
-    try {
-      const permission = await Notification.requestPermission()
-      console.log(`🔔 Permisos de notificación: ${permission}`)
-      return permission === 'granted'
-    } catch (error) {
-      console.warn('⚠️ Error solicitando permisos de notificación:', error)
-      return false
-    }
-  }
-  return 'Notification' in window && Notification.permission === 'granted'
-}
+// El permiso de avisos del teléfono solo se pide desde la tarjeta "Activar avisos" (con un toque de la persona)
+const requestNotificationPermission = async () => ('Notification' in window && Notification.permission === 'granted')
 
 /**
  * Composable para manejar el estado global de notificaciones
@@ -213,11 +118,12 @@ export const useNotifications = () => {
       
       // NUEVO: Detectar cambios y reproducir sonido si corresponde
       if (globalNotificationState.isInitialized) {
-        detectNewNotifications(count)
+        detectNewNotifications(count, currentUserId)
       } else {
-        // Primera carga - establecer contador base sin sonido
+        // Primera carga - establecer contador base sin sonido y aprender las notificaciones que ya existen
         globalNotificationState.previousCount = count
         globalNotificationState.isInitialized = true
+        revisarNuevas(currentUserId)
         console.log(`🔔 Estado inicial establecido: ${count} notificaciones no leídas`)
       }
       
@@ -297,9 +203,11 @@ export const useNotifications = () => {
   /**
    * Inicializar polling automático del conteo - cada segundo para respuesta inmediata
    */
-  const startPolling = (intervalMs = 2000) => { // 2 segundos para balance entre respuesta y rendimiento
+  let sondeoActivo = null
+  const startPolling = (intervalMs = 10000) => { // cada 10 s; los avisos push llegan al instante
     const userId = getUserId()
     if (!userId) return null
+    if (sondeoActivo) return sondeoActivo   // un solo sondeo: antes se creaban varios y el sonido se repetía
 
     console.log(`🔄 Iniciando polling global cada ${intervalMs / 1000}s para notificaciones`)
     
@@ -324,6 +232,7 @@ export const useNotifications = () => {
       }
     }, intervalMs)
     
+    sondeoActivo = intervalId
     return intervalId
   }
 
@@ -332,6 +241,7 @@ export const useNotifications = () => {
    */
   const stopPolling = (intervalId) => {
     if (intervalId) {
+      if (intervalId === sondeoActivo) sondeoActivo = null
       clearInterval(intervalId)
       console.log('🔄 Polling de notificaciones detenido')
     }
