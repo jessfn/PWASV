@@ -39,12 +39,17 @@
               </button>
             </div>
             
-            <!-- Badge contador -->
-            <div v-if="notificacionesFiltradas.length > 0" class="apple-counter-badge">
-              <svg class="apple-badge-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
-              </svg>
-              <span class="apple-badge-count">{{ notificacionesFiltradas.length }} {{ notificacionesFiltradas.length === 1 ? 'aviso' : 'avisos' }}</span>
+            <!-- Filtro en la franja verde: Todas / Sin leer + marcar todo como leído -->
+            <div class="nf-hbar">
+              <div class="nf-hseg" role="tablist" aria-label="Filtro de notificaciones">
+                <button type="button" role="tab" :aria-selected="!soloNoLeidas" :class="{ 'is-on': !soloNoLeidas }" @click="soloNoLeidas && toggleFiltroNoLeidas()">Todas</button>
+                <button type="button" role="tab" :aria-selected="soloNoLeidas" :class="{ 'is-on': soloNoLeidas }" @click="!soloNoLeidas && toggleFiltroNoLeidas()">
+                  Sin leer<b v-if="conteoNoLeidas > 0">{{ conteoNoLeidas }}</b>
+                </button>
+              </div>
+              <button type="button" class="nf-hmark" :disabled="!hayNoLeidasCargadas || marcandoTodas" :title="marcandoTodas ? 'Marcando…' : 'Marcar todo como leído'" aria-label="Marcar todo como leído" @click="marcarTodasLeidas">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 13l4 4L16 7" /><path d="M10 15l2 2L22 7" /></svg>
+              </button>
             </div>
           </div>
         </div>
@@ -78,25 +83,6 @@
 
           <PushOptIn />
 
-          <div class="nf-toolbar">
-            <div class="nf-seg" role="tablist" aria-label="Filtro">
-              <button type="button" role="tab" :aria-selected="!soloNoLeidas" :class="{ 'is-on': !soloNoLeidas }" @click="soloNoLeidas && toggleFiltroNoLeidas()">Todas</button>
-              <button type="button" role="tab" :aria-selected="soloNoLeidas" :class="{ 'is-on': soloNoLeidas }" @click="!soloNoLeidas && toggleFiltroNoLeidas()">
-                Sin leer<b v-if="conteoNoLeidas > 0">{{ conteoNoLeidas }}</b>
-              </button>
-            </div>
-
-            <label class="nf-search">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
-              <input v-model.trim="busqueda" type="search" placeholder="Buscar en tus avisos" aria-label="Buscar notificaciones" />
-            </label>
-
-            <button type="button" class="nf-markall" :disabled="!hayNoLeidasCargadas || marcandoTodas" @click="marcarTodasLeidas">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 13l4 4L16 7" /><path d="M10 15l2 2L22 7" /></svg>
-              <span>{{ marcandoTodas ? 'Marcando…' : 'Marcar todo como leído' }}</span>
-            </button>
-          </div>
-
           <div v-if="gruposNotificaciones.length" class="nf-list">
             <section v-for="g in gruposNotificaciones" :key="g.clave" class="nf-group">
               <h2 class="nf-group__title">{{ g.titulo }}<span>{{ g.items.length }}</span></h2>
@@ -123,7 +109,7 @@
                   <div class="nf-body">
                     <div class="nf-top">
                       <h3 class="nf-title">{{ n.titulo }}</h3>
-                      <time class="nf-time" :datetime="n.fecha_creacion">{{ horaCorta(n.fecha_creacion) }}</time>
+                      <span class="nf-meta"><time class="nf-time" :datetime="n.fecha_creacion">{{ horaCorta(n.fecha_creacion) }}</time><span v-if="!n.leida" class="nf-dot" role="img" aria-label="Sin leer"></span></span>
                     </div>
                     <p v-if="n.subtitulo" class="nf-sub">{{ n.subtitulo }}</p>
                     <p v-if="n.descripcion && n.descripcion.trim()" class="nf-desc">{{ n.descripcion }}</p>
@@ -137,11 +123,10 @@
                     </div>
                     <span v-else-if="n.tiene_archivo" class="nf-chip">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.4 11.1l-9.2 9.2a6 6 0 01-8.5-8.5l9.2-9.2a4 4 0 015.7 5.7l-9.2 9.2a2 2 0 01-2.8-2.8l8.5-8.5" /></svg>
-                      {{ n.archivo_nombre || 'Archivo adjunto' }}
+                      <span class="nf-chip__t">{{ n.archivo_nombre || 'Archivo adjunto' }}</span>
                     </span>
                   </div>
 
-                  <span v-if="!n.leida" class="nf-dot" aria-hidden="true"></span>
                 </li>
               </ul>
             </section>
@@ -6465,4 +6450,79 @@ video::-webkit-media-controls {
 .sf-modal-time, .sf-modal-label { color: #475467 !important; }
 .sf-modal-badge--read { color: #14532d !important; }
 .sf-modal-badge--unread { color: #fff !important; background: #1d6fe0 !important; }
+</style>
+
+<style scoped>
+/* =====================================================================
+   Sin traslapes y "sin leer" que se nota (estilo LinkedIn / Gmail / Slack):
+   - Sin leer: fondo azul claro, borde azul, título en negritas, hora en azul y punto
+   - Leída: fondo gris suave, título normal, icono apagado
+   - Nada flota encima de otra cosa: el punto está en la fila de la hora
+   ===================================================================== */
+.nf-item.is-unread::before { display: none; }
+.nf-item {
+  padding: 14px 16px 14px 14px;
+  background: #f4f6f8; border: 1px solid #e3e8ed; box-shadow: none;
+}
+.nf-item.is-unread {
+  background: linear-gradient(180deg, #e8f2ff 0%, #f3f8ff 100%);
+  border-color: #9cc4f5;
+  box-shadow: inset 4px 0 0 #1d6fe0, 0 10px 24px -16px rgba(29, 111, 224, 0.55);
+}
+.nf-item.is-unread:hover { border-color: #6da9ee; }
+.nf-item:not(.is-unread) .nf-ico { background: #e6eaee; color: #5b6676; }
+.nf-item:not(.is-unread) .nf-title { color: #334155; font-weight: 500; }
+.nf-item:not(.is-unread) .nf-desc { color: #4b5563; }
+.nf-item.is-unread .nf-title { font-weight: 700; color: #0a1220; }
+.nf-item.is-unread .nf-desc { color: #2f3a4a; }
+.nf-item.is-unread .nf-ico { background: #cfe3fb; color: #0f4fae; }
+.nf-item.is-unread.nf-tipo--archivo .nf-ico { background: #fde7b8; color: #7a4300; }
+.nf-item.is-unread.nf-tipo--actividad .nf-ico { background: #c9ecd6; color: #0f6b33; }
+
+.nf-meta { flex: none; display: inline-flex; align-items: center; gap: 8px; }
+.nf-dot { position: static; flex: none; width: 10px; height: 10px; border-radius: 50%; background: #1d6fe0; box-shadow: 0 0 0 3px rgba(29, 111, 224, 0.2); animation: none; }
+.nf-chip, .nf-media { position: static; }
+
+/* ---------- filtro dentro de la franja verde ---------- */
+.nf-hbar { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.nf-hseg { display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 3px; border-radius: 999px; background: rgba(0, 45, 8, 0.32); border: 1px solid rgba(255, 255, 255, 0.22); }
+.nf-hseg button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 28px; padding: 0 14px; border: 0; border-radius: 999px;
+  background: transparent; color: #fff; font: 600 0.78rem -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', system-ui, sans-serif;
+  cursor: pointer; transition: background 0.2s, color 0.2s; -webkit-tap-highlight-color: transparent;
+}
+.nf-hseg button.is-on { background: #ffffff; color: #0b5a18; box-shadow: 0 1px 4px rgba(0, 40, 6, 0.28); }
+.nf-hseg b { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; display: inline-grid; place-items: center; font-size: 0.68rem; font-weight: 800; background: #fff; color: #0b5a18; }
+.nf-hseg button.is-on b { background: #1d6fe0; color: #fff; }
+.nf-hmark {
+  width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; flex: none; margin-left: auto;
+  border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(0, 45, 8, 0.28); color: #fff; cursor: pointer;
+  transition: transform 0.15s, opacity 0.2s; -webkit-tap-highlight-color: transparent;
+}
+.nf-hmark svg { width: 17px; height: 17px; }
+.nf-hmark:active:not(:disabled) { transform: scale(0.92); }
+.nf-hmark:disabled { opacity: 0.45; cursor: default; }
+</style>
+
+<style scoped>
+.nf-chip { min-width: 0; }
+.nf-chip__t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+
+<style scoped>
+/* =====================================================================
+   ESCRITORIO: la bandeja usa todo el ancho (igual que la barra superior)
+   y las notificaciones se acomodan en recuadros de 2 o 3 columnas.
+   ===================================================================== */
+@media (min-width: 1024px) {
+  .nf-wrap { max-width: 1336px; padding: 0 28px; }
+  .nf-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 14px; align-items: stretch; }
+  .nf-group__title { margin-left: 2px; }
+  .nf-item { height: 100%; }
+  .nf-desc { -webkit-line-clamp: 3; }
+}
+@media (min-width: 1700px) {
+  .nf-wrap { max-width: 1616px; }
+  .nf-items { grid-template-columns: repeat(auto-fill, minmax(440px, 1fr)); gap: 16px; }
+}
 </style>
