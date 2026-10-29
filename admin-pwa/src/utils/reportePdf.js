@@ -54,9 +54,20 @@ function tituloInstitucional(doc, y, principal, sub) {
   doc.text(principal, PW / 2, y + 13.4, { align: 'center' })
   let fin = y + 13.4
   if (sub) {
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); color(doc, GRIS_TXT)
-    doc.text(sub, PW / 2, y + 18.4, { align: 'center' })
-    fin = y + 18.4
+    // Etiqueta suave con el mes del reporte
+    const t = sub.toUpperCase()
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.2)
+    const tw = doc.getTextWidth(t) + 14
+    const px = PW / 2 - tw / 2
+    fill(doc, [251, 246, 248]); draw(doc, [234, 218, 224]); doc.setLineWidth(0.25)
+    doc.roundedRect(px, y + 16.4, tw, 6.2, 3.1, 3.1, 'FD')
+    draw(doc, [150, 70, 95]); doc.setLineWidth(0.3)
+    const cx = px + 4.6
+    doc.roundedRect(cx - 1.5, y + 17.7, 3, 3.1, 0.5, 0.5, 'S')
+    doc.line(cx - 1.5, y + 18.9, cx + 1.5, y + 18.9)
+    color(doc, [122, 31, 61])
+    doc.text(t, PW / 2 + 2.2, y + 20.5, { align: 'center' })
+    fin = y + 22.6
   }
   return fin
 }
@@ -205,6 +216,12 @@ const ALTO_FIRMAS = 20 + 9 + 3 * 3.6 + 2
  * @param {Object} o { firmaUsuario, firmaSupervisor, nombreSupervisor, facilitadorNombre, esFacilitador, fechaFirma, apiUrl }
  * @returns {Promise<string>} PDF en base64 (sin prefijo data:)
  */
+const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+function etiquetaMes(periodo) {
+  const nombre = periodo.mesNombre || (Number.isInteger(periodo.mes) ? MESES[periodo.mes] : '')
+  return `${nombre || ''} ${periodo.anio || ''}`.trim()
+}
+
 export async function generarPDFReporte(datos, o = {}) {
   const usuario = datos.usuario || {}
   const periodo = datos.periodo || {}
@@ -222,7 +239,7 @@ export async function generarPDFReporte(datos, o = {}) {
 
   // ---------- Página 1 ----------
   let y = cabecera(doc)
-  y = tituloInstitucional(doc, y + 11, 'FORMATO DE SEGUIMIENTO A ACTIVIDADES PROGRAMADAS', null)
+  y = tituloInstitucional(doc, y + 11, 'FORMATO DE SEGUIMIENTO A ACTIVIDADES PROGRAMADAS', etiquetaMes(periodo))
   y += 8
   doc.setFont('helvetica', 'bold'); doc.setFontSize(8); color(doc, GUINDA)
   if (folio) doc.text(`FOLIO  ${folio}`, M, y)
@@ -296,7 +313,7 @@ export async function generarPDFReporte(datos, o = {}) {
   const conFoto = actividades.filter((a) => a.foto_url || a.foto_base64)
   doc.addPage()
   y = cabecera(doc)
-  y = tituloInstitucional(doc, y + 11, 'EVIDENCIAS FOTOGRÁFICAS DE ACTIVIDADES', `${periodo.mesNombre || ''} ${periodo.anio || ''}`.trim())
+  y = tituloInstitucional(doc, y + 11, 'EVIDENCIAS FOTOGRÁFICAS DE ACTIVIDADES', etiquetaMes(periodo))
   y += 7
 
   // Franja del prestador
