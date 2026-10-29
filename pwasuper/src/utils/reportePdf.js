@@ -31,20 +31,23 @@ const draw = (d, c) => d.setDrawColor(c[0], c[1], c[2])
 const color = (d, c) => d.setTextColor(c[0], c[1], c[2])
 
 function cabecera(doc) {
-  // Logos oficiales: Gobierno de México + Bienestar a la izquierda, Sembrando Vida a la derecha.
-  // Todos a la misma altura y pegados al contenido (sin hueco arriba ni abajo).
+  // Logos oficiales a color: Gobierno de México + Bienestar a la izquierda, Sembrando Vida a la derecha.
+  // Centrados en una franja baja y pegados al contenido (sin hueco arriba ni abajo).
   const top = 8
-  const h = 13
-  const dim = (img) => { const pr = doc.getImageProperties(img); return h * pr.width / pr.height }
-  const wg = dim(logoGob), wb = dim(logoBienestar), ws = dim(logoSV)
-  doc.addImage(logoGob, 'PNG', M, top, wg, h)
+  const band = 13
+  const mid = top + band / 2
+  const dim = (img, h) => { const pr = doc.getImageProperties(img); return h * pr.width / pr.height }
+  const hg = 12.5, hb = 10, hs = 10
+  const wg = dim(logoGob, hg), ws = dim(logoSV, hs)
+  doc.addImage(logoGob, 'PNG', M, mid - hg / 2, wg, hg)
   draw(doc, LINEA); doc.setLineWidth(0.3)
-  doc.line(M + wg + 5, top + 1.5, M + wg + 5, top + h - 1.5)
-  doc.addImage(logoBienestar, 'PNG', M + wg + 10, top, wb, h)
-  doc.addImage(logoSV, 'PNG', PW - M - ws, top, ws, h)
-  draw(doc, GUINDA); doc.setLineWidth(0.6); doc.line(M, top + h + 3, PW - M, top + h + 3)
-  draw(doc, DORADO); doc.setLineWidth(0.25); doc.line(M, top + h + 4.2, PW - M, top + h + 4.2)
-  return top + h + 4.2
+  doc.line(M + wg + 4, mid - 5, M + wg + 4, mid + 5)
+  doc.addImage(logoBienestar, 'PNG', M + wg + 8, mid - hb / 2, dim(logoBienestar, hb), hb)
+  doc.addImage(logoSV, 'PNG', PW - M - ws, mid - hs / 2, ws, hs)
+  const yl = top + band + 3
+  draw(doc, GUINDA); doc.setLineWidth(0.6); doc.line(M, yl, PW - M, yl)
+  draw(doc, DORADO); doc.setLineWidth(0.25); doc.line(M, yl + 1.2, PW - M, yl + 1.2)
+  return yl + 1.2
 }
 
 function tituloInstitucional(doc, y, principal, sub) {
