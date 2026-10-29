@@ -3,6 +3,7 @@
  * Compatible con admin-pwa - Formato idéntico a pwasuper
  */
 import jsPDF from 'jspdf'
+import { fechaDeReporteTexto } from './fechaReporte'
 import superiorImage from '../assets/images/superior2.png'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://apipwa.sembrandodatos.com'
@@ -16,7 +17,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'https://apipwa.sembrandodatos.c
  * @param {string} facilitadorNombre - Nombre del facilitador asignado (si existe). Si se proporciona, el subtítulo del firmante será "Facilitador Comunitario" en lugar de "Encargada de Despacho...Territorial".
  * @returns {Promise<string>} - PDF en base64 (sin prefijo data:)
  */
-export async function generarPDFDesdesDatos(datos, firmaUsuario, firmaSupervisor, nombreSupervisor, facilitadorNombre = null) {
+export async function generarPDFDesdesDatos(datos, firmaUsuario, firmaSupervisor, nombreSupervisor, facilitadorNombre = null, fechaFirma = null) {
   console.log('📄 [PDFGenerator] Generando PDF desde datos estructurados...')
   console.log('   - Actividades:', datos.actividades?.length || 0)
   console.log('   - Firma usuario:', firmaUsuario ? 'Sí' : 'No')
@@ -76,11 +77,7 @@ export async function generarPDFDesdesDatos(datos, firmaUsuario, firmaSupervisor
   doc.text('FORMATO DE SEGUIMIENTO A ACTIVIDADES PROGRAMADAS', pageWidth / 2, currentY + 16, { align: 'center' })
   
   // Fecha en la esquina
-  const fechaActual = new Date(datos.fechaGeneracion || new Date()).toLocaleDateString('es-MX', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  })
+  const fechaActual = fechaDeReporteTexto(datos.periodo, firmaSupervisor ? fechaFirma : null)
   doc.setFontSize(8)
   doc.setFont(undefined, 'normal')
   doc.text('Fecha:', pageWidth - margin - 35, currentY + 21)

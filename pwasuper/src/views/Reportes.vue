@@ -656,6 +656,7 @@
 </template>
 
 <script>
+import { fechaDeReporteTexto } from '../utils/fechaReporte.js';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { PDFDocument } from 'pdf-lib';
@@ -1430,11 +1431,7 @@ export default {
       doc.text('FORMATO DE SEGUIMIENTO A ACTIVIDADES PROGRAMADAS', pageWidth / 2, currentY + 16, { align: 'center' });
       
       // Fecha en la esquina superior derecha
-      const fechaActual = new Date().toLocaleDateString('es-MX', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
+      const fechaActual = fechaDeReporteTexto({ mes: this.mesSeleccionado, anio: this.anioSeleccionado });
       doc.setFontSize(8);
       doc.setFont(undefined, 'normal');
       doc.text('Fecha:', pageWidth - margin - 35, currentY + 21);
@@ -2611,7 +2608,8 @@ export default {
             reporteData.datos_reporte,
             reporteData.firma_usuario_base64,
             reporteData.firmado_supervisor ? reporteData.firma_supervisor_base64 : null,
-            reporteData.nombre_supervisor
+            reporteData.nombre_supervisor,
+            reporteData.fecha_firma_supervisor || null
           );
           
           // Descargar el PDF
@@ -2699,7 +2697,7 @@ export default {
      * @param {string} nombreSupervisor - Nombre del supervisor que firmó
      * @returns {string} - PDF en base64 (sin prefijo data:)
      */
-    async generarPDFDesdesDatos(datos, firmaUsuario, firmaSupervisor, nombreSupervisor) {
+    async generarPDFDesdesDatos(datos, firmaUsuario, firmaSupervisor, nombreSupervisor, fechaFirma = null) {
       console.log('📄 Generando PDF desde datos estructurados...');
       console.log('   - Actividades:', datos.actividades?.length || 0);
       console.log('   - Firma usuario:', firmaUsuario ? 'Sí' : 'No');
@@ -2751,9 +2749,7 @@ export default {
       doc.text('FORMATO DE SEGUIMIENTO A ACTIVIDADES PROGRAMADAS', pageWidth / 2, currentY + 16, { align: 'center' });
       
       // Fecha en la esquina
-      const fechaActual = new Date(datos.fechaGeneracion || new Date()).toLocaleDateString('es-MX', {
-        day: '2-digit', month: '2-digit', year: 'numeric'
-      });
+      const fechaActual = fechaDeReporteTexto(datos.periodo, firmaSupervisor ? fechaFirma : null);
       doc.setFontSize(8);
       doc.setFont(undefined, 'normal');
       doc.text('Fecha:', pageWidth - margin - 35, currentY + 21);
@@ -3431,7 +3427,8 @@ const imgGridWidth = 55;
             reporteData.datos_reporte,
             reporteData.firma_usuario_base64,
             reporteData.firmado_supervisor ? reporteData.firma_supervisor_base64 : null,
-            reporteData.nombre_supervisor
+            reporteData.nombre_supervisor,
+            reporteData.fecha_firma_supervisor || null
           );
           
         } else if (reporteData.pdf_base64) {
