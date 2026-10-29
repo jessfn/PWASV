@@ -56,18 +56,18 @@ function tituloInstitucional(doc, y, principal, sub) {
   if (sub) {
     // Etiqueta suave con el mes del reporte
     const t = sub.toUpperCase()
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.2)
-    const tw = doc.getTextWidth(t) + 14
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(7)
+    const tw = doc.getTextWidth(t) + 11.5
     const px = PW / 2 - tw / 2
     fill(doc, [251, 246, 248]); draw(doc, [234, 218, 224]); doc.setLineWidth(0.25)
-    doc.roundedRect(px, y + 16.4, tw, 6.2, 3.1, 3.1, 'FD')
+    doc.roundedRect(px, y + 16.6, tw, 5.2, 2.6, 2.6, 'FD')
     draw(doc, [150, 70, 95]); doc.setLineWidth(0.3)
-    const cx = px + 4.6
-    doc.roundedRect(cx - 1.5, y + 17.7, 3, 3.1, 0.5, 0.5, 'S')
-    doc.line(cx - 1.5, y + 18.9, cx + 1.5, y + 18.9)
+    const cx = px + 3.9
+    doc.roundedRect(cx - 1.2, y + 17.8, 2.4, 2.6, 0.4, 0.4, 'S')
+    doc.line(cx - 1.2, y + 18.8, cx + 1.2, y + 18.8)
     color(doc, [122, 31, 61])
-    doc.text(t, PW / 2 + 2.2, y + 20.5, { align: 'center' })
-    fin = y + 22.6
+    doc.text(t, PW / 2 + 1.8, y + 20.3, { align: 'center' })
+    fin = y + 21.8
   }
   return fin
 }
