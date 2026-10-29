@@ -4,6 +4,7 @@
  */
 import jsPDF from 'jspdf'
 import QRCode from 'qrcode'
+import logoGob from '../assets/images/logo-gobmx.png?inline'
 import logoBienestar from '../assets/images/logo-bienestar.png?inline'
 import logoSV from '../assets/images/logo-sembrando-vida.png?inline'
 import { fechaDeReporteTexto } from './fechaReporte'
@@ -30,17 +31,20 @@ const draw = (d, c) => d.setDrawColor(c[0], c[1], c[2])
 const color = (d, c) => d.setTextColor(c[0], c[1], c[2])
 
 function cabecera(doc) {
-  const top = 10
-  const h = 14
-  const props1 = doc.getImageProperties(logoBienestar)
-  const props2 = doc.getImageProperties(logoSV)
-  const w1 = h * props1.width / props1.height
-  const w2 = h * props2.width / props2.height
-  doc.addImage(logoBienestar, 'PNG', M, top, w1, h)
-  doc.addImage(logoSV, 'PNG', PW - M - w2, top, w2, h)
-  draw(doc, GUINDA); doc.setLineWidth(0.6); doc.line(M, top + 17.5, PW - M, top + 17.5)
-  draw(doc, DORADO); doc.setLineWidth(0.25); doc.line(M, top + 18.7, PW - M, top + 18.7)
-  return top + 18.7
+  // Logos oficiales: Gobierno de México + Bienestar a la izquierda, Sembrando Vida a la derecha.
+  // Todos a la misma altura y pegados al contenido (sin hueco arriba ni abajo).
+  const top = 8
+  const h = 13
+  const dim = (img) => { const pr = doc.getImageProperties(img); return h * pr.width / pr.height }
+  const wg = dim(logoGob), wb = dim(logoBienestar), ws = dim(logoSV)
+  doc.addImage(logoGob, 'PNG', M, top, wg, h)
+  draw(doc, LINEA); doc.setLineWidth(0.3)
+  doc.line(M + wg + 5, top + 1.5, M + wg + 5, top + h - 1.5)
+  doc.addImage(logoBienestar, 'PNG', M + wg + 10, top, wb, h)
+  doc.addImage(logoSV, 'PNG', PW - M - ws, top, ws, h)
+  draw(doc, GUINDA); doc.setLineWidth(0.6); doc.line(M, top + h + 3, PW - M, top + h + 3)
+  draw(doc, DORADO); doc.setLineWidth(0.25); doc.line(M, top + h + 4.2, PW - M, top + h + 4.2)
+  return top + h + 4.2
 }
 
 function tituloInstitucional(doc, y, principal, sub) {
