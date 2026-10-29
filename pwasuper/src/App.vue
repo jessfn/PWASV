@@ -26,7 +26,7 @@ const userData = ref(null);
 const showMobileMenu = ref(false);
 
 // Pantallas que se pueden abrir sin sesión (incluye la liga del correo de recuperación)
-const RUTAS_PUBLICAS = ['Login', 'Register', 'ForgotPassword', 'ResetPassword'];
+const RUTAS_PUBLICAS = ['Login', 'Register', 'ForgotPassword', 'ResetPassword', 'VerificarReporte'];
 
 // ── Carga de la pantalla: sin mensajes ni botones; todo se resuelve solo y sin tocar el modo sin conexión ──
 const rutaLista = ref(false);
