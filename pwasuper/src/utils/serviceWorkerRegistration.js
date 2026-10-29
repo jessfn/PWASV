@@ -37,6 +37,9 @@ export function registerServiceWorker(onUpdate) {
 
 async function doRegisterServiceWorker() {
   if ('serviceWorker' in navigator) {
+    // En la primera visita (sin service worker previo) el nuevo SW toma el control por primera vez: eso NO es una
+    // actualizacion y no debe recargar la pagina (por ejemplo, al llegar escaneando un QR).
+    const teniaControl = !!navigator.serviceWorker.controller;
     try {
       const registration = await navigator.serviceWorker.register('/sw.js');
       console.log('📦 Service Worker registrado con éxito:', registration.scope);
@@ -85,6 +88,7 @@ async function doRegisterServiceWorker() {
       // Recargar automáticamente cuando el SW toma el control
       let refreshing = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!teniaControl) return;
         if (!refreshing) {
           refreshing = true;
           console.log('⚡ Nuevo SW tomando control, recargando...');

@@ -103,6 +103,8 @@ export async function aplicarActualizacion() {
 export function iniciarActualizador(alDetectar) {
   const revisar = async (forzar = false) => {
     if (detenido || consultando || !navigator.onLine) return
+    // La pagina publica de verificacion (a la que se llega con el QR) nunca se interrumpe con recargas
+    if (location.pathname.startsWith('/verificar/')) return
     if (document.visibilityState === 'hidden' && !forzar) return
     if (!forzar && Date.now() - ultimaConsulta < MIN_ENTRE_CONSULTAS_MS) return
     consultando = true
