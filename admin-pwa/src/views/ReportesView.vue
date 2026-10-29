@@ -2024,7 +2024,8 @@ async function descargarReporte(reporte) {
         reporteData.nombre_supervisor,
         reporteData.facilitador_nombre || reporte.facilitador_nombre || null,
         reporteData.fecha_firma_supervisor || null,
-        reporteData.folio || null
+        reporteData.folio || null,
+        { huella: reporteData.huella, codigo: reporteData.codigo_verificacion }
       )
       
       clearInterval(intervaloPDF)
@@ -2376,7 +2377,8 @@ async function descargarReportesZip() {
             reporteData.nombre_supervisor,
             reporteData.facilitador_nombre || reporte.facilitador_nombre || null,
             reporteData.fecha_firma_supervisor || null,
-        reporteData.folio || null
+        reporteData.folio || null,
+        { huella: reporteData.huella, codigo: reporteData.codigo_verificacion }
           )
         } else if (reporteData.pdf_base64) {
           // Si hay PDF guardado, usar ese

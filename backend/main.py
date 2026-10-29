@@ -513,6 +513,7 @@ try:
             END $f$ LANGUAGE plpgsql
         """, fetch_type='none')
         ejecutar_consulta_segura("CREATE UNIQUE INDEX IF NOT EXISTS uq_reportes_folio ON reportes_generados(folio)", fetch_type='none')
+        ejecutar_consulta_segura("CREATE TABLE IF NOT EXISTS config_secretos (clave VARCHAR(60) PRIMARY KEY, valor TEXT NOT NULL)", fetch_type='none')
     except Exception as e:
         print(f"⚠️ No se pudo preparar el folio de reportes: {e}")
 
@@ -2462,24 +2463,81 @@ def obtener_estadisticas_tipo_actividad(territorio: str = None):
 
 # ==================== ENDPOINTS PARA REPORTES GENERADOS ====================
 
+# ---- Verificacion de reportes: huella de integridad y codigo del QR ----
+_SECRETO_VERIF = None
+
+def _secreto_verificacion() -> bytes:
+    """Secreto propio de la verificacion (se genera una vez y vive en la base, no en el codigo)."""
+    global _SECRETO_VERIF
+    if _SECRETO_VERIF:
+        return _SECRETO_VERIF
+    cursor.execute("SELECT valor FROM config_secretos WHERE clave = 'verificacion_reportes'")
+    r = cursor.fetchone()
+    if not r:
+        cursor.execute("INSERT INTO config_secretos (clave, valor) VALUES ('verificacion_reportes', %s) ON CONFLICT (clave) DO NOTHING", (_sc.token_hex(32),))
+        conn.commit()
+        cursor.execute("SELECT valor FROM config_secretos WHERE clave = 'verificacion_reportes'")
+        r = cursor.fetchone()
+    _SECRETO_VERIF = r[0].encode()
+    return _SECRETO_VERIF
+
+def _datos_a_dict(datos):
+    if isinstance(datos, str):
+        try:
+            datos = json.loads(datos)
+        except Exception:
+            return {}
+    return datos if isinstance(datos, dict) else {}
+
+def _actividades_normalizadas(datos):
+    acts = _datos_a_dict(datos).get("actividades") or []
+    out = []
+    for a in acts:
+        if not isinstance(a, dict):
+            continue
+        out.append([str(a.get("fecha_hora") or a.get("fecha") or ""), str(a.get("tipo_actividad") or a.get("tipo") or "").lower(), str(a.get("descripcion") or a.get("categoria_actividad") or "").strip()])
+    out.sort()
+    return out
+
+def _huella_reporte(folio, usuario_id, mes, anio, datos):
+    """Huella del contenido: cambia si se agrega, quita o modifica cualquier actividad."""
+    base = json.dumps({"f": folio, "u": usuario_id, "m": mes, "a": anio, "x": _actividades_normalizadas(datos)}, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    h = _hl.sha256(base.encode("utf-8")).hexdigest()[:16].upper()
+    return " · ".join(h[i:i + 4] for i in range(0, 16, 4))
+
+def _codigo_verificacion(folio):
+    import hmac as _hm
+    return _hm.new(_secreto_verificacion(), folio.encode(), _hl.sha256).hexdigest()[:10].upper()
+
 @app.get("/reportes/verificar-folio/{folio}")
-async def verificar_folio_reporte(folio: str):
-    """Verificacion publica de un folio: solo confirma que existe y datos no sensibles."""
+async def verificar_folio_reporte(folio: str, c: str = ""):
+    """Verificacion publica. Sin codigo: solo confirma que existe. Con el codigo del QR: muestra el contenido original."""
     try:
+        import hmac as _hm
         folio = (folio or "").strip().upper()
         if not re.fullmatch(r"SV-\d{4}-\d{6}", folio):
             return {"success": True, "valido": False}
         verificar_conexion_db()
         cursor.execute("""
-            SELECT r.mes, r.anio, u.nombre_completo, COALESCE(r.firmado_supervisor, FALSE), r.fecha_firma_supervisor, r.fecha_generacion
+            SELECT r.mes, r.anio, u.nombre_completo, COALESCE(r.firmado_supervisor, FALSE), r.fecha_firma_supervisor, r.usuario_id, r.datos_reporte
             FROM reportes_generados r LEFT JOIN usuarios u ON u.id = r.usuario_id
             WHERE r.folio = %s
         """, (folio,))
         r = cursor.fetchone()
         if not r:
             return {"success": True, "valido": False}
-        return {"success": True, "valido": True, "folio": folio, "mes": r[0], "anio": r[1], "prestador": r[2],
-                "firmado": bool(r[3]), "fecha_firma": r[4].isoformat() if r[4] else None}
+        res = {"success": True, "valido": True, "folio": folio, "mes": r[0], "anio": r[1], "prestador": r[2],
+               "firmado": bool(r[3]), "fecha_firma": r[4].isoformat() if r[4] else None, "detalle": False}
+        codigo = (c or "").strip().upper()
+        if codigo and _hm.compare_digest(codigo, _codigo_verificacion(folio)) and r[6]:
+            acts = _actividades_normalizadas(r[6])
+            res["detalle"] = True
+            res["total"] = len(acts)
+            res["campo"] = sum(1 for a in acts if a[1] == "campo")
+            res["gabinete"] = sum(1 for a in acts if a[1] == "gabinete")
+            res["actividades"] = [{"fecha_hora": a[0], "tipo": a[1], "descripcion": a[2]} for a in acts]
+            res["huella"] = _huella_reporte(folio, r[5], r[0], r[1], r[6])
+        return res
     except Exception as e:
         print(f"❌ Error verificando folio: {e}")
         raise HTTPException(status_code=500, detail="No se pudo verificar el folio")
@@ -2561,6 +2619,8 @@ async def guardar_reporte(datos: dict):
             "success": True,
             "reporte_id": resultado[0],
             "folio": resultado[2],
+            "huella": _huella_reporte(resultado[2], usuario_id, mes, anio, datos_reporte),
+            "codigo_verificacion": _codigo_verificacion(resultado[2]),
             "fecha_generacion": resultado[1].isoformat() if resultado[1] else None
         }
         
@@ -2826,7 +2886,9 @@ async def descargar_reporte(reporte_id: int):
                 "nombre_supervisor": reporte[10],
                 "supervisor_id": reporte[11],
                 "facilitador_nombre": reporte[18],  # Nombre del facilitador asignado (si existe)
-                "folio": reporte[19]
+                "folio": reporte[19],
+                "huella": _huella_reporte(reporte[19], usuario_id, reporte[2], reporte[3], datos_reporte) if datos_reporte else None,
+                "codigo_verificacion": _codigo_verificacion(reporte[19])
             }
         }
         

@@ -221,7 +221,8 @@ const reportesService = {
             reporte.nombre_supervisor,
             reporte.facilitador_nombre || null,
             reporte.fecha_firma_supervisor || null,
-            reporte.folio || null
+            reporte.folio || null,
+            { huella: reporte.huella, codigo: reporte.codigo_verificacion }
           )
           
           // Convertir base64 a blob

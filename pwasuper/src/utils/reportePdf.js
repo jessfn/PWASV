@@ -75,7 +75,7 @@ function tituloInstitucional(doc, y, principal, sub) {
   return fin
 }
 
-function pie(doc, folio, n, total, qrData) {
+function pie(doc, folio, n, total, qrData, huella) {
   doc.setPage(n)
   draw(doc, DORADO); doc.setLineWidth(0.25); doc.line(M, PH - 19.5, PW - M, PH - 19.5)
   draw(doc, GUINDA); doc.setLineWidth(0.6); doc.line(M, PH - 18.3, PW - M, PH - 18.3)
@@ -96,6 +96,12 @@ function pie(doc, folio, n, total, qrData) {
     doc.addImage(qrData, 'PNG', PW - M - 14, PH - 38, 14, 14)
     doc.setFontSize(5.5)
     doc.text('Verifica este reporte', PW - M, PH - 21.6, { align: 'right' })
+    if (huella) {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(5.5); color(doc, GRIS_TXT)
+      doc.text('HUELLA DE INTEGRIDAD', PW - M - 17, PH - 31.6, { align: 'right' })
+      doc.setFont('courier', 'bold'); doc.setFontSize(7.6); color(doc, TEXTO)
+      doc.text(huella, PW - M - 17, PH - 27.6, { align: 'right' })
+    }
   }
 }
 
@@ -260,6 +266,8 @@ export async function generarPDFReporte(datos, o = {}) {
   const usuario = datos.usuario || {}
   const periodo = datos.periodo || {}
   const folio = datos.folio || null
+  const huella = o.huella || null
+  const codigoVerif = o.codigoVerificacion || null
   const ctx = {
     usuario,
     firmaUsuario: o.firmaUsuario || null,
@@ -445,10 +453,10 @@ export async function generarPDFReporte(datos, o = {}) {
   // ---------- Pie en todas las páginas ----------
   let qrData = null
   if (folio) {
-    try { qrData = await QRCode.toDataURL(VERIFICAR_URL + folio, { margin: 0, width: 240, errorCorrectionLevel: 'M' }) } catch (e) { /* sin QR */ }
+    try { qrData = await QRCode.toDataURL(VERIFICAR_URL + folio + (codigoVerif ? '?c=' + codigoVerif : ''), { margin: 0, width: 240, errorCorrectionLevel: 'M' }) } catch (e) { /* sin QR */ }
   }
   const total = doc.internal.getNumberOfPages()
-  for (let n = 1; n <= total; n++) pie(doc, folio, n, total, qrData)
+  for (let n = 1; n <= total; n++) pie(doc, folio, n, total, qrData, huella)
 
   return doc.output('datauristring').split(',')[1]
 }

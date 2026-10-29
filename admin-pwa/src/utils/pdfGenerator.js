@@ -9,7 +9,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'https://apipwa.sembrandodatos.c
 /**
  * @returns {Promise<string>} PDF en base64 (sin prefijo data:)
  */
-export async function generarPDFDesdesDatos(datos, firmaUsuario, firmaSupervisor, nombreSupervisor, facilitadorNombre = null, fechaFirma = null, folio = null) {
+export async function generarPDFDesdesDatos(datos, firmaUsuario, firmaSupervisor, nombreSupervisor, facilitadorNombre = null, fechaFirma = null, folio = null, verif = null) {
   return generarPDFReporte(folio ? { ...datos, folio } : datos, {
     firmaUsuario,
     firmaSupervisor,
@@ -17,6 +17,8 @@ export async function generarPDFDesdesDatos(datos, firmaUsuario, firmaSupervisor
     facilitadorNombre,
     esFacilitador: !!(facilitadorNombre && String(facilitadorNombre).trim()),
     fechaFirma,
+    huella: verif && verif.huella,
+    codigoVerificacion: verif && verif.codigo,
     apiUrl: API_URL
   })
 }

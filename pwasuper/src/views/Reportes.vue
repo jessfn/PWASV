@@ -1255,7 +1255,8 @@ export default {
               null, // Sin firma de supervisor todavía
               null,
               null,
-              (response.data && response.data.folio) || null
+              (response.data && response.data.folio) || null,
+              response.data ? { huella: response.data.huella, codigo: response.data.codigo_verificacion } : null
             );
             
             // Descargar el PDF
@@ -2616,7 +2617,8 @@ export default {
             reporteData.firmado_supervisor ? reporteData.firma_supervisor_base64 : null,
             reporteData.nombre_supervisor,
             reporteData.fecha_firma_supervisor || null,
-            reporteData.folio || null
+            reporteData.folio || null,
+            { huella: reporteData.huella, codigo: reporteData.codigo_verificacion }
           );
           
           // Descargar el PDF
@@ -2700,7 +2702,7 @@ export default {
      * Genera el PDF del reporte desde sus datos estructurados (diseño en utils/reportePdf.js)
      * @returns {Promise<string>} PDF en base64 (sin prefijo data:)
      */
-    async generarPDFDesdesDatos(datos, firmaUsuario, firmaSupervisor, nombreSupervisor, fechaFirma = null, folio = null) {
+    async generarPDFDesdesDatos(datos, firmaUsuario, firmaSupervisor, nombreSupervisor, fechaFirma = null, folio = null, verif = null) {
       const u = datos.usuario || {};
       const responsable = nombreSupervisor || u.supervisor || null;
       const esFacilitador = (u.cargo || '').toUpperCase().includes('TECNICO') && !!responsable;
@@ -2711,6 +2713,8 @@ export default {
         facilitadorNombre: esFacilitador ? responsable : null,
         esFacilitador,
         fechaFirma,
+        huella: verif && verif.huella,
+        codigoVerificacion: verif && verif.codigo,
         apiUrl: apiService.getCurrentApiUrl()
       });
     },
@@ -2831,7 +2835,8 @@ export default {
             reporteData.firmado_supervisor ? reporteData.firma_supervisor_base64 : null,
             reporteData.nombre_supervisor,
             reporteData.fecha_firma_supervisor || null,
-            reporteData.folio || null
+            reporteData.folio || null,
+            { huella: reporteData.huella, codigo: reporteData.codigo_verificacion }
           );
           
         } else if (reporteData.pdf_base64) {
