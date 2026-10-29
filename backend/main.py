@@ -497,25 +497,18 @@ try:
     ejecutar_consulta_segura("CREATE INDEX IF NOT EXISTS idx_push_envios_notif ON push_envios(notificacion_id, estado)", fetch_type='none')
 
     # Folio unico e irrepetible por reporte (SV-AAAA-000001). La secuencia nunca reutiliza numeros y el trigger
-    # lo asigna en cada INSERT y impide modificarlo despues.
-    try:
-        ejecutar_consulta_segura("CREATE SEQUENCE IF NOT EXISTS reportes_folio_seq START 1", fetch_type='none')
-        ejecutar_consulta_segura("ALTER TABLE reportes_generados ADD COLUMN IF NOT EXISTS folio VARCHAR(20)", fetch_type='none')
-        ejecutar_consulta_segura("""
-            CREATE OR REPLACE FUNCTION reportes_folio_trg() RETURNS trigger AS $f$
-            BEGIN
-              IF TG_OP = 'INSERT' THEN
-                NEW.folio := 'SV-' || to_char(COALESCE(NEW.fecha_generacion, now()), 'YYYY') || '-' || lpad(nextval('reportes_folio_seq')::text, 6, '0');
-              ELSIF NEW.folio IS DISTINCT FROM OLD.folio THEN
-                NEW.folio := OLD.folio;
-              END IF;
-              RETURN NEW;
-            END $f$ LANGUAGE plpgsql
-        """, fetch_type='none')
-        ejecutar_consulta_segura("CREATE UNIQUE INDEX IF NOT EXISTS uq_reportes_folio ON reportes_generados(folio)", fetch_type='none')
-        ejecutar_consulta_segura("CREATE TABLE IF NOT EXISTS config_secretos (clave VARCHAR(60) PRIMARY KEY, valor TEXT NOT NULL)", fetch_type='none')
-    except Exception as e:
-        print(f"⚠️ No se pudo preparar el folio de reportes: {e}")
+    # lo asigna en cada INSERT y impide modificarlo despues. Cada paso es independiente: si uno ya existe o no
+    # hay permiso para recrearlo, los demas se aplican igual.
+    for _sql in (
+        "CREATE SEQUENCE IF NOT EXISTS reportes_folio_seq START 1",
+        "ALTER TABLE reportes_generados ADD COLUMN IF NOT EXISTS folio VARCHAR(20)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_reportes_folio ON reportes_generados(folio)",
+        "CREATE TABLE IF NOT EXISTS config_secretos (clave VARCHAR(60) PRIMARY KEY, valor TEXT NOT NULL)",
+    ):
+        try:
+            ejecutar_consulta_segura(_sql, fetch_type='none')
+        except Exception as e:
+            print(f"⚠️ Paso de folio/verificacion omitido: {e}")
 
     # Un técnico solo puede tener UN facilitador activo (si ya hay duplicados, se avisa y no se crea)
     try:
@@ -2471,6 +2464,8 @@ def _secreto_verificacion() -> bytes:
     global _SECRETO_VERIF
     if _SECRETO_VERIF:
         return _SECRETO_VERIF
+    cursor.execute("CREATE TABLE IF NOT EXISTS config_secretos (clave VARCHAR(60) PRIMARY KEY, valor TEXT NOT NULL)")
+    conn.commit()
     cursor.execute("SELECT valor FROM config_secretos WHERE clave = 'verificacion_reportes'")
     r = cursor.fetchone()
     if not r:
