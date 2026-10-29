@@ -26,11 +26,12 @@
 
         <template v-if="datos.detalle">
           <div class="vr-stats">
-            <div class="vr-stat"><b>{{ datos.total }}</b><small>Actividades</small></div>
+            <div class="vr-stat vr-stat--total"><b>{{ datos.total }}</b><small>Total reportadas</small></div>
             <div class="vr-stat"><b>{{ datos.campo }}</b><small>Campo</small></div>
             <div class="vr-stat"><b>{{ datos.gabinete }}</b><small>Gabinete</small></div>
           </div>
           <h3 class="vr-h3">Actividades registradas</h3>
+          <div class="vr-lista">
           <div v-for="(a, i) in datos.actividades" :key="i" class="vr-act">
             <span class="vr-n">{{ i + 1 }}</span>
             <div>
@@ -38,6 +39,8 @@
               <small>{{ fechaActividad(a.fecha_hora) }}</small>
             </div>
           </div>
+          </div>
+          <p class="vr-cuenta">{{ datos.total }} {{ datos.total === 1 ? 'actividad reportada' : 'actividades reportadas' }}</p>
           <div class="vr-hash">Huella de integridad del reporte<b>{{ datos.huella }}</b>Debe coincidir con la impresa en el PDF.</div>
           <p class="vr-aviso">La información mostrada corresponde al registro original del reporte. En caso de identificar diferencias con el documento que se tiene a la vista, se recomienda reportarlo a la Coordinación Territorial para su revisión y aclaración.</p>
         </template>
@@ -130,4 +133,11 @@ onMounted(async () => {
 .vr-hash { margin-top: 16px; background: #f6f3f0; border-radius: 12px; padding: 10px 12px; font-size: .7rem; color: #5b6472; line-height: 1.4; }
 .vr-hash b { display: block; font-family: ui-monospace, Menlo, monospace; color: #1f2937; font-size: .8rem; margin-top: 2px; letter-spacing: .04em; }
 .vr-aviso { margin: 14px 4px 0; font-size: .74rem; color: #7a8190; line-height: 1.4; }
+
+.vr-stat--total { background: #f6ecef; border-color: #e3c9d2; }
+.vr-lista { max-height: 340px; overflow-y: auto; -webkit-overflow-scrolling: touch; border: 1px solid #eadfe3; border-radius: 14px; background: #fdfbfa; padding: 2px 12px; }
+.vr-lista .vr-act:last-child { border-bottom: 0; }
+.vr-lista::-webkit-scrollbar { width: 6px; }
+.vr-lista::-webkit-scrollbar-thumb { background: #d9c3cb; border-radius: 6px; }
+.vr-cuenta { margin: 8px 0 0; font-size: .72rem; color: #7a8190; text-align: right; }
 </style>

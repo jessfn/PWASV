@@ -12,8 +12,8 @@ const PW = 210
 const PH = 297
 const M = 16
 const CW = PW - 2 * M
-const BOTTOM = PH - 41            // ultima pagina: deja libre el QR y el pie
-const BOTTOM_TABLA = PH - 26      // paginas intermedias: aprovecha todo el espacio hasta el pie
+const BOTTOM = PH - 26            // limite inferior del contenido (aprovecha el espacio hasta el pie)
+const BOTTOM_TABLA = BOTTOM
 const VERIFICAR_URL = 'https://app.sembrandodatos.com/verificar/'
 
 const GUINDA = [97, 18, 50]
@@ -75,7 +75,7 @@ function tituloInstitucional(doc, y, principal, sub) {
   return fin
 }
 
-function pie(doc, folio, n, total, qrData, huella) {
+function pie(doc, folio, n, total) {
   doc.setPage(n)
   draw(doc, DORADO); doc.setLineWidth(0.25); doc.line(M, PH - 19.5, PW - M, PH - 19.5)
   draw(doc, GUINDA); doc.setLineWidth(0.6); doc.line(M, PH - 18.3, PW - M, PH - 18.3)
@@ -92,17 +92,6 @@ function pie(doc, folio, n, total, qrData, huella) {
   doc.setFontSize(7); color(doc, GRIS_TXT)
   if (folio) doc.text(`Folio ${folio}`, M, PH - 9.6)
   doc.text(`Página ${n} de ${total}`, PW - M, PH - 9.6, { align: 'right' })
-  if (qrData && n === total) {
-    doc.addImage(qrData, 'PNG', PW - M - 14, PH - 38, 14, 14)
-    doc.setFontSize(5.5)
-    doc.text('Verifica este reporte', PW - M, PH - 21.6, { align: 'right' })
-    if (huella) {
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(5.5); color(doc, GRIS_TXT)
-      doc.text('HUELLA DE INTEGRIDAD', PW - M - 17, PH - 31.6, { align: 'right' })
-      doc.setFont('courier', 'bold'); doc.setFontSize(7.6); color(doc, TEXTO)
-      doc.text(huella, PW - M - 17, PH - 27.6, { align: 'right' })
-    }
-  }
 }
 
 function altoTexto(doc, texto, ancho, size, interlineado) {
@@ -223,7 +212,7 @@ function bloqueFirmas(doc, y, ctx) {
   const { usuario, firmaUsuario, firmaSupervisor, nombreSupervisor, facilitadorNombre, esFacilitador } = ctx
   const colW = (CW - 14) / 2
   const xs = [M, M + colW + 14]
-  const imgW = 52, imgH = 20
+  const imgW = 48, imgH = 17
   const roles = ['ELABORÓ', 'REVISÓ Y AUTORIZÓ']
   const firmas = [firmaUsuario, firmaSupervisor]
   const nombres = [usuario.nombre || 'Sin nombre', nombreSupervisor || facilitadorNombre || usuario.supervisor || 'Sin asignar']
@@ -249,7 +238,30 @@ function bloqueFirmas(doc, y, ctx) {
   })
   return y + imgH + 9 + 4 * 3.6
 }
-const ALTO_FIRMAS = 20 + 9 + 3 * 3.6 + 2
+const ALTO_FIRMAS = 17 + 9 + 3 * 3.6 + 2
+
+// Franja de verificacion (QR + folio + huella): se imprime al final de las actividades y al final de las evidencias
+const ALTO_VERIF = 24
+function bloqueVerificacion(doc, y, qrData, folio, huella) {
+  if (!qrData || !folio) return y
+  fill(doc, GRIS_FONDO); draw(doc, LINEA); doc.setLineWidth(0.25)
+  doc.roundedRect(M, y, CW, ALTO_VERIF - 2, 2, 2, 'FD')
+  doc.addImage(qrData, 'PNG', M + 4, y + 3, 16, 16)
+  const x = M + 25
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(7.4); color(doc, GUINDA)
+  doc.text('VERIFICACIÓN DEL REPORTE', x, y + 6)
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(7); color(doc, GRIS_TXT)
+  doc.text('Escanee el código QR para consultar el registro original de este reporte.', x, y + 10.2)
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(7.2); color(doc, TEXTO)
+  doc.text(`FOLIO  ${folio}`, x, y + 14.6)
+  if (huella) {
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(6.6); color(doc, GRIS_TXT)
+    doc.text('Huella de integridad', x, y + 18.4)
+    doc.setFont('courier', 'bold'); doc.setFontSize(7.4); color(doc, TEXTO)
+    doc.text(huella, x + doc.getTextWidth('Huella de integridad') + 3, y + 18.4)
+  }
+  return y + ALTO_VERIF
+}
 
 /**
  * @param {Object} datos datos_reporte (usuario, periodo, actividades, folio opcional)
@@ -278,6 +290,10 @@ export async function generarPDFReporte(datos, o = {}) {
   }
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   doc.setLineHeightFactor(1.3)
+  let qrData = null
+  if (folio) {
+    try { qrData = await QRCode.toDataURL(VERIFICAR_URL + folio + (codigoVerif ? '?c=' + codigoVerif : ''), { margin: 0, width: 240, errorCorrectionLevel: 'M' }) } catch (e) { /* sin QR */ }
+  }
   const evid = await cargarEvidencias(datos.actividades || [], o.apiUrl || '')
 
   // ---------- Página 1 ----------
@@ -340,6 +356,19 @@ export async function generarPDFReporte(datos, o = {}) {
     doc.text(String(desc), x + 3, y + (h - bloque) / 2 + 2.6, { maxWidth: cols[4] - 6, align: 'justify' })
     y += h
   })
+  if (actividades.length > 0) {
+    const nCampo = actividades.filter((a) => (a.tipo_actividad || 'campo').toLowerCase() === 'campo').length
+    const nGab = actividades.filter((a) => (a.tipo_actividad || '').toLowerCase() === 'gabinete').length
+    if (y + 10 > BOTTOM) { doc.addPage(); y = cabecera(doc) + 9; y = encabezadoTabla(doc, y, cols) }
+    fill(doc, [246, 236, 240]); draw(doc, LINEA); doc.setLineWidth(0.2)
+    doc.rect(M, y, CW, 9, 'FD')
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(7.8); color(doc, GUINDA)
+    doc.text('TOTAL DE ACTIVIDADES REPORTADAS', M + 4, y + 5.8)
+    doc.text(`${actividades.length}`, M + cols[0] + cols[1] + cols[2] + cols[3] + 3, y + 5.8)
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.6); color(doc, TEXTO)
+    doc.text(`Campo: ${nCampo}   ·   Gabinete: ${nGab}`, M + CW - 4, y + 5.8, { align: 'right' })
+    y += 9
+  }
   if (actividades.length === 0) {
     fill(doc, CREMA); doc.rect(M, y, CW, 14, 'F'); draw(doc, LINEA); doc.rect(M, y, CW, 14, 'S')
     doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); color(doc, GRIS_TXT)
@@ -349,8 +378,10 @@ export async function generarPDFReporte(datos, o = {}) {
 
   // ---------- Firmas ----------
   y += 14
-  if (y + ALTO_FIRMAS > BOTTOM_TABLA) { doc.addPage(); y = cabecera(doc) + 16 }
+  const altoVerif = qrData ? ALTO_VERIF + 4 : 0
+  if (y + ALTO_FIRMAS + altoVerif > BOTTOM) { doc.addPage(); y = cabecera(doc) + 16 }
   y = bloqueFirmas(doc, y, ctx)
+  y = bloqueVerificacion(doc, y + 4, qrData, folio, huella)
 
   // ---------- Evidencias fotográficas ----------
   {
@@ -395,7 +426,7 @@ export async function generarPDFReporte(datos, o = {}) {
     const seleccion = evid.map((e) => e.a)
     const gap = 5
     const cw3 = (CW - 2 * gap) / 3
-    const ih = cw3 * 0.66
+    const ih = cw3 * 0.56
     const ch = ih + 16
     seleccion.forEach((a, i) => {
       const col = i % 3
@@ -446,17 +477,14 @@ export async function generarPDFReporte(datos, o = {}) {
   }
 
   y += evid.length ? 6 : 14
-  if (y + ALTO_FIRMAS > BOTTOM) { doc.addPage(); y = cabecera(doc) + 16 }
-  bloqueFirmas(doc, y, ctx)
+  if (y + ALTO_FIRMAS + altoVerif > BOTTOM) { doc.addPage(); y = cabecera(doc) + 16 }
+  y = bloqueFirmas(doc, y, ctx)
+  bloqueVerificacion(doc, y + 4, qrData, folio, huella)
   }
 
   // ---------- Pie en todas las páginas ----------
-  let qrData = null
-  if (folio) {
-    try { qrData = await QRCode.toDataURL(VERIFICAR_URL + folio + (codigoVerif ? '?c=' + codigoVerif : ''), { margin: 0, width: 240, errorCorrectionLevel: 'M' }) } catch (e) { /* sin QR */ }
-  }
   const total = doc.internal.getNumberOfPages()
-  for (let n = 1; n <= total; n++) pie(doc, folio, n, total, qrData, huella)
+  for (let n = 1; n <= total; n++) pie(doc, folio, n, total)
 
   return doc.output('datauristring').split(',')[1]
 }
