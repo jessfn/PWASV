@@ -310,8 +310,6 @@ export async function generarPDFReporte(datos, o = {}) {
     const campo = conFoto.filter((a) => (a.tipo_actividad || 'campo').toLowerCase() === 'campo')
     const gab = conFoto.filter((a) => (a.tipo_actividad || '').toLowerCase() === 'gabinete')
     seleccion = [...seleccionarImagenes(campo, 3), ...seleccionarImagenes(gab, 3)].slice(0, 6)
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(8); color(doc, GUINDA)
-    doc.text(`${seleccion.length} evidencia${seleccion.length === 1 ? '' : 's'}`, PW - M - 4, y + 7.6, { align: 'right' })
   }
   y += 13 + 7
 
