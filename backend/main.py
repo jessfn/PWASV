@@ -496,6 +496,26 @@ try:
     """, fetch_type='none')
     ejecutar_consulta_segura("CREATE INDEX IF NOT EXISTS idx_push_envios_notif ON push_envios(notificacion_id, estado)", fetch_type='none')
 
+    # Folio unico e irrepetible por reporte (SV-AAAA-000001). La secuencia nunca reutiliza numeros y el trigger
+    # lo asigna en cada INSERT y impide modificarlo despues.
+    try:
+        ejecutar_consulta_segura("CREATE SEQUENCE IF NOT EXISTS reportes_folio_seq START 1", fetch_type='none')
+        ejecutar_consulta_segura("ALTER TABLE reportes_generados ADD COLUMN IF NOT EXISTS folio VARCHAR(20)", fetch_type='none')
+        ejecutar_consulta_segura("""
+            CREATE OR REPLACE FUNCTION reportes_folio_trg() RETURNS trigger AS $f$
+            BEGIN
+              IF TG_OP = 'INSERT' THEN
+                NEW.folio := 'SV-' || to_char(COALESCE(NEW.fecha_generacion, now()), 'YYYY') || '-' || lpad(nextval('reportes_folio_seq')::text, 6, '0');
+              ELSIF NEW.folio IS DISTINCT FROM OLD.folio THEN
+                NEW.folio := OLD.folio;
+              END IF;
+              RETURN NEW;
+            END $f$ LANGUAGE plpgsql
+        """, fetch_type='none')
+        ejecutar_consulta_segura("CREATE UNIQUE INDEX IF NOT EXISTS uq_reportes_folio ON reportes_generados(folio)", fetch_type='none')
+    except Exception as e:
+        print(f"⚠️ No se pudo preparar el folio de reportes: {e}")
+
     # Un técnico solo puede tener UN facilitador activo (si ya hay duplicados, se avisa y no se crea)
     try:
         ejecutar_consulta_segura(
@@ -2442,6 +2462,28 @@ def obtener_estadisticas_tipo_actividad(territorio: str = None):
 
 # ==================== ENDPOINTS PARA REPORTES GENERADOS ====================
 
+@app.get("/reportes/verificar-folio/{folio}")
+async def verificar_folio_reporte(folio: str):
+    """Verificacion publica de un folio: solo confirma que existe y datos no sensibles."""
+    try:
+        folio = (folio or "").strip().upper()
+        if not re.fullmatch(r"SV-\d{4}-\d{6}", folio):
+            return {"success": True, "valido": False}
+        verificar_conexion_db()
+        cursor.execute("""
+            SELECT r.mes, r.anio, u.nombre_completo, COALESCE(r.firmado_supervisor, FALSE), r.fecha_firma_supervisor, r.fecha_generacion
+            FROM reportes_generados r LEFT JOIN usuarios u ON u.id = r.usuario_id
+            WHERE r.folio = %s
+        """, (folio,))
+        r = cursor.fetchone()
+        if not r:
+            return {"success": True, "valido": False}
+        return {"success": True, "valido": True, "folio": folio, "mes": r[0], "anio": r[1], "prestador": r[2],
+                "firmado": bool(r[3]), "fecha_firma": r[4].isoformat() if r[4] else None}
+    except Exception as e:
+        print(f"❌ Error verificando folio: {e}")
+        raise HTTPException(status_code=500, detail="No se pudo verificar el folio")
+
 @app.post("/reportes/guardar")
 async def guardar_reporte(datos: dict):
     """
@@ -2507,7 +2549,7 @@ async def guardar_reporte(datos: dict):
             INSERT INTO reportes_generados 
             (usuario_id, nombre_reporte, mes, anio, tipo, fecha_generacion, pdf_base64, datos_reporte, firma_usuario_base64)
             VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s, %s, %s)
-            RETURNING id, fecha_generacion
+            RETURNING id, fecha_generacion, folio
         """, (usuario_id, nombre_reporte, mes, anio, tipo, pdf_base64, datos_reporte_json, firma_usuario_base64))
         
         resultado = cursor.fetchone()
@@ -2518,6 +2560,7 @@ async def guardar_reporte(datos: dict):
         return {
             "success": True,
             "reporte_id": resultado[0],
+            "folio": resultado[2],
             "fecha_generacion": resultado[1].isoformat() if resultado[1] else None
         }
         
@@ -2591,7 +2634,8 @@ async def obtener_historial_reportes(usuario_id: int, limite: int = 50):
                 CASE WHEN pdf_base64 IS NOT NULL AND pdf_base64 != '' THEN true ELSE false END as tiene_pdf,
                 COALESCE(firmado_supervisor, false) as firmado_supervisor,
                 fecha_firma_supervisor,
-                nombre_supervisor
+                nombre_supervisor,
+                folio
             FROM reportes_generados
             WHERE usuario_id = %s
             ORDER BY fecha_generacion DESC
@@ -2612,7 +2656,8 @@ async def obtener_historial_reportes(usuario_id: int, limite: int = 50):
                 "tiene_pdf": reporte[6] if len(reporte) > 6 else False,
                 "firmado_supervisor": reporte[7] if len(reporte) > 7 else False,
                 "fecha_firma_supervisor": reporte[8].isoformat() if len(reporte) > 8 and reporte[8] else None,
-                "nombre_supervisor": reporte[9] if len(reporte) > 9 else None
+                "nombre_supervisor": reporte[9] if len(reporte) > 9 else None,
+                "folio": reporte[10] if len(reporte) > 10 else None
             })
         
         print(f"✅ {len(resultado)} reportes encontrados para usuario {usuario_id}")
@@ -2704,7 +2749,8 @@ async def descargar_reporte(reporte_id: int):
                 u.curp as curp_actual,
                 u.nombre_completo as nombre_actual,
                 u.territorio as territorio_actual,
-                COALESCE(au.nombre_completo, uf.nombre_completo) as facilitador_nombre
+                COALESCE(au.nombre_completo, uf.nombre_completo) as facilitador_nombre,
+                r.folio
             FROM reportes_generados r
             LEFT JOIN usuarios u ON r.usuario_id = u.id
             LEFT JOIN facilitador_tecnico_asignaciones fta
@@ -2779,7 +2825,8 @@ async def descargar_reporte(reporte_id: int):
                 "firma_supervisor_base64": reporte[9],
                 "nombre_supervisor": reporte[10],
                 "supervisor_id": reporte[11],
-                "facilitador_nombre": reporte[18]  # Nombre del facilitador asignado (si existe)
+                "facilitador_nombre": reporte[18],  # Nombre del facilitador asignado (si existe)
+                "folio": reporte[19]
             }
         }
         
@@ -3532,7 +3579,8 @@ async def obtener_todos_reportes_admin(
     territorio: str = None,
     tipo: str = None,
     usuario_id: int = None,
-    facilitador_admin_id: int = None
+    facilitador_admin_id: int = None,
+    folio: str = None
 ):
     """
     Obtener todos los reportes de todos los usuarios (para admin-pwa)
@@ -3562,7 +3610,8 @@ async def obtener_todos_reportes_admin(
                 r.nombre_supervisor,
                 r.supervisor_id,
                 CASE WHEN r.datos_reporte IS NOT NULL THEN true ELSE false END as tiene_datos_reporte,
-                COALESCE(au.nombre_completo, uf.nombre_completo) as facilitador_nombre
+                COALESCE(au.nombre_completo, uf.nombre_completo) as facilitador_nombre,
+                r.folio
             FROM reportes_generados r
             LEFT JOIN usuarios u ON r.usuario_id = u.id
             LEFT JOIN facilitador_tecnico_asignaciones fta ON fta.tecnico_usuario_id = u.id AND fta.activo = TRUE
@@ -3592,6 +3641,10 @@ async def obtener_todos_reportes_admin(
         if usuario_id:
             query += " AND r.usuario_id = %s"
             params.append(usuario_id)
+
+        if folio:
+            query += " AND r.folio ILIKE %s"
+            params.append(f"%{folio.strip()}%")
 
         if facilitador_admin_id:
             # Obtener usuario_id del facilitador en admin_users (puede ser None)
@@ -3678,7 +3731,8 @@ async def obtener_todos_reportes_admin(
                 "nombre_supervisor": r[14],
                 "supervisor_id": r[15],
                 "datos_reporte": r[16],  # true/false si tiene datos_reporte
-                "facilitador_nombre": r[17] if len(r) > 17 else None
+                "facilitador_nombre": r[17] if len(r) > 17 else None,
+                "folio": r[18] if len(r) > 18 else None
             })
         
         print(f"✅ [ADMIN] {len(resultado)} reportes encontrados de {total} totales")

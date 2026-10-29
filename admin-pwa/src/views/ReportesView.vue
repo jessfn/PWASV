@@ -405,6 +405,7 @@
                   <td>
                     <div class="apple-reporte-info">
                       <span class="apple-reporte-nombre">{{ reporte.nombre_reporte }}</span>
+                      <span v-if="reporte.folio" class="apple-reporte-folio">{{ reporte.folio }}</span>
                       <span v-if="reporte.firmado_supervisor" class="apple-firma-label">
                         Firmado por {{ reporte.nombre_supervisor }}
                       </span>
@@ -1630,6 +1631,7 @@ const reportesFiltradosParaContadores = computed(() => {
       const territorio = r.usuario?.territorio?.toLowerCase() || ''
       
       return nombreReporte.includes(busqueda) ||
+             String(r.folio || '').toLowerCase().includes(busqueda) ||
              nombreCompleto.includes(busqueda) ||
              correo.includes(busqueda) ||
              curp.includes(busqueda) ||
@@ -2021,7 +2023,8 @@ async function descargarReporte(reporte) {
         reporteData.firmado_supervisor ? reporteData.firma_supervisor_base64 : null,
         reporteData.nombre_supervisor,
         reporteData.facilitador_nombre || reporte.facilitador_nombre || null,
-        reporteData.fecha_firma_supervisor || null
+        reporteData.fecha_firma_supervisor || null,
+        reporteData.folio || null
       )
       
       clearInterval(intervaloPDF)
@@ -2372,7 +2375,8 @@ async function descargarReportesZip() {
             reporteData.firma_supervisor_base64,
             reporteData.nombre_supervisor,
             reporteData.facilitador_nombre || reporte.facilitador_nombre || null,
-            reporteData.fecha_firma_supervisor || null
+            reporteData.fecha_firma_supervisor || null,
+        reporteData.folio || null
           )
         } else if (reporteData.pdf_base64) {
           // Si hay PDF guardado, usar ese
@@ -7685,4 +7689,6 @@ onUnmounted(() => {
   .apple-tecnicos-table tbody td { padding: 8px; }
 }
 
+
+.apple-reporte-folio { display: block; margin-top: 2px; font-size: 11px; font-weight: 600; letter-spacing: .02em; color: #7a1f3d; font-variant-numeric: tabular-nums; }
 </style>

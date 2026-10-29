@@ -12,6 +12,7 @@ import Manuales from '../views/Manuales.vue'
 import Support from '../views/Support.vue'
 import Settings from '../views/Settings.vue'
 import Reportes from '../views/Reportes.vue'
+import VerificarReporte from '../views/VerificarReporte.vue'
 
 const routes = [
   { path: '/', name: 'Home', component: Home },
@@ -26,6 +27,7 @@ const routes = [
   { path: '/support', name: 'Support', component: Support },
   { path: '/settings', name: 'Settings', component: Settings },
   { path: '/reportes', name: 'Reportes', component: Reportes },
+  { path: '/verificar/:folio', name: 'VerificarReporte', component: VerificarReporte },
   // Cualquier otra dirección (/index.html, enlaces viejos, errores de escritura) lleva al Inicio: nunca pantalla vacía
   { path: '/:pathMatch(.*)*', redirect: '/' }
 ]

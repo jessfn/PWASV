@@ -534,6 +534,7 @@
                   </div>
                   <div class="apple-report-info">
                     <p class="apple-report-name">{{ reporte.nombre }}</p>
+                    <p v-if="reporte.folio" class="apple-report-folio">Folio {{ reporte.folio }}</p>
                     <p class="apple-report-date">{{ formatearFechaCompleta(reporte.fecha) }}</p>
                   </div>
                   <span class="apple-report-badge" :class="reporte.tipo === 'PDF' ? 'apple-badge-red' : 'apple-badge-green-alt'">
@@ -656,6 +657,7 @@
 </template>
 
 <script>
+import { generarPDFReporte } from '../utils/reportePdf.js';
 import { fechaDeReporteTexto } from '../utils/fechaReporte.js';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -1226,6 +1228,7 @@ export default {
           // Actualizar el ID del reporte local con el ID real de la BD
           if (response.data && response.data.reporte_id) {
             nuevoReporte.id = response.data.reporte_id;
+            nuevoReporte.folio = response.data.folio || null;
           }
           
           // Agregar al historial local DESPUÉS de confirmar guardado en BD
@@ -1250,7 +1253,9 @@ export default {
               datosReporte,
               firmaUsuarioBase64,
               null, // Sin firma de supervisor todavía
-              null
+              null,
+              null,
+              (response.data && response.data.folio) || null
             );
             
             // Descargar el PDF
@@ -2536,6 +2541,7 @@ export default {
               firmado_supervisor: reporte.firmado_supervisor === true, // Estado de firma
               fecha_firma_supervisor: reporte.fecha_firma_supervisor, // Fecha de firma
               nombre_supervisor: reporte.nombre_supervisor, // Nombre del supervisor
+              folio: reporte.folio || null,
               fecha: reporte.fecha || null // Guardar fecha original sin formatear
             };
             console.log(`   📄 Reporte: ${reporteFormateado.nombre}, tiene_pdf: ${reporteFormateado.tiene_pdf}, firmado: ${reporteFormateado.firmado_supervisor}`);
@@ -2609,7 +2615,8 @@ export default {
             reporteData.firma_usuario_base64,
             reporteData.firmado_supervisor ? reporteData.firma_supervisor_base64 : null,
             reporteData.nombre_supervisor,
-            reporteData.fecha_firma_supervisor || null
+            reporteData.fecha_firma_supervisor || null,
+            reporteData.folio || null
           );
           
           // Descargar el PDF
@@ -2690,627 +2697,22 @@ export default {
     },
     
     /**
-     * Genera un PDF desde los datos estructurados del reporte
-     * @param {Object} datos - Datos estructurados del reporte
-     * @param {string} firmaUsuario - Firma del usuario en base64
-     * @param {string} firmaSupervisor - Firma del supervisor en base64 (opcional)
-     * @param {string} nombreSupervisor - Nombre del supervisor que firmó
-     * @returns {string} - PDF en base64 (sin prefijo data:)
+     * Genera el PDF del reporte desde sus datos estructurados (diseño en utils/reportePdf.js)
+     * @returns {Promise<string>} PDF en base64 (sin prefijo data:)
      */
-    async generarPDFDesdesDatos(datos, firmaUsuario, firmaSupervisor, nombreSupervisor, fechaFirma = null) {
-      console.log('📄 Generando PDF desde datos estructurados...');
-      console.log('   - Actividades:', datos.actividades?.length || 0);
-      console.log('   - Firma usuario:', firmaUsuario ? 'Sí' : 'No');
-      console.log('   - Firma supervisor:', firmaSupervisor ? 'Sí' : 'No');
-      
-      const doc = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4'
+    async generarPDFDesdesDatos(datos, firmaUsuario, firmaSupervisor, nombreSupervisor, fechaFirma = null, folio = null) {
+      const u = datos.usuario || {};
+      const responsable = nombreSupervisor || u.supervisor || null;
+      const esFacilitador = (u.cargo || '').toUpperCase().includes('TECNICO') && !!responsable;
+      return generarPDFReporte(folio ? { ...datos, folio } : datos, {
+        firmaUsuario,
+        firmaSupervisor,
+        nombreSupervisor,
+        facilitadorNombre: esFacilitador ? responsable : null,
+        esFacilitador,
+        fechaFirma,
+        apiUrl: apiService.getCurrentApiUrl()
       });
-
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const margin = 15;
-      const contentWidth = pageWidth - (margin * 2);
-      let currentY = 10;
-
-      // ========== ENCABEZADO CON IMAGEN DE LOGOS ==========
-      let superiorImageBase64 = null;
-      let imgDimensions = null;
-      
-      try {
-        const result = await this.cargarImagenComoBase64(superiorImage);
-        superiorImageBase64 = result.data;
-        imgDimensions = result.dimensions;
-      } catch (error) {
-        console.warn('⚠️ No se pudo cargar imagen de encabezado');
-      }
-      
-      if (superiorImageBase64 && imgDimensions) {
-        const realAspectRatio = imgDimensions.height / imgDimensions.width;
-        const imgWidth = contentWidth * 0.95;
-        const imgHeight = imgWidth * realAspectRatio;
-        const imgX = margin + (contentWidth - imgWidth) / 2;
-        doc.addImage(superiorImageBase64, 'PNG', imgX, currentY, imgWidth, imgHeight);
-        currentY += imgHeight + 5;
-      }
-    
-      // Recuadro principal con títulos
-      doc.setDrawColor(0, 0, 0);
-      doc.setLineWidth(0.5);
-      doc.rect(margin, currentY, contentWidth, 25);
-      
-      doc.setFontSize(9);
-      doc.setFont(undefined, 'bold');
-      doc.setTextColor(0, 0, 0);
-      doc.text('SECRETARÍA DE BIENESTAR', pageWidth / 2, currentY + 6, { align: 'center' });
-      doc.text('SUBSECRETARÍA DE INCLUSIÓN PRODUCTIVA Y DESARROLLO RURAL', pageWidth / 2, currentY + 11, { align: 'center' });
-      doc.text('FORMATO DE SEGUIMIENTO A ACTIVIDADES PROGRAMADAS', pageWidth / 2, currentY + 16, { align: 'center' });
-      
-      // Fecha en la esquina
-      const fechaActual = fechaDeReporteTexto(datos.periodo, firmaSupervisor ? fechaFirma : null);
-      doc.setFontSize(8);
-      doc.setFont(undefined, 'normal');
-      doc.text('Fecha:', pageWidth - margin - 35, currentY + 21);
-      doc.rect(pageWidth - margin - 25, currentY + 18, 25, 5);
-      doc.text(fechaActual, pageWidth - margin - 12.5, currentY + 21.5, { align: 'center' });
-      
-      currentY += 30;
-      
-      // ========== TABLA DE INFORMACIÓN DEL PRESTADOR ==========
-      const usuario = datos.usuario || {};
-      const periodo = datos.periodo || {};
-      const col1Width = contentWidth * 0.5;
-      const col2Width = contentWidth * 0.5;
-      
-      // Fila 1: Nombre
-      doc.setDrawColor(0, 0, 0);
-      doc.setLineWidth(0.3);
-      doc.rect(margin, currentY, col1Width, 6);
-      doc.rect(margin + col1Width, currentY, col2Width, 6);
-      doc.setFontSize(8);
-      doc.setFont(undefined, 'bold');
-      doc.text('Nombre del prestador de Servicios', margin + 2, currentY + 4);
-      doc.setFont(undefined, 'normal');
-      doc.text(usuario.nombre || 'Sin nombre', margin + col1Width + 2, currentY + 4);
-      currentY += 6;
-      
-      // Fila 2: CURP
-      doc.rect(margin, currentY, col1Width, 6);
-      doc.rect(margin + col1Width, currentY, col2Width, 6);
-      doc.setFont(undefined, 'bold');
-      doc.text('CURP', margin + 2, currentY + 4);
-      doc.setFont(undefined, 'normal');
-      doc.text(usuario.curp || 'No registrado', margin + col1Width + 2, currentY + 4);
-      currentY += 6;
-      
-      // Fila 3: Periodo
-      doc.rect(margin, currentY, col1Width, 6);
-      doc.rect(margin + col1Width, currentY, col2Width, 6);
-      doc.setFont(undefined, 'bold');
-      doc.text('Periodo', margin + 2, currentY + 4);
-      doc.setFont(undefined, 'normal');
-      const mesNombre = periodo.mesNombre || 'N/A';
-      const anio = periodo.anio || 'N/A';
-      doc.text(`${mesNombre} ${anio}`, margin + col1Width + 2, currentY + 4);
-      currentY += 8;
-      
-      // Fila 4: Programa
-      doc.rect(margin, currentY, col1Width, 6);
-      doc.rect(margin + col1Width, currentY, col2Width, 6);
-      doc.setFont(undefined, 'bold');
-      doc.text('Programa Social del Apoyo', margin + 2, currentY + 4);
-      doc.setFont(undefined, 'normal');
-      doc.text('SEMBRANDO VIDA', margin + col1Width + 2, currentY + 4);
-      currentY += 8;
-      
-      // Fila 5: Territorio
-      doc.rect(margin, currentY, col1Width, 6);
-      doc.rect(margin + col1Width, currentY, col2Width, 6);
-      doc.setFont(undefined, 'bold');
-      doc.text('Territorio y entidad donde presta sus servicios', margin + 2, currentY + 4);
-      doc.setFont(undefined, 'normal');
-      doc.text(usuario.territorio || 'No asignado', margin + col1Width + 2, currentY + 4);
-      currentY += 10;
-      
-      // ========== TABLA DE ACTIVIDADES ==========
-      const actividades = datos.actividades || [];
-      const tableWidth = contentWidth;
-      const tableX = margin;
-      const colWidths = [15, 32, 18, 22, 83];
-      
-      // Header
-      doc.setFillColor(255, 255, 255);
-      doc.rect(tableX, currentY, tableWidth, 8, 'FD');
-      doc.setFontSize(8);
-      doc.setFont(undefined, 'bold');
-      
-      let colX = tableX + 2;
-      doc.text('No.', colX + colWidths[0]/2, currentY + 5.5, { align: 'center' });
-      doc.line(colX + colWidths[0], currentY, colX + colWidths[0], currentY + 8);
-      colX += colWidths[0];
-      doc.text('Fecha', colX + colWidths[1]/2, currentY + 5.5, { align: 'center' });
-      doc.line(colX + colWidths[1], currentY, colX + colWidths[1], currentY + 8);
-      colX += colWidths[1];
-      doc.text('Tipo', colX + colWidths[2]/2, currentY + 5.5, { align: 'center' });
-      doc.line(colX + colWidths[2], currentY, colX + colWidths[2], currentY + 8);
-      colX += colWidths[2];
-      doc.text('Hora', colX + colWidths[3]/2, currentY + 5.5, { align: 'center' });
-      doc.line(colX + colWidths[3], currentY, colX + colWidths[3], currentY + 8);
-      colX += colWidths[3];
-      doc.text('Actividad desarrollada', colX + colWidths[4]/2, currentY + 5.5, { align: 'center' });
-      currentY += 8;
-      
-      // Filas de datos
-      doc.setFontSize(7);
-      doc.setFont(undefined, 'normal');
-      const baseRowHeight = 8;
-      const lineHeight = 3;
-
-      actividades.forEach((actividad, index) => {
-        const activDesc = actividad.descripcion || actividad.categoria_actividad || 'Actividad de campo';
-        const maxTextWidth = colWidths[4] - 4;
-        const textLines = doc.splitTextToSize(activDesc, maxTextWidth);
-        const rowHeight = Math.max(baseRowHeight, textLines.length * lineHeight + 3);
-        
-        if (currentY > pageHeight - 50) {
-          doc.addPage();
-          currentY = 20;
-        }
-
-        doc.rect(tableX, currentY, tableWidth, rowHeight, 'S');
-
-        const fecha = actividad.fecha_hora ? new Date(actividad.fecha_hora).toLocaleDateString('es-MX', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }) : '-';
-        const hora = actividad.fecha_hora ? new Date(actividad.fecha_hora).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false }) : '-';
-        const tipo = (actividad.tipo_actividad || 'Campo').charAt(0).toUpperCase() + (actividad.tipo_actividad || 'campo').slice(1);
-
-        colX = tableX + 2;
-        const textYCenter = currentY + (rowHeight / 2) + 1.5;
-        
-        doc.text(String(index + 1), colX + colWidths[0]/2, textYCenter, { align: 'center' });
-        doc.line(colX + colWidths[0], currentY, colX + colWidths[0], currentY + rowHeight);
-        
-        colX += colWidths[0];
-        doc.text(fecha, colX + 2, textYCenter);
-        doc.line(colX + colWidths[1], currentY, colX + colWidths[1], currentY + rowHeight);
-        
-        colX += colWidths[1];
-        doc.text(tipo, colX + colWidths[2]/2, textYCenter, { align: 'center' });
-        doc.line(colX + colWidths[2], currentY, colX + colWidths[2], currentY + rowHeight);
-        
-        colX += colWidths[2];
-        doc.text(hora, colX + colWidths[3]/2, textYCenter, { align: 'center' });
-        doc.line(colX + colWidths[3], currentY, colX + colWidths[3], currentY + rowHeight);
-        
-        colX += colWidths[3];
-        textLines.forEach((line, lineIndex) => {
-          doc.text(line, colX + 2, currentY + 4 + (lineIndex * lineHeight));
-        });
-
-        currentY += rowHeight;
-      });
-
-      currentY += 15;
-
-      // ========== SECCIÓN DE FIRMAS (PRIMERA PÁGINA) ==========
-      if (currentY > pageHeight - 70) {
-        doc.addPage();
-        currentY = 30;
-      }
-
-      let firmaWidth = 65;
-      const firmaHeight = 25;
-      const firmaUsuarioX = margin + 5;
-      const firmaResponsableX = pageWidth - margin - firmaWidth - 5;
-      const firmaY = currentY;
-      
-      // Etiquetas
-      doc.setFillColor(255, 218, 185);
-      doc.setLineWidth(0.3);
-      
-      doc.rect(firmaUsuarioX, firmaY - 8, firmaWidth, 7, 'FD');
-      doc.setFontSize(9);
-      doc.setFont(undefined, 'bold');
-      doc.text('Elaboró', firmaUsuarioX + firmaWidth / 2, firmaY - 3.5, { align: 'center' });
-      
-      doc.setFillColor(255, 218, 185);
-      doc.rect(firmaResponsableX, firmaY - 8, firmaWidth, 7, 'FD');
-      doc.text('Autorizó', firmaResponsableX + firmaWidth / 2, firmaY - 3.5, { align: 'center' });
-      
-      // FIRMA DEL USUARIO (Izquierda)
-      if (firmaUsuario) {
-        try {
-          doc.addImage(firmaUsuario, 'PNG', firmaUsuarioX, firmaY, firmaWidth, firmaHeight);
-        } catch (e) {
-          console.warn('No se pudo agregar firma del usuario');
-        }
-      }
-      
-      doc.setLineWidth(0.5);
-      doc.line(firmaUsuarioX, firmaY + firmaHeight + 5, firmaUsuarioX + firmaWidth, firmaY + firmaHeight + 5);
-      
-      doc.setFontSize(8);
-      doc.setFont(undefined, 'normal');
-      doc.text(usuario.cargo || 'Facilitador Comunitario', firmaUsuarioX + firmaWidth / 2, firmaY + firmaHeight + 11, { align: 'center' });
-      doc.setFont(undefined, 'bold');
-      doc.text(usuario.nombre || 'Sin nombre', firmaUsuarioX + firmaWidth / 2, firmaY + firmaHeight + 17, { align: 'center' });
-      
-      // FIRMA DEL SUPERVISOR (Derecha) - Solo si existe
-      if (firmaSupervisor) {
-        try {
-          doc.addImage(firmaSupervisor, 'PNG', firmaResponsableX, firmaY, firmaWidth, firmaHeight);
-          console.log('✅ Firma del supervisor agregada al PDF');
-        } catch (e) {
-          console.warn('No se pudo agregar firma del supervisor');
-        }
-      }
-      
-      doc.setLineWidth(0.5);
-      doc.line(firmaResponsableX, firmaY + firmaHeight + 5, firmaResponsableX + firmaWidth, firmaY + firmaHeight + 5);
-      
-      doc.setFontSize(7.5);
-      doc.setFont(undefined, 'normal');
-      const esTecnicoConFacilitador_d = (usuario.cargo || '').toUpperCase().includes('TECNICO') && !!(nombreSupervisor || usuario.supervisor);
-      if (esTecnicoConFacilitador_d) {
-        doc.text('FACILITADOR COMUNITARIO', firmaResponsableX + firmaWidth / 2, firmaY + firmaHeight + 11, { align: 'center' });
-      } else {
-        doc.text('Encargada de Despacho de la Coordinación', firmaResponsableX + firmaWidth / 2, firmaY + firmaHeight + 11, { align: 'center' });
-        doc.text('Territorial ' + (usuario.territorio || ''), firmaResponsableX + firmaWidth / 2, firmaY + firmaHeight + 16, { align: 'center' });
-      }
-
-      doc.setFontSize(8);
-      doc.setFont(undefined, 'bold');
-      const nombreSupY_d = esTecnicoConFacilitador_d ? firmaY + firmaHeight + 17 : firmaY + firmaHeight + 22;
-      doc.text(nombreSupervisor || usuario.supervisor || 'Sin asignar', firmaResponsableX + firmaWidth / 2, nombreSupY_d, { align: 'center' });
-
-      // ========== SEGUNDA PÁGINA: EVIDENCIAS FOTOGRÁFICAS ==========
-      try {
-        console.log('🖼️ Iniciando generación de página de evidencias fotográficas...');
-        
-        // Filtrar actividades con fotos del período
-        const actividadesConFoto = (datos.actividades || []).filter(act => 
-          act.foto_base64 || act.foto_url
-        );
-        
-        console.log(`📸 Actividades con foto encontradas: ${actividadesConFoto.length}`);
-        
-        // SIEMPRE crear la página de evidencias fotográficas
-        doc.addPage();
-        currentY = 10;
-
-        // ========== ENCABEZADO DE LA PÁGINA DE EVIDENCIAS ==========
-        if (superiorImageBase64 && imgDimensions) {
-          const realAspectRatio = imgDimensions.height / imgDimensions.width;
-          const imgWidth = contentWidth * 0.95;
-          const imgHeight = imgWidth * realAspectRatio;
-          const imgX = margin + (contentWidth - imgWidth) / 2;
-          
-          doc.addImage(superiorImageBase64, 'PNG', imgX, currentY, imgWidth, imgHeight);
-          currentY += imgHeight + 5;
-        }
-        
-        // Título de la sección
-        doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(0.5);
-        doc.rect(margin, currentY, contentWidth, 12);
-          
-        doc.setFontSize(11);
-        doc.setFont(undefined, 'bold');
-        doc.setTextColor(0, 0, 0);
-        doc.text('EVIDENCIAS FOTOGRÁFICAS DE ACTIVIDADES', pageWidth / 2, currentY + 5, { align: 'center' });
-        doc.setFontSize(9);
-        doc.setFont(undefined, 'normal');
-        doc.text(`${periodo.mesNombre || ''} ${periodo.anio || ''}`, pageWidth / 2, currentY + 10, { align: 'center' });
-        
-        currentY += 15;
-
-        // ========== DATOS DEL USUARIO ==========
-        doc.setFillColor(240, 240, 240);
-        doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(0.3);
-        doc.rect(margin, currentY, contentWidth, 18, 'FD');
-        
-        doc.setFontSize(8);
-        doc.setTextColor(0, 0, 0);
-        
-        // Nombre
-        doc.setFont(undefined, 'bold');
-        doc.text('Nombre:', margin + 3, currentY + 5);
-        doc.setFont(undefined, 'normal');
-        doc.text(usuario.nombre || 'Sin nombre', margin + 20, currentY + 5);
-        
-        // CURP
-        doc.setFont(undefined, 'bold');
-        doc.text('CURP:', margin + 95, currentY + 5);
-        doc.setFont(undefined, 'normal');
-        doc.text(usuario.curp || 'No registrado', margin + 107, currentY + 5);
-        
-        // Cargo
-        doc.setFont(undefined, 'bold');
-        doc.text('Cargo:', margin + 3, currentY + 11);
-        doc.setFont(undefined, 'normal');
-        doc.text(usuario.cargo || 'Facilitador Comunitario', margin + 17, currentY + 11);
-        
-        // Territorio
-        doc.setFont(undefined, 'bold');
-        doc.text('Territorio:', margin + 95, currentY + 11);
-        doc.setFont(undefined, 'normal');
-        doc.text(usuario.territorio || 'No asignado', margin + 115, currentY + 11);
-        
-        // Período
-        doc.setFont(undefined, 'bold');
-        doc.text('Período:', margin + 3, currentY + 17);
-        doc.setFont(undefined, 'normal');
-        doc.text(`${periodo.mesNombre || ''} ${periodo.anio || ''}`, margin + 18, currentY + 17);
-        
-        currentY += 22;
-
-        // ========== VERIFICAR SI HAY IMÁGENES ==========
-        if (actividadesConFoto.length === 0) {
-          // Se mostrará mensaje después de las firmas
-        } else {
-          // Función para seleccionar imágenes de diferentes días
-          const seleccionarImagenesDiversas = (actividades, maxImagenes) => {
-            const imagenesSeleccionadas = [];
-            const diasUsados = new Set();
-            
-            // Ordenar por fecha más reciente
-            const actividadesOrdenadas = [...actividades].sort((a, b) => new Date(b.fecha_hora) - new Date(a.fecha_hora));
-            
-            // Primera pasada: una imagen por día
-            for (const act of actividadesOrdenadas) {
-              if (imagenesSeleccionadas.length >= maxImagenes) break;
-              const dia = new Date(act.fecha_hora).toISOString().split('T')[0];
-              if (!diasUsados.has(dia)) {
-                imagenesSeleccionadas.push(act);
-                diasUsados.add(dia);
-              }
-            }
-            
-            // Segunda pasada: si no hay suficientes, agregar las restantes
-            if (imagenesSeleccionadas.length < maxImagenes) {
-              for (const act of actividadesOrdenadas) {
-                if (imagenesSeleccionadas.length >= maxImagenes) break;
-                if (!imagenesSeleccionadas.includes(act)) {
-                  imagenesSeleccionadas.push(act);
-                }
-              }
-            }
-            
-            return imagenesSeleccionadas;
-          };
-          
-          // ========== SELECCIÓN DE 6 IMÁGENES: PRIMERO CAMPO, LUEGO GABINETE ==========
-          const actividadesCampoDisponibles = actividadesConFoto
-            .filter(a => (a.tipo_actividad || 'campo').toLowerCase() === 'campo');
-          const actividadesGabineteDisponibles = actividadesConFoto
-            .filter(a => (a.tipo_actividad || '').toLowerCase() === 'gabinete');
-          
-          const actividadesCampo = seleccionarImagenesDiversas(actividadesCampoDisponibles, 3);
-          const actividadesGabinete = seleccionarImagenesDiversas(actividadesGabineteDisponibles, 3);
-          
-          const imagenesSeleccionadas = [...actividadesCampo, ...actividadesGabinete].slice(0, 6);
-          console.log(`📷 Procesando ${imagenesSeleccionadas.length} imágenes para el PDF`);
-          
-          // Grid de imágenes
-const imgGridWidth = 55;
-        const imgGridHeight = 45;
-        const imgsPerRow = 3;
-        const imgSpacing = 5;
-        const labelHeight = 14;
-          
-          for (let i = 0; i < imagenesSeleccionadas.length; i++) {
-            const actividad = imagenesSeleccionadas[i];
-            const col = i % imgsPerRow;
-            const row = Math.floor(i / imgsPerRow);
-            
-            const imgX = margin + (col * (imgGridWidth + imgSpacing));
-          const imgY = currentY + (row * (imgGridHeight + labelHeight + 5));
-            
-            // Borde de la imagen
-            doc.setDrawColor(0, 0, 0);
-            doc.setLineWidth(0.3);
-            doc.rect(imgX, imgY, imgGridWidth, imgGridHeight);
-            
-            // Intentar agregar imagen
-            try {
-              let imgData = null;
-              
-              // Primero intentar con foto_base64
-              if (actividad.foto_base64) {
-                let imgBase64 = actividad.foto_base64;
-                if (!imgBase64.startsWith('data:')) {
-                  imgBase64 = 'data:image/jpeg;base64,' + imgBase64;
-                }
-                imgData = imgBase64;
-                console.log(`✅ Usando foto_base64 para imagen ${i + 1}`);
-              }
-              // Si no tiene foto_base64, intentar cargar desde foto_url
-              else if (actividad.foto_url) {
-                console.log(`📥 Cargando imagen ${i + 1} desde URL: ${actividad.foto_url}`);
-                try {
-                  const result = await this.cargarImagenComoBase64(actividad.foto_url);
-                  imgData = result.data;
-                  console.log(`✅ Imagen ${i + 1} cargada desde URL`);
-                } catch (loadError) {
-                  console.warn(`⚠️ No se pudo cargar imagen ${i + 1} desde URL:`, loadError);
-                }
-              }
-              
-              // Si tenemos imagen, agregarla
-              if (imgData) {
-                doc.addImage(imgData, 'JPEG', imgX + 1, imgY + 1, imgGridWidth - 2, imgGridHeight - 2);
-                console.log(`✅ Imagen ${i + 1} agregada al PDF`);
-              } else {
-                // Placeholder gris
-                doc.setFillColor(220, 220, 220);
-                doc.rect(imgX + 1, imgY + 1, imgGridWidth - 2, imgGridHeight - 2, 'F');
-                doc.setDrawColor(200, 200, 200);
-                doc.rect(imgX, imgY, imgGridWidth, imgGridHeight, 'S');
-                
-                doc.setTextColor(150, 150, 150);
-                doc.setFontSize(8);
-                doc.text('Imagen no', imgX + imgGridWidth / 2, imgY + imgGridHeight / 2 - 3, { align: 'center' });
-                doc.text('disponible', imgX + imgGridWidth / 2, imgY + imgGridHeight / 2 + 3, { align: 'center' });
-                console.log(`⚠️ Imagen ${i + 1} sin datos`);
-              }
-            } catch (imgError) {
-              console.warn(`❌ Error agregando imagen ${i + 1}:`, imgError);
-              
-              // Placeholder en caso de error
-              doc.setFillColor(240, 240, 240);
-              doc.rect(imgX, imgY, imgGridWidth, imgGridHeight, 'F');
-              doc.setDrawColor(200, 200, 200);
-              doc.rect(imgX, imgY, imgGridWidth, imgGridHeight, 'S');
-              
-              doc.setTextColor(150, 150, 150);
-              doc.setFontSize(8);
-              doc.text('Imagen no', imgX + imgGridWidth / 2, imgY + imgGridHeight / 2 - 3, { align: 'center' });
-              doc.text('disponible', imgX + imgGridWidth / 2, imgY + imgGridHeight / 2 + 3, { align: 'center' });
-            }
-            
-            // Etiqueta con tipo y fecha
-            const tipoAct = actividad.tipo_actividad || actividad.tipo || 'campo';
-            const tipoTexto = tipoAct.toLowerCase() === 'campo' ? 'CAMPO' : 'GABINETE';
-            
-            // Fondo según tipo
-            if (tipoAct.toLowerCase() === 'campo') {
-              doc.setFillColor(34, 197, 94); // Verde
-            } else {
-              doc.setFillColor(147, 51, 234); // Morado
-            }
-            doc.rect(imgX, imgY + imgGridHeight, imgGridWidth, labelHeight, 'F');
-            doc.setDrawColor(0, 0, 0);
-            doc.setLineWidth(0.2);
-            doc.rect(imgX, imgY + imgGridHeight, imgGridWidth, labelHeight, 'S');
-            
-            // Texto tipo
-            doc.setTextColor(255, 255, 255);
-            doc.setFontSize(10);
-            doc.setFont(undefined, 'bold');
-            doc.text(tipoTexto, imgX + imgGridWidth / 2, imgY + imgGridHeight + 6, { align: 'center' });
-            
-            // Fecha compacta
-            if (actividad.fecha_hora || actividad.fecha) {
-              const fechaObj = new Date(actividad.fecha_hora || actividad.fecha);
-              const dia = String(fechaObj.getDate()).padStart(2, '0');
-              const mes = String(fechaObj.getMonth() + 1).padStart(2, '0');
-              const anio = String(fechaObj.getFullYear()).slice(-2);
-              const hora = String(fechaObj.getHours()).padStart(2, '0');
-              const min = String(fechaObj.getMinutes()).padStart(2, '0');
-              const fechaCompacta = `${dia}/${mes}/${anio} ${hora}:${min}`;
-              
-              doc.setFont(undefined, 'normal');
-              doc.setFontSize(6);
-              doc.text(fechaCompacta, imgX + imgGridWidth / 2, imgY + imgGridHeight + 11, { align: 'center' });
-            }
-          }
-          
-          // Calcular currentY después del grid de imágenes
-          const numRows = Math.ceil(imagenesSeleccionadas.length / imgsPerRow);
-          currentY += (numRows * (imgGridHeight + labelHeight + 3)) + 20;
-        }
-        
-        // ========== FIRMAS EN PÁGINA DE EVIDENCIAS ==========
-        if (firmaUsuario) {
-          // Verificar si hay espacio para firmas
-          if (currentY > pageHeight - 70) {
-            doc.addPage();
-            currentY = 30;
-          }
-
-          firmaWidth = 70;
-          const firmaHeight = 30;
-          const firmaUsuarioX = margin + 5;
-          const firmaResponsableX = pageWidth - margin - firmaWidth - 5;
-          const firmaY = currentY;
-          
-          // Etiquetas "Elaboró" y "Autorizó"
-          doc.setFillColor(255, 218, 185);
-          doc.setDrawColor(0, 0, 0);
-          doc.setLineWidth(0.3);
-          
-          doc.rect(firmaUsuarioX, firmaY - 8, firmaWidth, 7, 'FD');
-          doc.setTextColor(0, 0, 0);
-          doc.setFontSize(9);
-          doc.setFont(undefined, 'bold');
-          doc.text('Elaboró', firmaUsuarioX + firmaWidth / 2, firmaY - 3.5, { align: 'center' });
-          
-          doc.setFillColor(255, 218, 185);
-          doc.rect(firmaResponsableX, firmaY - 8, firmaWidth, 7, 'FD');
-          doc.text('Autorizó', firmaResponsableX + firmaWidth / 2, firmaY - 3.5, { align: 'center' });
-          
-          // FIRMA DEL USUARIO (Izquierda)
-          try {
-            doc.addImage(firmaUsuario, 'PNG', firmaUsuarioX, firmaY, firmaWidth, firmaHeight);
-          } catch (e) {
-            console.warn('No se pudo agregar firma del usuario en página de evidencias');
-          }
-          
-          // Líneas de firma
-          doc.setLineWidth(0.5);
-          doc.line(firmaUsuarioX, firmaY + firmaHeight + 5, firmaUsuarioX + firmaWidth, firmaY + firmaHeight + 5);
-          doc.line(firmaResponsableX, firmaY + firmaHeight + 5, firmaResponsableX + firmaWidth, firmaY + firmaHeight + 5);
-          
-          // Información del usuario
-          doc.setTextColor(0, 0, 0);
-          doc.setFontSize(8);
-          doc.setFont(undefined, 'normal');
-          const cargoUsuario = usuario.cargo || 'Facilitador Comunitario';
-          doc.text(cargoUsuario, firmaUsuarioX + firmaWidth / 2, firmaY + firmaHeight + 11, { align: 'center' });
-          doc.setFont(undefined, 'bold');
-          doc.text(usuario.nombre || 'Sin nombre', firmaUsuarioX + firmaWidth / 2, firmaY + firmaHeight + 17, { align: 'center' });
-          
-          // FIRMA DEL SUPERVISOR (Derecha) - Si existe
-          if (firmaSupervisor) {
-            try {
-              doc.addImage(firmaSupervisor, 'PNG', firmaResponsableX, firmaY, firmaWidth, firmaHeight);
-            } catch (e) {
-              console.warn('No se pudo agregar firma del supervisor en página de evidencias');
-            }
-          }
-          
-          // Información del responsable
-          doc.setFontSize(7.5);
-          doc.setFont(undefined, 'normal');
-          const esTecnicoConFacilitador_e = (usuario.cargo || '').toUpperCase().includes('TECNICO') && !!(nombreSupervisor || usuario.supervisor);
-          if (esTecnicoConFacilitador_e) {
-            doc.text('FACILITADOR COMUNITARIO', firmaResponsableX + firmaWidth / 2, firmaY + firmaHeight + 11, { align: 'center' });
-          } else {
-            doc.text('Encargada de Despacho de la Coordinación', firmaResponsableX + firmaWidth / 2, firmaY + firmaHeight + 11, { align: 'center' });
-            doc.text('Territorial ' + (usuario.territorio || ''), firmaResponsableX + firmaWidth / 2, firmaY + firmaHeight + 16, { align: 'center' });
-          }
-          doc.setFontSize(8);
-          doc.setFont(undefined, 'bold');
-          const nombreSupervisorFinal = nombreSupervisor || usuario.supervisor || 'Sin asignar';
-          const nombreSupY_e = esTecnicoConFacilitador_e ? firmaY + firmaHeight + 17 : firmaY + firmaHeight + 22;
-          doc.text(nombreSupervisorFinal, firmaResponsableX + firmaWidth / 2, nombreSupY_e, { align: 'center' });
-        }
-        
-        console.log('✅ Página de evidencias fotográficas completada');
-        
-      } catch (evidenciasError) {
-        console.error('❌ Error generando página de evidencias:', evidenciasError);
-      }
-
-      // ========== PIE DE PÁGINA ==========
-      const totalPages = doc.internal.getNumberOfPages();
-      for (let i = 1; i <= totalPages; i++) {
-        doc.setPage(i);
-        doc.setTextColor(128, 0, 32);
-        doc.setFontSize(7);
-        doc.setFont(undefined, 'normal');
-        const footerText = 'Paseo de la Reforma # 116, Piso 16, Col. Juárez, Alc. Cuauhtémoc, CDMX C.P. 06600 Tel.: (55) 5328 5000 www.gob.mx/bienestar';
-        doc.text(footerText, pageWidth / 2, pageHeight - 10, { align: 'center' });
-      }
-
-      // Obtener PDF como base64 (sin prefijo data:)
-      const pdfOutput = doc.output('datauristring');
-      const base64 = pdfOutput.split(',')[1];
-      
-      console.log('✅ PDF generado desde datos estructurados');
-      return base64;
     },
     
     /**
@@ -3428,7 +2830,8 @@ const imgGridWidth = 55;
             reporteData.firma_usuario_base64,
             reporteData.firmado_supervisor ? reporteData.firma_supervisor_base64 : null,
             reporteData.nombre_supervisor,
-            reporteData.fecha_firma_supervisor || null
+            reporteData.fecha_firma_supervisor || null,
+            reporteData.folio || null
           );
           
         } else if (reporteData.pdf_base64) {
@@ -6101,4 +5504,6 @@ const imgGridWidth = 55;
   .apple-sections-container > :nth-child(4) { grid-column: 1; }
   .apple-sections-container > :nth-child(3) { grid-column: 2; grid-row: 1 / span 3; }
 }
+
+.apple-report-folio { margin: 1px 0 0; font-size: 0.72rem; font-weight: 600; letter-spacing: .02em; color: #7a1f3d; font-variant-numeric: tabular-nums; }
 </style>
