@@ -12,7 +12,8 @@ const PW = 210
 const PH = 297
 const M = 16
 const CW = PW - 2 * M
-const BOTTOM = PH - 41            // limite inferior del contenido (deja libre el QR y el pie)
+const BOTTOM = PH - 41            // ultima pagina: deja libre el QR y el pie
+const BOTTOM_TABLA = PH - 26      // paginas intermedias: aprovecha todo el espacio hasta el pie
 const VERIFICAR_URL = 'https://app.sembrandodatos.com/verificar/'
 
 const GUINDA = [97, 18, 50]
@@ -255,7 +256,7 @@ export async function generarPDFReporte(datos, o = {}) {
     doc.setFont('helvetica', 'normal'); doc.setFontSize(SIZE)
     const lineas = doc.splitTextToSize(String(desc), cols[4] - 6)
     const h = Math.max(9, lineas.length * LH + 5)
-    if (y + h > BOTTOM) {
+    if (y + h > BOTTOM_TABLA) {
       doc.addPage()
       y = cabecera(doc) + 9
       y = encabezadoTabla(doc, y, cols)
@@ -288,7 +289,7 @@ export async function generarPDFReporte(datos, o = {}) {
 
   // ---------- Firmas ----------
   y += 14
-  if (y + ALTO_FIRMAS > BOTTOM) { doc.addPage(); y = cabecera(doc) + 16 }
+  if (y + ALTO_FIRMAS > BOTTOM_TABLA) { doc.addPage(); y = cabecera(doc) + 16 }
   y = bloqueFirmas(doc, y, ctx)
 
   // ---------- Evidencias fotográficas ----------
