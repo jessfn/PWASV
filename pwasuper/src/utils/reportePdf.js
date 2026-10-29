@@ -341,11 +341,11 @@ export async function generarPDFReporte(datos, o = {}) {
 
   // ---------- Firmas ----------
   y += 14
-  if (y + ALTO_FIRMAS > (evid.length ? BOTTOM_TABLA : BOTTOM)) { doc.addPage(); y = cabecera(doc) + 16 }
+  if (y + ALTO_FIRMAS > BOTTOM_TABLA) { doc.addPage(); y = cabecera(doc) + 16 }
   y = bloqueFirmas(doc, y, ctx)
 
   // ---------- Evidencias fotográficas ----------
-  if (evid.length) {
+  {
   doc.addPage()
   y = cabecera(doc)
   y = tituloInstitucional(doc, y + 11, 'EVIDENCIAS FOTOGRÁFICAS DE ACTIVIDADES', etiquetaMes(periodo))
@@ -360,7 +360,29 @@ export async function generarPDFReporte(datos, o = {}) {
   doc.text(`CURP ${usuario.curp || 'No registrado'}  ·  ${usuario.cargo || ''}  ·  ${usuario.territorio || 'No asignado'}`, M + 4, y + 9.8, { maxWidth: CW - 40 })
   y += 13 + 7
 
-  {
+  if (!evid.length) {
+    // Aviso profesional cuando las fotografías ya no están disponibles
+    const ch = 58
+    fill(doc, [251, 248, 246]); draw(doc, LINEA); doc.setLineWidth(0.25)
+    doc.roundedRect(M, y, CW, ch, 3, 3, 'FD')
+    const cx = PW / 2
+    const cy = y + 17
+    fill(doc, [243, 230, 234]); doc.circle(cx, cy, 8.5, 'F')
+    draw(doc, GUINDA); doc.setLineWidth(0.4)
+    doc.roundedRect(cx - 4.6, cy - 2.8, 9.2, 6.6, 1.2, 1.2, 'S')
+    doc.circle(cx, cy + 0.5, 1.9, 'S')
+    doc.lines([[0.8, -1.4], [2, 0], [0.8, 1.4]], cx - 1.8, cy - 2.8, [1, 1], 'S')
+    draw(doc, [180, 69, 95]); doc.setLineWidth(0.45)
+    doc.line(cx - 5.2, cy + 4.6, cx + 5.2, cy - 3.8)
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); color(doc, GUINDA)
+    doc.text('Evidencias fotográficas no disponibles', cx, y + 33, { align: 'center' })
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.4); color(doc, TEXTO)
+    doc.text('Las fotografías de las actividades de este periodo ya no se encuentran almacenadas en el sistema,', cx, y + 39.5, { align: 'center' })
+    doc.text('por lo que no se incluyen en este reporte.', cx, y + 44.2, { align: 'center' })
+    doc.setFontSize(7.6); color(doc, GRIS_TXT)
+    doc.text('El registro de cada actividad se conserva en el apartado "Actividades realizadas".', cx, y + 51.5, { align: 'center' })
+    y += ch
+  } else {
     const fotos = evid.map((e) => e.foto)
     const seleccion = evid.map((e) => e.a)
     const gap = 5
@@ -415,7 +437,7 @@ export async function generarPDFReporte(datos, o = {}) {
     y += Math.ceil(seleccion.length / 3) * (ch + 6)
   }
 
-  y += 6
+  y += evid.length ? 6 : 14
   if (y + ALTO_FIRMAS > BOTTOM) { doc.addPage(); y = cabecera(doc) + 16 }
   bloqueFirmas(doc, y, ctx)
   }
