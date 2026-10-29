@@ -4,7 +4,6 @@
  */
 import jsPDF from 'jspdf'
 import QRCode from 'qrcode'
-import logoGob from '../assets/images/logo-gobmx.png?inline'
 import logoBienestar from '../assets/images/logo-bienestar.png?inline'
 import logoSV from '../assets/images/logo-sembrando-vida.png?inline'
 import { fechaDeReporteTexto } from './fechaReporte'
@@ -31,19 +30,16 @@ const draw = (d, c) => d.setDrawColor(c[0], c[1], c[2])
 const color = (d, c) => d.setTextColor(c[0], c[1], c[2])
 
 function cabecera(doc) {
-  // Logos oficiales a color: Gobierno de México + Bienestar a la izquierda, Sembrando Vida a la derecha.
-  // Centrados en una franja baja y pegados al contenido (sin hueco arriba ni abajo).
+  // Logos oficiales a color: Bienestar a la izquierda y Sembrando Vida a la derecha, a la misma altura,
+  // centrados en una franja baja y pegados al contenido (sin hueco arriba ni abajo).
   const top = 8
   const band = 13
   const mid = top + band / 2
-  const dim = (img, h) => { const pr = doc.getImageProperties(img); return h * pr.width / pr.height }
-  const hg = 12.5, hb = 10, hs = 10
-  const wg = dim(logoGob, hg), ws = dim(logoSV, hs)
-  doc.addImage(logoGob, 'PNG', M, mid - hg / 2, wg, hg)
-  draw(doc, LINEA); doc.setLineWidth(0.3)
-  doc.line(M + wg + 4, mid - 5, M + wg + 4, mid + 5)
-  doc.addImage(logoBienestar, 'PNG', M + wg + 8, mid - hb / 2, dim(logoBienestar, hb), hb)
-  doc.addImage(logoSV, 'PNG', PW - M - ws, mid - hs / 2, ws, hs)
+  const h = 10.5
+  const dim = (img) => { const pr = doc.getImageProperties(img); return h * pr.width / pr.height }
+  doc.addImage(logoBienestar, 'PNG', M, mid - h / 2, dim(logoBienestar), h)
+  const ws = dim(logoSV)
+  doc.addImage(logoSV, 'PNG', PW - M - ws, mid - h / 2, ws, h)
   const yl = top + band + 3
   draw(doc, GUINDA); doc.setLineWidth(0.6); doc.line(M, yl, PW - M, yl)
   draw(doc, DORADO); doc.setLineWidth(0.25); doc.line(M, yl + 1.2, PW - M, yl + 1.2)
