@@ -39,7 +39,7 @@
             </div>
           </div>
           <div class="vr-hash">Huella de integridad del reporte<b>{{ datos.huella }}</b>Debe coincidir con la impresa en el PDF.</div>
-          <p class="vr-aviso">Compara esta lista con el documento que tienes en mano. Si hay actividades de más, de menos o distintas, el documento fue alterado.</p>
+          <p class="vr-aviso">La información mostrada corresponde al registro original del reporte. En caso de identificar diferencias con el documento que se tiene a la vista, se recomienda reportarlo a la Coordinación Territorial para su revisión y aclaración.</p>
         </template>
         <p v-else class="vr-nota">Para ver el contenido original del reporte, escanea el código QR impreso en el documento.</p>
       </template>
