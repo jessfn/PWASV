@@ -179,6 +179,37 @@ function seleccionarImagenes(acts, max) {
   return out
 }
 
+// Reune hasta 6 evidencias (3 de campo y 3 de gabinete, de dias distintos) que SI se pueden cargar.
+// Las fotos que ya no existen en el servidor se saltan y se prueba con la siguiente actividad.
+async function cargarEvidencias(actividades, apiUrl) {
+  const conFoto = actividades.filter((a) => a.foto_url || a.foto_base64)
+  if (!conFoto.length) return []
+  const esTipo = (a, t) => (a.tipo_actividad || 'campo').toLowerCase() === t
+  const colas = {
+    campo: seleccionarImagenes(conFoto.filter((a) => esTipo(a, 'campo')), 60),
+    gabinete: seleccionarImagenes(conFoto.filter((a) => esTipo(a, 'gabinete')), 60)
+  }
+  const res = { campo: [], gabinete: [] }
+  let intentos = 0
+  const llenar = async (tipo, meta) => {
+    while (res[tipo].length < meta && colas[tipo].length && intentos < 40) {
+      const lote = colas[tipo].splice(0, meta - res[tipo].length)
+      intentos += lote.length
+      const fotos = await Promise.all(lote.map((a) => fotoABase64(a, apiUrl)))
+      lote.forEach((a, i) => { if (fotos[i]) res[tipo].push({ a, foto: fotos[i] }) })
+    }
+  }
+  await Promise.all([llenar('campo', 3), llenar('gabinete', 3)])
+  // si falta de un tipo, se completa hasta 6 con el otro
+  const faltan = 6 - res.campo.length - res.gabinete.length
+  if (faltan > 0) {
+    await llenar('campo', res.campo.length + faltan)
+    const faltan2 = 6 - res.campo.length - res.gabinete.length
+    if (faltan2 > 0) await llenar('gabinete', res.gabinete.length + faltan2)
+  }
+  return [...res.campo, ...res.gabinete].slice(0, 6)
+}
+
 function bloqueFirmas(doc, y, ctx) {
   const { usuario, firmaUsuario, firmaSupervisor, nombreSupervisor, facilitadorNombre, esFacilitador } = ctx
   const colW = (CW - 14) / 2
@@ -236,6 +267,7 @@ export async function generarPDFReporte(datos, o = {}) {
   }
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   doc.setLineHeightFactor(1.3)
+  const evid = await cargarEvidencias(datos.actividades || [], o.apiUrl || '')
 
   // ---------- Página 1 ----------
   let y = cabecera(doc)
@@ -306,11 +338,11 @@ export async function generarPDFReporte(datos, o = {}) {
 
   // ---------- Firmas ----------
   y += 14
-  if (y + ALTO_FIRMAS > BOTTOM_TABLA) { doc.addPage(); y = cabecera(doc) + 16 }
+  if (y + ALTO_FIRMAS > (evid.length ? BOTTOM_TABLA : BOTTOM)) { doc.addPage(); y = cabecera(doc) + 16 }
   y = bloqueFirmas(doc, y, ctx)
 
   // ---------- Evidencias fotográficas ----------
-  const conFoto = actividades.filter((a) => a.foto_url || a.foto_base64)
+  if (evid.length) {
   doc.addPage()
   y = cabecera(doc)
   y = tituloInstitucional(doc, y + 11, 'EVIDENCIAS FOTOGRÁFICAS DE ACTIVIDADES', etiquetaMes(periodo))
@@ -323,25 +355,11 @@ export async function generarPDFReporte(datos, o = {}) {
   doc.text(String(usuario.nombre || 'Sin nombre'), M + 4, y + 5.4)
   doc.setFont('helvetica', 'normal'); doc.setFontSize(7.6); color(doc, GRIS_TXT)
   doc.text(`CURP ${usuario.curp || 'No registrado'}  ·  ${usuario.cargo || ''}  ·  ${usuario.territorio || 'No asignado'}`, M + 4, y + 9.8, { maxWidth: CW - 40 })
-  let seleccion = []
-  if (conFoto.length) {
-    const campo = conFoto.filter((a) => (a.tipo_actividad || 'campo').toLowerCase() === 'campo')
-    const gab = conFoto.filter((a) => (a.tipo_actividad || '').toLowerCase() === 'gabinete')
-    seleccion = [...seleccionarImagenes(campo, 3), ...seleccionarImagenes(gab, 3)].slice(0, 6)
-  }
   y += 13 + 7
 
-  if (!seleccion.length) {
-    fill(doc, CREMA); draw(doc, LINEA)
-    doc.roundedRect(M, y, CW, 32, 2, 2, 'FD')
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); color(doc, GUINDA)
-    doc.text('Sin evidencias fotográficas disponibles', PW / 2, y + 12, { align: 'center' })
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.2); color(doc, GRIS_TXT)
-    doc.text('El reporte fotográfico solo está disponible para el mes en curso;', PW / 2, y + 19.5, { align: 'center' })
-    doc.text('al descargar información de meses anteriores, las fotografías no se mostrarán.', PW / 2, y + 24.5, { align: 'center' })
-    y += 32
-  } else {
-    const fotos = await Promise.all(seleccion.map((a) => fotoABase64(a, o.apiUrl || '')))
+  {
+    const fotos = evid.map((e) => e.foto)
+    const seleccion = evid.map((e) => e.a)
     const gap = 5
     const cw3 = (CW - 2 * gap) / 3
     const ih = cw3 * 0.66
@@ -397,6 +415,7 @@ export async function generarPDFReporte(datos, o = {}) {
   y += 6
   if (y + ALTO_FIRMAS > BOTTOM) { doc.addPage(); y = cabecera(doc) + 16 }
   bloqueFirmas(doc, y, ctx)
+  }
 
   // ---------- Pie en todas las páginas ----------
   let qrData = null
